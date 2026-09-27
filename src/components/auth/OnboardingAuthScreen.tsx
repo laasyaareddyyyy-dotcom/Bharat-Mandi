@@ -293,22 +293,22 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       
       const cleanPhone = phoneVal.cleanNumber;
 
-      // Duplicate sign-up prevention check:
-      if (authMode === 'signup') {
-        const localExists = registeredAccounts.some(
-          (a) => cleanIndianMobile(a.phoneNumber) === cleanPhone
-        );
-        if (localExists) {
-          setErrorMsg(`An account with mobile number +91 ${cleanPhone} already exists. Please login instead.`);
-          return;
-        }
+      // Check if phone number is already registered anywhere (local accounts, merchant profile, farmers, or cloud)
+      const isAlreadyRegistered =
+        registeredAccounts.some((a) => cleanIndianMobile(a.phoneNumber) === cleanPhone) ||
+        cleanIndianMobile(merchantProfile.phoneNumber || '') === cleanPhone ||
+        farmers.some((f) => cleanIndianMobile(f.phone) === cleanPhone);
 
+      if (isAlreadyRegistered) {
+        // Automatically convert to login mode so user enters OTP and logs in directly without credentials prompt
+        setAuthMode('login');
+      } else if (authMode === 'signup') {
         // Live Database uniqueness check
         try {
           const cloudDup = await checkCloudDuplicateRegistration({ phoneNumber: cleanPhone });
           if (cloudDup.isDuplicate) {
-            setErrorMsg(cloudDup.message || `Mobile number +91 ${cleanPhone} is already registered in the database. Please login.`);
-            return;
+            // Found in cloud database -> switch to login mode seamlessly
+            setAuthMode('login');
           }
         } catch {
           // continue
@@ -349,34 +349,99 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
           ? cleanIndianMobile(phone)
           : email.trim().toLowerCase();
 
-      // Check existing account
-      const existingAccount = registeredAccounts.find(
+      // 1. Check existing account in registeredAccounts
+      let existingAccount = registeredAccounts.find(
         (a) =>
           cleanIndianMobile(a.phoneNumber) === cleanIdentifier ||
           a.phoneNumber === cleanIdentifier
       );
 
-      if (existingAccount) {
-        // Returning user: bypass profile and commodity selection, restore account, go straight to dashboard
-        const cleanPhone = cleanIndianMobile(existingAccount.phoneNumber);
+      // 2. If not found in registeredAccounts, check merchant profile
+      if (!existingAccount && authMethod === 'phone') {
+        const merchantPhone = cleanIndianMobile(merchantProfile.phoneNumber || '');
+        if (merchantPhone && merchantPhone === cleanIdentifier) {
+          const newAccData = {
+            role: 'merchant' as const,
+            fullName: merchantProfile.ownerName || merchantProfile.shopName || 'Mandi Merchant',
+            phoneNumber: cleanIdentifier,
+            shopOrVillage: merchantProfile.shopName || 'Mandi Trading Co.',
+            shopAddress: merchantProfile.address || 'APMC Market Yard',
+            shopNumber: merchantProfile.shopNumber || 'Shop 1',
+            marketName: merchantProfile.apmcMarketName || 'Agri APMC Market Yard',
+            licenseOrCrop: 'flowers',
+            selectedCommodities: selectedCommodities,
+          };
+          registerNewAccount(newAccData);
+          existingAccount = registeredAccounts.find((a) => cleanIndianMobile(a.phoneNumber) === cleanIdentifier) || {
+            id: `USR-${Date.now()}`,
+            createdAt: new Date().toISOString().split('T')[0],
+            ...newAccData,
+          };
+        }
+      }
+
+      // 3. If not found, check farmers list
+      if (!existingAccount && authMethod === 'phone') {
+        const matchingFarmer = farmers.find(
+          (f) => cleanIndianMobile(f.phone) === cleanIdentifier
+        );
+        if (matchingFarmer) {
+          const newAccData = {
+            role: 'farmer' as const,
+            fullName: matchingFarmer.name,
+            phoneNumber: cleanIdentifier,
+            shopOrVillage: matchingFarmer.village || 'Mandi Belt',
+            licenseOrCrop: matchingFarmer.primaryCrops?.join(', ') || 'flowers',
+            selectedCommodities: selectedCommodities,
+          };
+          registerNewAccount(newAccData);
+          existingAccount = registeredAccounts.find((a) => cleanIndianMobile(a.phoneNumber) === cleanIdentifier) || {
+            id: matchingFarmer.id,
+            createdAt: new Date().toISOString().split('T')[0],
+            ...newAccData,
+          };
+        }
+      }
+
+      // 4. Returning User OR Login Mode: NEVER ask for credentials again! Log in directly.
+      if (existingAccount || authMode === 'login') {
+        const cleanPhone = existingAccount ? cleanIndianMobile(existingAccount.phoneNumber) : cleanIdentifier;
+        const resolvedRole = existingAccount?.role || selectedRole;
+
+        if (!existingAccount) {
+          // In login mode with no prior local entry: auto-create account entry to bypass credentials
+          const fallbackName = resolvedRole === 'merchant' ? (merchantProfile.ownerName || 'Mandi Merchant') : 'Kisan Member';
+          const fallbackShop = resolvedRole === 'merchant' ? (merchantProfile.shopName || 'Mandi Store') : 'Green Valley';
+          const newAccData = {
+            role: resolvedRole,
+            fullName: fallbackName,
+            phoneNumber: cleanPhone,
+            shopOrVillage: fallbackShop,
+            shopAddress: resolvedRole === 'merchant' ? 'APMC Market Yard' : undefined,
+            licenseOrCrop: 'flowers',
+            selectedCommodities: selectedCommodities,
+          };
+          registerNewAccount(newAccData);
+        }
+
         switchUserAccount(cleanPhone);
-        setPortalMode(existingAccount.role);
-        setSelectedRole(existingAccount.role);
+        setPortalMode(resolvedRole);
+        setSelectedRole(resolvedRole);
 
         // Restore saved commodities
         const restoredCommodities: CommodityCategory[] =
-          existingAccount.selectedCommodities && existingAccount.selectedCommodities.length > 0
+          existingAccount?.selectedCommodities && existingAccount.selectedCommodities.length > 0
             ? (existingAccount.selectedCommodities as CommodityCategory[])
-            : (['flowers'] as CommodityCategory[]);
+            : (selectedCommodities.length > 0 ? selectedCommodities : (['flowers'] as CommodityCategory[]));
         setUserCommodities(restoredCommodities);
 
         // Restore active farmer ID if farmer role
-        if (existingAccount.role === 'farmer') {
+        if (resolvedRole === 'farmer') {
           const matchingFarmer = farmers.find(
             (f) =>
               cleanIndianMobile(f.phone) === cleanPhone ||
-              f.name.toLowerCase() === existingAccount.fullName.toLowerCase() ||
-              f.id === existingAccount.id
+              (existingAccount && f.name.toLowerCase() === existingAccount.fullName.toLowerCase()) ||
+              (existingAccount && f.id === existingAccount.id)
           );
           if (matchingFarmer) {
             setActiveFarmerId(matchingFarmer.id);
@@ -386,9 +451,13 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
         // Persist session tokens
         try {
           localStorage.setItem('phoolmitra_onboarding_completed', 'true');
-          localStorage.setItem('phoolmitra_user_role', existingAccount.role);
+          localStorage.setItem('bharatmandi_onboarding_completed', 'true');
+          localStorage.setItem('phoolmitra_user_role', resolvedRole);
+          localStorage.setItem('bharatmandi_user_role', resolvedRole);
           localStorage.setItem('phoolmitra_active_phone_v1', cleanPhone);
+          localStorage.setItem('bharatmandi_active_phone_v1', cleanPhone);
           localStorage.setItem('phoolmitra_user_commodities', JSON.stringify(restoredCommodities));
+          localStorage.setItem('bharatmandi_user_commodities', JSON.stringify(restoredCommodities));
         } catch {
           // ignore
         }
@@ -398,7 +467,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
         return;
       }
 
-      // New user - proceed to profile creation form
+      // 5. Only NEW users signing up for the first time reach profile setup
       setName('');
       setShopOrVillage('');
       setShopAddress('');

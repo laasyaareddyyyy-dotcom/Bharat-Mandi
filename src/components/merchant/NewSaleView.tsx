@@ -29,6 +29,7 @@ import {
   DollarSign,
   Layers,
   Percent,
+  Edit3,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
 import { WeightUnit, PaymentStatus, PaymentMode, Expenditures, FlowerQuality, SaleLot, CommodityCategory } from '../../types';
@@ -72,12 +73,14 @@ export const NewSaleView: React.FC = () => {
   const {
     farmers,
     addFarmer,
+    updateFarmer,
     addSaleLot,
     addShipment,
     deleteSaleLot,
     lots,
     shipments,
     setSelectedParchiLot,
+    openEditParchiModal,
     merchantProfile,
     activeSessionDate,
     setActiveSessionDate,
@@ -389,7 +392,13 @@ export const NewSaleView: React.FC = () => {
         });
 
         if (found) {
-          targetFarmer = found;
+          const cleanFPhone = found.phone ? found.phone.replace(/\D/g, '').slice(-10) : '';
+          if (extractedDigits && extractedDigits.length === 10 && cleanFPhone !== extractedDigits) {
+            updateFarmer(found.id, { phone: extractedDigits });
+            targetFarmer = { ...found, phone: extractedDigits };
+          } else {
+            targetFarmer = found;
+          }
           setSelectedFarmerId(found.id);
         } else {
           // 2. Check if a farmer account is registered in the app with extracted phone
@@ -2236,6 +2245,16 @@ export const NewSaleView: React.FC = () => {
                   >
                     <Printer className="w-3.5 h-3.5 text-[#d4af37]" />
                     <span>Print Parchi</span>
+                  </button>
+                  <button
+                    type="button"
+                    id={`edit-recent-lot-btn-${lot.id}`}
+                    onClick={() => openEditParchiModal(lot)}
+                    className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 font-bold text-xs transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                    title="Edit details for this parchi"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-amber-800" />
+                    <span>Edit</span>
                   </button>
                   <button
                     type="button"

@@ -8,6 +8,7 @@ import { MandiProvider, useMandi } from './context/MandiContext';
 import { FirebaseProvider } from './context/FirebaseContext';
 import { Navbar } from './components/common/Navbar';
 import { ParchiModal } from './components/common/ParchiModal';
+import { EditParchiModal } from './components/common/EditParchiModal';
 import { GeneratePdfModal } from './components/common/GeneratePdfModal';
 import { QRModal } from './components/common/QRModal';
 import { SettingsModal } from './components/merchant/SettingsModal';
@@ -172,6 +173,7 @@ const MainLayout: React.FC = () => {
 
       {/* Modals */}
       <ParchiModal />
+      <EditParchiModal />
       <GeneratePdfModal
         isOpen={isGeneratePdfOpen}
         onClose={() => {

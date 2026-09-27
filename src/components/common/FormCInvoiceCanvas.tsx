@@ -73,17 +73,27 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
     const ownerName = merchantOverride?.ownerName || merchantProfile?.ownerName || 'Commission Merchant';
     const phoneNumber = merchantOverride?.phoneNumber || merchantProfile?.phoneNumber || '+91 9999999999';
 
+    const customDeductionsSum = Array.isArray(data.otherDeductions)
+      ? data.otherDeductions.reduce((acc, d) => acc + (Number(d.amount) || 0), 0)
+      : 0;
+    const totalDeductionsSum =
+      (Number(data.ammaliCharges) || 0) +
+      (Number(data.transportCharges) || 0) +
+      (Number(data.commissionAmount) || 0) +
+      (Number(data.miscCommissionAmount) || 0) +
+      customDeductionsSum;
+
     return (
       <div
         ref={ref}
         id="form-c-official-invoice-canvas"
         className={`bg-white text-slate-900 border border-slate-200 rounded-2xl shadow-sm mx-auto ${
-          isThermal ? 'p-3 sm:p-4 max-w-md space-y-3 text-xs' : 'p-3.5 sm:p-6 md:p-8 max-w-3xl space-y-4 sm:space-y-5'
+          isThermal ? 'p-4 max-w-md space-y-3 text-xs' : 'p-6 sm:p-8 max-w-3xl space-y-5 min-w-[680px] sm:min-w-0'
         }`}
         style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
       >
         {/* 1. Top Header Pill & Letterhead */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-1 sm:pb-2 border-b border-slate-200">
+        <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
           <div className="flex items-center gap-3">
             <img
               src="/bharat_mandi_logo.png"
@@ -92,13 +102,13 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
               className="w-14 h-14 sm:w-16 sm:h-16 object-contain shrink-0 bg-transparent"
             />
             <div className="text-left">
-              <div className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-[9px] sm:text-[10px] font-bold tracking-widest text-slate-700 uppercase border border-slate-200 mb-1">
+              <div className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold tracking-widest text-slate-700 uppercase border border-slate-200 mb-1">
                 APMC MANDI SALE PARCHI • FORM C
               </div>
-              <h1 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tight leading-tight">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tight leading-tight">
                 {shopName}
               </h1>
-              <p className="text-[11px] sm:text-xs font-semibold text-slate-700">
+              <p className="text-xs font-semibold text-slate-700">
                 Shop No. {shopNumber} • {apmcMarketName}
               </p>
               <p className="text-[10px] text-slate-500">
@@ -106,7 +116,7 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
               </p>
             </div>
           </div>
-          <div className="hidden sm:block text-right">
+          <div className="text-right">
             <span className="text-[9px] font-mono uppercase px-2 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg font-bold">
               OFFICIAL MANDI RECEIPT
             </span>
@@ -114,9 +124,9 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
         </div>
 
         {/* 2. 4-Column Metadata Box */}
-        <div className="p-3 sm:p-4 rounded-xl bg-slate-50/70 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-xs">
+        <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200 grid grid-cols-4 gap-3 text-xs">
           <div>
-            <span className="text-[9px] sm:text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
               PARCHI / INV NO.
             </span>
             <span className="font-mono font-black text-slate-900 text-xs sm:text-sm block">
@@ -125,7 +135,7 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
           </div>
 
           <div>
-            <span className="text-[9px] sm:text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
               DATE &amp; TIME
             </span>
             <span className="font-bold text-slate-800 text-xs sm:text-sm block">
@@ -134,7 +144,7 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
           </div>
 
           <div>
-            <span className="text-[9px] sm:text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
               FARMER
             </span>
             <span className="font-black text-slate-900 text-xs sm:text-sm block">
@@ -143,14 +153,14 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
           </div>
 
           <div>
-            <span className="text-[9px] sm:text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
               VILLAGE &amp; CONTACT
             </span>
             <span className="font-bold text-slate-800 text-xs sm:text-sm block">
               {data.farmerVillage || 'Kadi'}
             </span>
             {data.farmerPhone && (
-              <span className="text-[10px] sm:text-[11px] font-mono text-slate-600 block">
+              <span className="text-[11px] font-mono text-slate-600 block">
                 +91 {data.farmerPhone}
               </span>
             )}
@@ -248,78 +258,104 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
           </span>
         </div>
 
-        {/* 5. MANDI CHARGES & COMMISSION DEDUCTIONS (Card) */}
-        <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-white space-y-3 text-xs">
-          <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
+        {/* 5. MANDI CHARGES & COMMISSION DEDUCTIONS */}
+        <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white space-y-3.5 text-xs">
+          <div className="flex justify-between items-center border-b border-slate-200 pb-2.5">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-900">
               MANDI CHARGES &amp; COMMISSION DEDUCTIONS
             </span>
-            <span className="text-xs font-semibold text-slate-400">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
               FORM C SUMMARY
             </span>
           </div>
 
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between items-center text-slate-700">
-              <span>Total Vehicle / Freight Charges:</span>
+            {/* Freight / Vehicle Charges */}
+            <div className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
+              <span className="font-medium text-slate-700">Total Vehicle / Freight Charges:</span>
               <span className="font-mono font-bold text-slate-900">
                 ₹{data.transportCharges.toFixed(2)}
               </span>
             </div>
 
-            <div className="flex justify-between items-center text-slate-700">
-              <span>Total Hamali / Loading &amp; Unloading:</span>
+            {/* Hamali / Loading Charges */}
+            <div className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
+              <span className="font-medium text-slate-700">Total Hamali / Loading &amp; Unloading:</span>
               <span className="font-mono font-bold text-slate-900">
                 ₹{data.ammaliCharges.toFixed(2)}
               </span>
             </div>
 
-            {/* Mandi Commission & Miscellaneous Charges Boxes */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1.5 border-t border-slate-100">
-              <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-amber-50/60 border border-amber-200/80 text-slate-900 font-bold text-xs">
-                <span className="text-[11px]">Total Commission:</span>
-                <span className="font-mono font-black text-slate-900">
-                  -₹{data.commissionAmount.toFixed(2)}
-                </span>
+            {/* Mandi Commission */}
+            <div className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-slate-700">Mandi Commission:</span>
+                {data.commissionPercent > 0 && (
+                  <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                    {data.commissionPercent}%
+                  </span>
+                )}
               </div>
+              <span className="font-mono font-bold text-red-700">
+                -₹{data.commissionAmount.toFixed(2)}
+              </span>
+            </div>
 
-              <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-amber-50/60 border border-amber-200/80 text-slate-900 font-bold text-xs">
-                <span className="text-[11px]">
-                  Total Miscellaneous Charges:
-                </span>
-                <span className="font-mono font-black text-slate-900">
+            {/* Miscellaneous Charges */}
+            {(data.miscCommissionAmount || 0) > 0 && (
+              <div className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-slate-700">Miscellaneous &amp; Market Charges:</span>
+                  {data.miscCommissionPercent ? (
+                    <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                      {data.miscCommissionPercent}%
+                    </span>
+                  ) : null}
+                </div>
+                <span className="font-mono font-bold text-red-700">
                   -₹{(data.miscCommissionAmount || 0).toFixed(2)}
                 </span>
               </div>
-            </div>
+            )}
 
-            {/* Total Deductions Highlight */}
-            <div className="flex justify-between items-center text-slate-900 font-bold pt-1 border-t border-slate-100 text-xs">
-              <span>Total Deductions (Hamali + Transport + Commission + Misc):</span>
-              <span className="font-mono font-black text-red-700">
-                -₹{(data.ammaliCharges + data.transportCharges + data.commissionAmount + (data.miscCommissionAmount || 0)).toFixed(2)}
+            {/* Custom Deductions if any */}
+            {Array.isArray(data.otherDeductions) &&
+              data.otherDeductions.map((d, idx) => (
+                <div key={idx} className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
+                  <span className="font-medium text-slate-700">{d.name}:</span>
+                  <span className="font-mono font-bold text-red-700">-₹{Number(d.amount || 0).toFixed(2)}</span>
+                </div>
+              ))}
+
+            {/* Total Deductions Highlight Bar */}
+            <div className="flex justify-between items-center p-3 rounded-xl bg-red-50/80 border border-red-200/90 font-bold text-xs mt-2.5 text-red-900">
+              <span className="text-slate-800 font-bold">Total Deductions (Freight + Hamali + Commission + Misc):</span>
+              <span className="font-mono font-black text-red-700 text-sm">
+                -₹{totalDeductionsSum.toFixed(2)}
               </span>
             </div>
           </div>
+        </div>
 
-          {/* 6. FARMER NET PAYABLE Banner (Deep Green) */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-[#0d7048] text-white flex justify-between items-center shadow-xs">
-            <div>
-              <span className="block text-xs font-black uppercase tracking-wider text-white">
-                NET PAYABLE TO FARMER:
-              </span>
-              <span className="text-[10px] text-emerald-100 font-medium block">
-                Total Gross Amount − Total Deductions
-              </span>
-            </div>
-            <span className="text-2xl sm:text-3xl font-black font-mono text-white">
+        {/* 6. FARMER NET PAYABLE Banner (Distinct, Spacious Deep Green Card) */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0d7048] text-white flex items-center justify-between gap-3 shadow-xs border border-emerald-800">
+          <div>
+            <span className="block text-xs sm:text-sm font-black uppercase tracking-wider text-white">
+              NET PAYABLE TO FARMER:
+            </span>
+            <span className="text-[10px] text-emerald-100 font-medium block mt-0.5">
+              Gross Total (₹{data.grossTotal.toFixed(2)}) − Total Deductions (₹{totalDeductionsSum.toFixed(2)})
+            </span>
+          </div>
+          <div className="text-right shrink-0">
+            <span className="text-2xl sm:text-3xl font-black font-mono text-white block">
               ₹{data.farmerNetPayable.toFixed(2)}
             </span>
           </div>
         </div>
 
         {/* 7. Bottom Settlement & Authorization Box */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 grid grid-cols-2 gap-4 text-xs">
           <div className="space-y-1.5">
             <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider block">
               PAYMENT SETTLEMENT STATUS:

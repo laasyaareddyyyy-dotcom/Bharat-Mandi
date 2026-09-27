@@ -38,6 +38,7 @@ import {
   Clock,
   ArrowRight,
   Eye,
+  Edit3,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
 import { SaleLot, Shipment, CommodityCategory, PaymentStatus } from '../../types';
@@ -103,6 +104,7 @@ export const DashboardView: React.FC = () => {
     consignmentSearchQuery,
     setConsignmentSearchQuery,
     setSelectedParchiLot,
+    openEditParchiModal,
     openPdfModalForLot,
     openPdfModalForShipment,
     openParchiSlipForShipment,
@@ -979,6 +981,56 @@ export const DashboardView: React.FC = () => {
                           <Printer className="w-3.5 h-3.5 text-[#1a3a52]" />
                         </button>
 
+                        {/* Edit Parchi */}
+                        <button
+                          type="button"
+                          id={`card-edit-btn-${shipment.id}`}
+                          onClick={() => {
+                            sounds.playBidTick();
+                            const lotFromShipment = lots.find((l) => l.shipmentId === shipment.id) || {
+                              id: shipment.id,
+                              parchiNumber: shipment.shipmentNumber,
+                              date: shipment.date,
+                              time: shipment.time,
+                              farmerId: shipment.farmerId,
+                              farmerName: shipment.farmerName,
+                              farmerVillage: shipment.farmerVillage,
+                              farmerPhone: shipment.farmerPhone,
+                              commodityCategory: shipment.items[0]?.commodityCategory || 'flowers',
+                              flowerVariety: shipment.items.map((i) => `${i.flowerVariety} (${i.quantity} ${i.unit})`).join(', '),
+                              quantity: shipment.items.reduce((s, i) => s + i.quantity, 0),
+                              unit: shipment.items[0]?.unit || 'Kgs',
+                              boxesCount: shipment.items.reduce((s, i) => s + (i.boxesCount || 0), 0),
+                              flowerQuality: shipment.items[0]?.flowerQuality || 'Good',
+                              rate: shipment.items[0]?.rate || 0,
+                              grossTotal: shipment.grossTotal,
+                              commissionPercent: shipment.commissionPercent,
+                              commissionAmount: shipment.commissionAmount,
+                              transportCharges: shipment.transportCharge,
+                              ammaliCharges: shipment.hamaliCharge,
+                              otherExpenditures: {
+                                transport: shipment.transportCharge,
+                                hamali: shipment.hamaliCharge,
+                                misc: 0,
+                              },
+                              totalOtherExpenditures: shipment.transportCharge + shipment.hamaliCharge,
+                              farmerNetPayable: shipment.netAmountAfterDailyCuts,
+                              paymentStatus: shipment.paymentStatus,
+                              amountPaid: shipment.amountPaid,
+                              balanceDue: shipment.balanceDue,
+                              merchantId: shipment.merchantId,
+                              merchantName: shipment.merchantName,
+                              notes: shipment.notes,
+                              shipmentId: shipment.id,
+                            };
+                            openEditParchiModal(lotFromShipment);
+                          }}
+                          className="p-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 hover:bg-amber-100 transition cursor-pointer"
+                          title="Edit Parchi details"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-800" />
+                        </button>
+
                         {/* Delete */}
                         <button
                           type="button"
@@ -1116,6 +1168,15 @@ export const DashboardView: React.FC = () => {
                         title="Print Slip"
                       >
                         <Printer className="w-3.5 h-3.5 text-[#1a3a52]" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openEditParchiModal(lot)}
+                        className="p-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 hover:bg-amber-100 transition cursor-pointer"
+                        title="Edit Parchi details"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-amber-800" />
                       </button>
 
                       <button

@@ -18,6 +18,7 @@ import {
   History,
   Layers,
   ArrowRight,
+  Edit3,
 } from 'lucide-react';
 import { Shipment, SaleLot } from '../../types';
 import { useMandi } from '../../context/MandiContext';
@@ -60,6 +61,8 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
     openPdfModalForLot,
     openParchiSlipForShipment,
     setSelectedParchiLot,
+    openEditParchiModal,
+    lots,
     language,
     merchantProfile,
     activeSessionDate,
@@ -527,6 +530,59 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
             >
               <FileText className="w-3.5 h-3.5 text-[#d4af37]" />
               <span>Form C PDF</span>
+            </button>
+
+            <button
+              type="button"
+              id="detail-modal-edit-btn"
+              onClick={() => {
+                onClose();
+                if (lot) {
+                  openEditParchiModal(lot);
+                } else if (shipment) {
+                  const lotFromShipment = lots.find((l) => l.shipmentId === shipment.id) || {
+                    id: shipment.id,
+                    parchiNumber: shipment.shipmentNumber,
+                    date: shipment.date,
+                    time: shipment.time,
+                    farmerId: shipment.farmerId,
+                    farmerName: shipment.farmerName,
+                    farmerVillage: shipment.farmerVillage,
+                    farmerPhone: shipment.farmerPhone,
+                    commodityCategory: shipment.items[0]?.commodityCategory || 'flowers',
+                    flowerVariety: shipment.items.map((i) => `${i.flowerVariety} (${i.quantity} ${i.unit})`).join(', '),
+                    quantity: shipment.items.reduce((s, i) => s + i.quantity, 0),
+                    unit: shipment.items[0]?.unit || 'Kgs',
+                    boxesCount: shipment.items.reduce((s, i) => s + (i.boxesCount || 0), 0),
+                    flowerQuality: shipment.items[0]?.flowerQuality || 'Good',
+                    rate: shipment.items[0]?.rate || 0,
+                    grossTotal: shipment.grossTotal,
+                    commissionPercent: shipment.commissionPercent,
+                    commissionAmount: shipment.commissionAmount,
+                    transportCharges: shipment.transportCharge,
+                    ammaliCharges: shipment.hamaliCharge,
+                    otherExpenditures: {
+                      transport: shipment.transportCharge,
+                      hamali: shipment.hamaliCharge,
+                      misc: 0,
+                    },
+                    totalOtherExpenditures: shipment.transportCharge + shipment.hamaliCharge,
+                    farmerNetPayable: shipment.netAmountAfterDailyCuts,
+                    paymentStatus: shipment.paymentStatus,
+                    amountPaid: shipment.amountPaid,
+                    balanceDue: shipment.balanceDue,
+                    merchantId: shipment.merchantId,
+                    merchantName: shipment.merchantName,
+                    notes: shipment.notes,
+                    shipmentId: shipment.id,
+                  };
+                  openEditParchiModal(lotFromShipment);
+                }
+              }}
+              className="px-3 py-2 rounded-xl bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold hover:bg-amber-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs min-touch-target"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-amber-800" />
+              <span>Edit Parchi</span>
             </button>
           </div>
 

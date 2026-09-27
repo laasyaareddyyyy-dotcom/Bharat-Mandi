@@ -13,6 +13,7 @@ import {
   History,
   Download,
   Loader2,
+  Edit3,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
 import { sounds } from '../../utils/audio';
@@ -23,6 +24,7 @@ export const ParchiModal: React.FC = () => {
   const {
     selectedParchiLot,
     setSelectedParchiLot,
+    openEditParchiModal,
     merchantProfile,
     farmers,
     setActiveFarmerId,
@@ -361,6 +363,17 @@ _Generated via भारत MANDI Ledger_`;
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{t('printReceiptBtn')}</span>
+            </button>
+
+            <button
+              type="button"
+              id="edit-parchi-btn"
+              onClick={() => openEditParchiModal(lot)}
+              className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+              title="Edit rates, quantity, farmer or deductions for this parchi"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-amber-800" />
+              <span>Edit Parchi</span>
             </button>
           </div>
         </div>
@@ -728,16 +741,29 @@ _Generated via भारत MANDI Ledger_`;
 
         {/* FIXED FOOTER */}
         <div className="no-print flex-shrink-0 px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-          <button
-            type="button"
-            id="manual-remove-parchi-trigger"
-            onClick={() => setIsDeleteConfirmOpen(true)}
-            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition cursor-pointer min-touch-target"
-            title="Discard this parchi and preserve an audit log"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Remove Slip</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              id="manual-remove-parchi-trigger"
+              onClick={() => setIsDeleteConfirmOpen(true)}
+              className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition cursor-pointer min-touch-target"
+              title="Discard this parchi and preserve an audit log"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Remove Slip</span>
+            </button>
+
+            <button
+              type="button"
+              id="edit-parchi-footer-btn"
+              onClick={() => openEditParchiModal(lot)}
+              className="text-xs text-amber-800 hover:text-amber-900 hover:bg-amber-50 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition cursor-pointer min-touch-target border border-amber-200"
+              title="Edit details of this saved parchi"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Details</span>
+            </button>
+          </div>
 
           <button
             type="button"

@@ -235,6 +235,13 @@ interface MandiContextType {
   selectedParchiLot: SaleLot | null;
   setSelectedParchiLot: (lot: SaleLot | null) => void;
 
+  // Edit Parchi Modal State
+  isEditParchiOpen: boolean;
+  setIsEditParchiOpen: (open: boolean) => void;
+  editingParchiLot: SaleLot | null;
+  setEditingParchiLot: (lot: SaleLot | null) => void;
+  openEditParchiModal: (lot: SaleLot) => void;
+
   // Generate PDF Modal & Workflow
   isGeneratePdfOpen: boolean;
   setIsGeneratePdfOpen: (open: boolean) => void;
@@ -551,48 +558,59 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  // Real today date string
-  const [activeSessionDate, setActiveSessionDate] = useState<string>(getTodayDateString());
+  // Active trading session date (persisted across refreshes)
+  const [activeSessionDate, setActiveSessionDateState] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('bharatmandi_active_session_date');
+      if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) {
+        return saved;
+      }
+    } catch {}
+    return getTodayDateString();
+  });
+
+  const setActiveSessionDate = useCallback((date: string) => {
+    setActiveSessionDateState(date);
+    try {
+      localStorage.setItem('bharatmandi_active_session_date', date);
+    } catch {}
+  }, []);
 
   // Profile - dynamic per user phone
   const [merchantProfile, setMerchantProfile] = useState<MerchantProfile>(() => {
-    const phone = currentUserPhone;
-    if (phone) {
-      const keys = getUserStorageKeys(phone);
-      const saved = localStorage.getItem(keys.MERCHANT);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          // fallback
-        }
+    const cleanPhone = currentUserPhone ? currentUserPhone.replace(/\D/g, '').slice(-10) : 'default';
+    const keys = getUserStorageKeys(cleanPhone);
+    const saved = localStorage.getItem(keys.MERCHANT);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // fallback
       }
     }
     return initialMerchantProfile;
   });
 
-  // Farmers - dynamic per user phone
+  // Farmers - dynamic per user phone (persisted across refreshes & date changes)
   const [farmers, setFarmers] = useState<Farmer[]>(() => {
-    const phone = currentUserPhone;
-    if (phone) {
-      const keys = getUserStorageKeys(phone);
-      const saved = localStorage.getItem(keys.FARMERS);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            return deduplicateFarmers(
-              parsed
-                .filter((f) => f && typeof f === 'object')
-                .map((f, idx) => ({
-                  ...f,
-                  id: (f.id && f.id !== 'undefined') ? String(f.id).trim() : `FM-${String(idx + 1).padStart(3, '0')}`,
-                }))
-            );
-          }
-        } catch {
-          // fallback
+    const cleanPhone = currentUserPhone ? currentUserPhone.replace(/\D/g, '').slice(-10) : 'default';
+    const keys = getUserStorageKeys(cleanPhone);
+    const saved = localStorage.getItem(keys.FARMERS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return deduplicateFarmers(
+            parsed
+              .filter((f) => f && typeof f === 'object')
+              .map((f, idx) => ({
+                ...f,
+                id: (f.id && f.id !== 'undefined') ? String(f.id).trim() : `FM-${String(idx + 1).padStart(3, '0')}`,
+              }))
+          );
         }
+      } catch {
+        // fallback
       }
     }
     return deduplicateFarmers(
@@ -605,17 +623,15 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Lots - dynamic per user phone
   const [lots, setLots] = useState<SaleLot[]>(() => {
-    const phone = currentUserPhone;
-    if (phone) {
-      const keys = getUserStorageKeys(phone);
-      const saved = localStorage.getItem(keys.LOTS);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          return deduplicateLots(sanitizeLotsCommission(Array.isArray(parsed) ? parsed : []));
-        } catch {
-          // fallback
-        }
+    const cleanPhone = currentUserPhone ? currentUserPhone.replace(/\D/g, '').slice(-10) : 'default';
+    const keys = getUserStorageKeys(cleanPhone);
+    const saved = localStorage.getItem(keys.LOTS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return deduplicateLots(sanitizeLotsCommission(Array.isArray(parsed) ? parsed : []));
+      } catch {
+        // fallback
       }
     }
     return deduplicateLots(sanitizeLotsCommission(generateInitialLots()));
@@ -623,17 +639,15 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Payments - dynamic per user phone
   const [payments, setPayments] = useState<PaymentRecord[]>(() => {
-    const phone = currentUserPhone;
-    if (phone) {
-      const keys = getUserStorageKeys(phone);
-      const saved = localStorage.getItem(keys.PAYMENTS);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          return deduplicatePayments(Array.isArray(parsed) ? parsed : []);
-        } catch {
-          // fallback
-        }
+    const cleanPhone = currentUserPhone ? currentUserPhone.replace(/\D/g, '').slice(-10) : 'default';
+    const keys = getUserStorageKeys(cleanPhone);
+    const saved = localStorage.getItem(keys.PAYMENTS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return deduplicatePayments(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        // fallback
       }
     }
     return deduplicatePayments(initialPayments);
@@ -641,17 +655,15 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Shipments (Multi-variety grouped shipments with one-time Hamali & Transport)
   const [shipments, setShipments] = useState<Shipment[]>(() => {
-    const phone = currentUserPhone;
-    if (phone) {
-      const keys = getUserStorageKeys(phone);
-      const saved = localStorage.getItem(keys.SHIPMENTS);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return deduplicateShipments(parsed);
-        } catch {
-          // fallback
-        }
+    const cleanPhone = currentUserPhone ? currentUserPhone.replace(/\D/g, '').slice(-10) : 'default';
+    const keys = getUserStorageKeys(cleanPhone);
+    const saved = localStorage.getItem(keys.SHIPMENTS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return deduplicateShipments(parsed);
+      } catch {
+        // fallback
       }
     }
     return deduplicateShipments(generateInitialShipments('2024-09-15'));
@@ -659,17 +671,15 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // 15-Day Settlements
   const [settlements, setSettlements] = useState<FifteenDaySettlement[]>(() => {
-    const phone = currentUserPhone;
-    if (phone) {
-      const keys = getUserStorageKeys(phone);
-      const saved = localStorage.getItem(keys.SETTLEMENTS);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return deduplicateSettlements(parsed);
-        } catch {
-          // fallback
-        }
+    const cleanPhone = currentUserPhone ? currentUserPhone.replace(/\D/g, '').slice(-10) : 'default';
+    const keys = getUserStorageKeys(cleanPhone);
+    const saved = localStorage.getItem(keys.SETTLEMENTS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return deduplicateSettlements(parsed);
+      } catch {
+        // fallback
       }
     }
     return [];
@@ -679,17 +689,15 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Stock Management - dynamic per user phone
   const [stocks, setStocks] = useState<StockItem[]>(() => {
-    const phone = currentUserPhone;
-    if (phone) {
-      const keys = getUserStorageKeys(phone);
-      const saved = localStorage.getItem(keys.STOCKS);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return deduplicateStocks(parsed);
-        } catch {
-          // fallback
-        }
+    const cleanPhone = currentUserPhone ? currentUserPhone.replace(/\D/g, '').slice(-10) : 'default';
+    const keys = getUserStorageKeys(cleanPhone);
+    const saved = localStorage.getItem(keys.STOCKS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return deduplicateStocks(parsed);
+      } catch {
+        // fallback
       }
     }
     return [];
@@ -697,17 +705,15 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Mandi Employees & Staff - dynamic per user phone
   const [employees, setEmployees] = useState<EmployeeRecord[]>(() => {
-    const phone = currentUserPhone;
-    if (phone) {
-      const keys = getUserStorageKeys(phone);
-      const saved = localStorage.getItem(keys.EMPLOYEES);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return deduplicateEmployees(parsed);
-        } catch {
-          // fallback
-        }
+    const cleanPhone = currentUserPhone ? currentUserPhone.replace(/\D/g, '').slice(-10) : 'default';
+    const keys = getUserStorageKeys(cleanPhone);
+    const saved = localStorage.getItem(keys.EMPLOYEES);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return deduplicateEmployees(parsed);
+      } catch {
+        // fallback
       }
     }
     return [];
@@ -866,6 +872,13 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Modals
   const [selectedParchiLot, setSelectedParchiLot] = useState<SaleLot | null>(null);
+  const [isEditParchiOpen, setIsEditParchiOpen] = useState<boolean>(false);
+  const [editingParchiLot, setEditingParchiLot] = useState<SaleLot | null>(null);
+
+  const openEditParchiModal = useCallback((lot: SaleLot) => {
+    setEditingParchiLot(lot);
+    setIsEditParchiOpen(true);
+  }, []);
   const [isQRModalOpen, setIsQRModalOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isPortalSelectorOpen, setIsPortalSelectorOpen] = useState<boolean>(false);
@@ -2044,6 +2057,12 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const itemComm = commissionPercent > 0 ? Math.round((item.grossTotal * commissionPercent) / 100) : 0;
       const itemNet = Math.max(0, item.grossTotal - itemTransport - itemHamali - itemComm);
 
+      // Compute item-level payment split matching shipment overall payment
+      const itemPaid = newShipment.netAmountAfterDailyCuts > 0
+        ? Math.min(itemNet, Math.round((newShipment.amountPaid * itemNet) / newShipment.netAmountAfterDailyCuts))
+        : 0;
+      const itemBalance = Math.max(0, itemNet - itemPaid);
+
       addSaleLot({
         commodityCategory: item.commodityCategory || 'flowers',
         date: newShipment.date,
@@ -2071,8 +2090,8 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         totalOtherExpenditures: itemTransport + itemHamali,
         farmerNetPayable: itemNet,
         paymentStatus: newShipment.paymentStatus,
-        amountPaid: 0,
-        balanceDue: itemNet,
+        amountPaid: itemPaid,
+        balanceDue: itemBalance,
         merchantId: newShipment.merchantId,
         merchantName: newShipment.merchantName,
         notes: newShipment.notes,
@@ -3134,6 +3153,37 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     }
 
+    // 3. Scan all merchant storage keys in localStorage for lots created for this farmer's phone
+    if (cleanPhone && cleanPhone.length === 10) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('bharatmandi_') && key.endsWith('_lots_v2')) {
+              const savedStr = localStorage.getItem(key);
+              if (savedStr) {
+                const parsedLots: SaleLot[] = JSON.parse(savedStr);
+                if (Array.isArray(parsedLots)) {
+                  parsedLots.forEach((l) => {
+                    const lotPhone = l.farmerPhone ? l.farmerPhone.replace(/\D/g, '').slice(-10) : '';
+                    if (
+                      lotPhone === cleanPhone ||
+                      (l.farmerId && matchingFarmerIds.has(l.farmerId)) ||
+                      (normalizedName && l.farmerName && l.farmerName.trim().toLowerCase() === normalizedName)
+                    ) {
+                      externalLots.push(l);
+                    }
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore storage restrictions
+      }
+    }
+
     // Merge and deduplicate by lot id
     const combined = [...matchingLots];
     for (const el of externalLots) {
@@ -3307,6 +3357,11 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         getSyncedStatementsForFarmer,
         selectedParchiLot,
         setSelectedParchiLot,
+        isEditParchiOpen,
+        setIsEditParchiOpen,
+        editingParchiLot,
+        setEditingParchiLot,
+        openEditParchiModal,
         isGeneratePdfOpen,
         setIsGeneratePdfOpen,
         activePdfLot,

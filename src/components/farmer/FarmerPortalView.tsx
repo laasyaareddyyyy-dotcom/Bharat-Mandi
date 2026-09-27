@@ -309,9 +309,13 @@ export const FarmerPortalView: React.FC = () => {
     setTimeout(() => setNotificationMsg(null), 3000);
   };
 
-  // Financial calculations strictly for selected crop category
+  // Financial calculations strictly for selected crop category (or all lots if none match category filter)
   const categoryFarmerLots = useMemo(() => {
-    return farmerLots.filter((l) => (l.commodityCategory || 'flowers') === selectedCategory);
+    const filtered = farmerLots.filter((l) => (l.commodityCategory || 'flowers') === selectedCategory);
+    if (filtered.length === 0 && farmerLots.length > 0) {
+      return farmerLots;
+    }
+    return filtered;
   }, [farmerLots, selectedCategory]);
 
   const totalVolume = categoryFarmerLots.reduce((acc, l) => acc + l.quantity, 0);
