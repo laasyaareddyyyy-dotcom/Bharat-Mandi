@@ -124,15 +124,52 @@ export const PaymentsView: React.FC = () => {
     setDeleteModalConfig({ isOpen: false, type: 'lot' });
   };
 
-  // Calculate farmers with dues
-  const farmersWithDuesCount = farmers.filter((f) => {
-    const stats = getFarmerStats(f.id);
-    return stats.pendingDues > 0;
-  }).length;
+  // Dynamically compute summary metrics scoped to active commodity and date range [fromDate, toDate]
+  const scopedLots = useMemo(() => {
+    return lots.filter((l) => {
+      if (activeCommodityFilter !== 'all') {
+        const lotCat = l.commodityCategory || 'flowers';
+        if (lotCat !== activeCommodityFilter) return false;
+      }
+      if (fromDate && l.date < fromDate) return false;
+      if (toDate && l.date > toDate) return false;
+      return true;
+    });
+  }, [lots, activeCommodityFilter, fromDate, toDate]);
+
+  const scopedPayments = useMemo(() => {
+    return payments.filter((p) => {
+      if (fromDate && p.date < fromDate) return false;
+      if (toDate && p.date > toDate) return false;
+      return true;
+    });
+  }, [payments, fromDate, toDate]);
+
+  const displayUnpaidBalance = useMemo(() => {
+    return scopedLots.reduce((acc, l) => acc + (l.balanceDue || 0), 0);
+  }, [scopedLots]);
+
+  const displayPaidToDate = useMemo(() => {
+    return scopedPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
+  }, [scopedPayments]);
+
+  const farmersWithDuesCount = useMemo(() => {
+    const farmerDuesMap = new Map<string, number>();
+    scopedLots.forEach((l) => {
+      const fId = l.farmerId || l.farmerName;
+      const due = l.balanceDue || 0;
+      farmerDuesMap.set(fId, (farmerDuesMap.get(fId) || 0) + due);
+    });
+    let count = 0;
+    farmerDuesMap.forEach((due) => {
+      if (due > 0) count++;
+    });
+    return count;
+  }, [scopedLots]);
 
   // Filtered farmers list
   const filteredFarmers = farmers.filter((f) => {
-    const stats = getFarmerStats(f.id);
+    const stats = getFarmerStats(f.id, fromDate, toDate);
     const matchesSearch =
       f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       f.village.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -311,7 +348,7 @@ export const PaymentsView: React.FC = () => {
               {t('totalPendingDues')}
             </span>
             <span className="text-2xl font-black font-mono text-red-700 mt-1 block">
-              ₹{totalOutstandingDues.toLocaleString('en-IN')}
+              ₹{displayUnpaidBalance.toLocaleString('en-IN')}
             </span>
             <span className="text-[11px] text-red-600 font-medium">Unpaid balance to growers</span>
           </div>
@@ -321,7 +358,7 @@ export const PaymentsView: React.FC = () => {
               {t('totalSettledPaid')}
             </span>
             <span className="text-2xl font-black font-mono text-[#1a3a52] mt-1 block">
-              ₹{totalPaidToDate.toLocaleString('en-IN')}
+              ₹{displayPaidToDate.toLocaleString('en-IN')}
             </span>
             <span className="text-[11px] text-[#1a3a52]/80 font-medium">Instant payouts settled</span>
           </div>

@@ -32,6 +32,8 @@ import {
   Clock,
   ShieldCheck,
   Plus,
+  Edit3,
+  UserPlus,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
 import { SaleLot, Farmer } from '../../types';
@@ -40,6 +42,9 @@ import { exportElementToPdf, printHtmlViaIframe, sharePdfFile, createPdfFile, ca
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 import { FormCInvoiceCanvas, FormCInvoiceData } from '../common/FormCInvoiceCanvas';
 import { GeneratePdfModal } from '../common/GeneratePdfModal';
+import { PhotoUploadPicker } from '../common/PhotoUploadPicker';
+import { validateIndianMobile } from '../../utils/phoneValidation';
+import { flowerVarietiesData } from '../../translations';
 import { sounds } from '../../utils/audio';
 
 interface FarmerKathaStatementViewProps {
@@ -58,6 +63,7 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
   const {
     lots,
     farmers,
+    updateFarmer,
     merchantProfile,
     setSelectedParchiLot,
     openPdfModalForLot,
@@ -83,6 +89,15 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
   const [selectedFarmerId, setSelectedFarmerId] = useState<string>(
     initialFarmer ? initialFarmer.id : farmers[0]?.id || ''
   );
+
+  // Edit Farmer Details Modal State
+  const [isEditFarmerModalOpen, setIsEditFarmerModalOpen] = useState(false);
+  const [editFarmerName, setEditFarmerName] = useState('');
+  const [editFarmerPhone, setEditFarmerPhone] = useState('');
+  const [editFarmerVillage, setEditFarmerVillage] = useState('');
+  const [editFarmerPhotoUrl, setEditFarmerPhotoUrl] = useState('');
+  const [editFarmerCrops, setEditFarmerCrops] = useState<string[]>([]);
+  const [editFarmerError, setEditFarmerError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialFarmer) {
@@ -182,6 +197,49 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
       }
     }
     setDeleteFarmerModalConfig({ isOpen: false, farmer: null });
+  };
+
+  const handleOpenEditFarmerModal = () => {
+    if (!currentFarmer) return;
+    setEditFarmerName(currentFarmer.name);
+    setEditFarmerPhone(currentFarmer.phone || '');
+    setEditFarmerVillage(currentFarmer.village || '');
+    setEditFarmerPhotoUrl(currentFarmer.photoUrl || '');
+    setEditFarmerCrops(Array.isArray(currentFarmer.primaryCrops) ? currentFarmer.primaryCrops : ['Marigold (Banthi)']);
+    setEditFarmerError(null);
+    setIsEditFarmerModalOpen(true);
+  };
+
+  const handleSaveEditedFarmer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentFarmer) return;
+    setEditFarmerError(null);
+
+    const trimmedName = editFarmerName.replace(/[0-9]/g, '').trim();
+    if (!trimmedName) {
+      setEditFarmerError('Please enter a valid farmer name');
+      return;
+    }
+
+    const phoneVal = validateIndianMobile(editFarmerPhone);
+    if (!phoneVal.isValid) {
+      setEditFarmerError(phoneVal.error || 'Enter a valid 10-digit Indian mobile number');
+      return;
+    }
+    const cleanPhone = phoneVal.cleanNumber;
+
+    updateFarmer(currentFarmer.id, {
+      name: trimmedName,
+      phone: cleanPhone,
+      village: editFarmerVillage.trim() || 'Local Grower Belt',
+      primaryCrops: editFarmerCrops.length > 0 ? editFarmerCrops : ['Marigold (Banthi)'],
+      photoUrl: editFarmerPhotoUrl.trim() || undefined,
+    });
+
+    sounds.success?.();
+    setNotificationMsg(`✓ Farmer details updated for ${trimmedName}!`);
+    setTimeout(() => setNotificationMsg(null), 3500);
+    setIsEditFarmerModalOpen(false);
   };
 
   // Active farmer resolution
@@ -620,7 +678,7 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
 
   // WhatsApp / Native Share Statement with PDF file attachment
   const handleShareWhatsApp = async () => {
-    if (!currentFarmer) return;
+    if (!currentFarmer || isSharingPdf) return;
     setIsSharingPdf(true);
     setPdfStatusMessage('Rendering Combined Statement PDF for sharing...');
 
@@ -679,57 +737,32 @@ _Generated via भारत MANDI System_`;
       // Auto sync if mutually connected
       const synced = triggerAutoPushIfConnected();
 
-      // 2. Convert Blob to File object
-      const pdfFile = createPdfFile(result.blob, filename);
+      // 2. Share via centralized sharePdfFile helper
+      const shareRes = await sharePdfFile({
+        blob: result.blob,
+        filename,
+        title: `Farmer Khata Statement - ${currentFarmer.name}`,
+        text: shareSummaryText,
+        fallbackToDownload: true,
+      });
 
-      // 3. Feature-detect and share via Web Share API
-      if (canSharePdfFile(pdfFile)) {
-        try {
-          await navigator.share({
-            files: [pdfFile],
-            title: `Farmer Khata Statement - ${currentFarmer.name}`,
-            text: shareSummaryText,
-          });
-          setPdfStatusMessage(
-            synced
-              ? `Statement shared & automatically synced to ${currentFarmer.name}'s portal!`
-              : 'Statement PDF shared successfully!'
-          );
-        } catch (err: any) {
-          if (err?.name === 'AbortError') {
-            setPdfStatusMessage('');
-          } else {
-            console.warn('[Katha Share API Error]', err);
-            const shareRes = await sharePdfFile({
-              blob: result.blob,
-              filename,
-              fallbackToDownload: true,
-            });
-            if (shareRes.downloaded) {
-              setPdfStatusMessage(
-                "Your browser doesn't support direct file sharing — please download the PDF and attach it in WhatsApp."
-              );
-            }
-          }
-        }
-      } else {
-        const shareRes = await sharePdfFile({
-          blob: result.blob,
-          filename,
-          fallbackToDownload: true,
-        });
-        if (shareRes.downloaded) {
-          setPdfStatusMessage(
-            "Your browser doesn't support direct file sharing — please download the PDF and attach it in WhatsApp."
-          );
-        }
+      if (shareRes.shared) {
+        setPdfStatusMessage(
+          synced
+            ? `Statement shared & automatically synced to ${currentFarmer.name}'s portal!`
+            : 'Statement PDF shared successfully!'
+        );
+      } else if (shareRes.downloaded) {
+        setPdfStatusMessage(
+          "Your browser doesn't support direct file sharing — the PDF has been downloaded so you can attach it in WhatsApp."
+        );
       }
     } catch (err: any) {
       console.error('[Katha Share Fatal Error]', err);
       setPdfStatusMessage('Could not share PDF. Please use the Download PDF button.');
     } finally {
       setIsSharingPdf(false);
-      setTimeout(() => setPdfStatusMessage(''), 7000);
+      setTimeout(() => setPdfStatusMessage(''), 6000);
     }
   };
 
@@ -931,11 +964,22 @@ _Generated via भारत MANDI System_`;
           </div>
 
           {currentFarmer && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
                 <Check className="w-4 h-4 text-emerald-600" />
                 <span>{currentFarmer.name}</span>
               </div>
+              {/* EDIT FARMER ACTION BUTTON */}
+              <button
+                type="button"
+                id="katha-edit-farmer-header-btn"
+                onClick={handleOpenEditFarmerModal}
+                className="px-3 py-1.5 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white border border-[#1a3a52] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs min-touch-target"
+                title="Edit Farmer Name, Village, Phone, or Photo"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-[#d4af37]" />
+                <span>Edit Farmer Details</span>
+              </button>
               {/* DELETE FARMER ACTION BUTTON */}
               <button
                 type="button"
@@ -2040,6 +2084,184 @@ _Generated via भारत MANDI System_`;
         onConfirm={handleConfirmDeleteFarmer}
         onCancel={() => setDeleteFarmerModalConfig({ isOpen: false, farmer: null })}
       />
+
+      {/* Edit Farmer Details Modal */}
+      {isEditFarmerModalOpen && (
+        <div
+          id="edit-farmer-modal-overlay"
+          onClick={() => setIsEditFarmerModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden"
+        >
+          <div
+            id="edit-farmer-modal-dialog"
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          >
+            {/* Modal Header */}
+            <div className="flex-shrink-0 px-4 sm:px-6 py-4 bg-[#1a3a52] text-white flex items-center justify-between border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditFarmerModalOpen(false)}
+                  aria-label="Go Back"
+                  className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition cursor-pointer shrink-0 shadow-xs"
+                >
+                  <ArrowLeft className="w-5 h-5 text-white" />
+                </button>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg text-white leading-tight">
+                    Edit Farmer Profile
+                  </h3>
+                  <p className="text-xs text-slate-200/80 mt-0.5">
+                    Update name, village, mobile number &amp; crops
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsEditFarmerModalOpen(false)}
+                aria-label="Close modal"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-white/90 hover:text-white hover:bg-white/10 transition cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Form Body */}
+            <form onSubmit={handleSaveEditedFarmer} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-[#f8fafc]">
+              {editFarmerError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{editFarmerError}</span>
+                </div>
+              )}
+
+              {/* Photo Upload Picker */}
+              <PhotoUploadPicker
+                label="Farmer Profile Photo"
+                sublabel="Upload photo from phone/PC, capture with webcam, or choose a preset"
+                currentPhotoUrl={editFarmerPhotoUrl}
+                onChange={(url) => setEditFarmerPhotoUrl(url)}
+                presetType="farmer"
+                idPrefix="katha-edit-farmer"
+              />
+
+              {/* Name Input */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                  Farmer Full Name *
+                </label>
+                <input
+                  id="edit-farmer-name-input"
+                  type="text"
+                  required
+                  placeholder="e.g. Ramesh Reddy"
+                  value={editFarmerName}
+                  onKeyDown={(e) => {
+                    if (/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onChange={(e) => setEditFarmerName(e.target.value.replace(/[0-9]/g, ''))}
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-900 focus:outline-none focus:border-[#1a3a52]"
+                />
+              </div>
+
+              {/* Mobile Number Input */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                  Mobile Number (10 Digits) *
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs font-bold text-slate-500 font-mono">
+                    +91
+                  </span>
+                  <input
+                    id="edit-farmer-phone-input"
+                    type="tel"
+                    required
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                    placeholder="9876543210"
+                    value={editFarmerPhone}
+                    onChange={(e) => setEditFarmerPhone(e.target.value.replace(/\D/g, ''))}
+                    className="w-full pl-12 pr-3.5 py-2.5 min-h-[44px] rounded-xl border border-slate-300 bg-white text-sm font-bold font-mono text-slate-900 focus:outline-none focus:border-[#1a3a52]"
+                  />
+                </div>
+              </div>
+
+              {/* Village Input */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                  Village / Town / Location *
+                </label>
+                <input
+                  id="edit-farmer-village-input"
+                  type="text"
+                  required
+                  placeholder="e.g. Ananthapur Grower Belt"
+                  value={editFarmerVillage}
+                  onChange={(e) => setEditFarmerVillage(e.target.value)}
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-900 focus:outline-none focus:border-[#1a3a52]"
+                />
+              </div>
+
+              {/* Primary Crops Selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                  Primary Crops / Flower Varieties
+                </label>
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-white rounded-xl border border-slate-200">
+                  {flowerVarietiesData.map((variety) => {
+                    const label = variety.en.split('(')[0].trim();
+                    const isChecked = editFarmerCrops.includes(label);
+                    return (
+                      <button
+                        type="button"
+                        key={variety.id}
+                        onClick={() => {
+                          if (isChecked) {
+                            setEditFarmerCrops(editFarmerCrops.filter((c) => c !== label));
+                          } else {
+                            setEditFarmerCrops([...editFarmerCrops, label]);
+                          }
+                        }}
+                        className={`text-xs px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                          isChecked
+                            ? 'bg-[#1a3a52] text-white shadow-2xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        {isChecked ? '✓ ' : '+ '} {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Form Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsEditFarmerModalOpen(false)}
+                  className="px-4 py-2.5 min-h-[44px] rounded-xl border border-slate-300 bg-white text-slate-700 text-xs font-bold hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  id="save-edit-farmer-btn"
+                  className="px-5 py-2.5 min-h-[44px] rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition cursor-pointer shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

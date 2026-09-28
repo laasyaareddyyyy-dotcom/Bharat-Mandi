@@ -66,6 +66,36 @@ export const ParchiAuditTrailModal: React.FC = () => {
 
   if (!isAuditTrailOpen) return null;
 
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs no-print">
+      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 text-center border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setIsAuditTrailOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center mx-auto mb-3">
+          <History className="w-7 h-7 opacity-60" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-800 mb-1">
+          Audit Trail Disabled
+        </h3>
+        <p className="text-xs text-slate-600 mb-5">
+          The Audit Trail feature has been disabled by system administrator.
+        </p>
+        <button
+          type="button"
+          onClick={() => setIsAuditTrailOpen(false)}
+          className="px-5 py-2 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#132d42] transition cursor-pointer"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+
   const handleRestore = (log: ParchiAuditLog) => {
     const success = restoreParchiFromAudit(log.id);
     if (success) {

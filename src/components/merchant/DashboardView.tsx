@@ -952,20 +952,6 @@ export const DashboardView: React.FC = () => {
                       </button>
 
                       <div className="flex items-center gap-1">
-                        {/* Form C PDF */}
-                        <button
-                          type="button"
-                          id={`card-form-c-btn-${shipment.id}`}
-                          onClick={() => {
-                            sounds.playBidTick();
-                            openPdfModalForShipment(shipment);
-                          }}
-                          className="px-2 py-1.5 rounded-lg bg-white border border-[#e2e8f0] text-[#1e293b] hover:bg-[#f1f5f9] text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
-                          title="Generate Form C PDF"
-                        >
-                          <FileText className="w-3 h-3 text-[#d4af37]" />
-                          <span className="hidden sm:inline">Form C</span>
-                        </button>
 
                         {/* Parchi Slip */}
                         <button
@@ -1151,15 +1137,6 @@ export const DashboardView: React.FC = () => {
                     </button>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openPdfModalForLot(lot)}
-                        className="px-2 py-1.5 rounded-lg bg-white border border-[#e2e8f0] text-[#1e293b] hover:bg-[#f1f5f9] text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
-                        title="Generate Form C PDF"
-                      >
-                        <FileText className="w-3 h-3 text-[#d4af37]" />
-                        <span className="hidden sm:inline">Form C</span>
-                      </button>
 
                       <button
                         type="button"
@@ -1617,81 +1594,6 @@ export const DashboardView: React.FC = () => {
       {dashboardTab === 'tools-settings' && (
         <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-200">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Generate PDF & Form C */}
-            <div className="bg-white rounded-2xl p-5 border border-[#e2e8f0] shadow-2xs space-y-3 flex flex-col justify-between">
-              <div className="space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-[#FEF8ED] flex items-center justify-center text-[#d4af37]">
-                  <Receipt className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-sm text-[#1e293b]">Generate Form C PDF</h3>
-                <p className="text-xs text-[#64748b]">
-                  Generate and download standard Telangana/AP APMC Form C ledgers and 15-day settlement slips for any consignment.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (todayLots.length > 0) {
-                    openPdfModalForLot(todayLots[0]);
-                  } else if (todayShipments.length > 0) {
-                    openPdfModalForShipment(todayShipments[0]);
-                  } else if (lots.length > 0) {
-                    openPdfModalForLot(lots[0]);
-                  } else if (shipments.length > 0) {
-                    openPdfModalForShipment(shipments[0]);
-                  } else {
-                    setMerchantTab('new-sale');
-                  }
-                }}
-                className="w-full py-2.5 px-3 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <FileText className="w-4 h-4 text-[#d4af37]" />
-                <span>Generate Form C PDF</span>
-              </button>
-            </div>
-
-            {/* Parchi Slip & Audit Trail */}
-            <div className="bg-white rounded-2xl p-5 border border-[#e2e8f0] shadow-2xs space-y-3 flex flex-col justify-between">
-              <div className="space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-[#eef3f7] flex items-center justify-center text-[#1a3a52]">
-                  <Printer className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-sm text-[#1e293b]">Parchi Slips &amp; Audit Trail</h3>
-                <p className="text-xs text-[#64748b]">
-                  View printed receipt audit logs, reprint thermal slips, or recover archived slips for today&apos;s lots.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAuditTrailOpen(true)}
-                className="w-full py-2.5 px-3 rounded-xl bg-[#f1f5f9] border border-[#e2e8f0] text-[#1e293b] text-xs font-bold hover:bg-[#f1f5f9] transition flex items-center justify-center gap-1.5"
-              >
-                <History className="w-4 h-4 text-[#1a3a52]" />
-                <span>Open Parchi Slip Audit Trail</span>
-              </button>
-            </div>
-
-            {/* Architecture & Flowchart */}
-            <div className="bg-white rounded-2xl p-5 border border-[#e2e8f0] shadow-2xs space-y-3 flex flex-col justify-between">
-              <div className="space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-700">
-                  <FileSpreadsheet className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-sm text-[#1e293b]">System Architecture Map</h3>
-                <p className="text-xs text-[#64748b]">
-                  Interactive flowchart displaying the entire mandi ledger pipeline from arrival to Form C clearance.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDashboardTab('tools-settings')}
-                className="w-full py-2.5 px-3 rounded-xl bg-[#f1f5f9] border border-[#e2e8f0] text-[#1e293b] text-xs font-bold hover:bg-[#f1f5f9] transition flex items-center justify-center gap-1.5"
-              >
-                <ExternalLink className="w-4 h-4 text-purple-700" />
-                <span>View Architecture Diagram</span>
-              </button>
-            </div>
-
             {/* APMC Mandi Help Desk */}
             <div className="bg-white rounded-2xl p-5 border border-[#e2e8f0] shadow-2xs space-y-3 flex flex-col justify-between">
               <div className="space-y-2">

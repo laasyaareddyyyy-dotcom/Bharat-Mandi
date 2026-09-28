@@ -778,32 +778,7 @@ MERCHANT'S DEDUCTIONS SUMMARY (from Farmer's Total)
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        id={`form-c-pdf-btn-${item.farmerId}`}
-                        onClick={() => {
-                          const farmerShip = shipments.find(
-                            (s) => s.farmerId === item.farmerId && s.date >= startDate && s.date <= endDate
-                          ) || shipments.find((s) => s.farmerId === item.farmerId);
-                          if (farmerShip) {
-                            openPdfModalForShipment(farmerShip);
-                            return;
-                          }
-                          const farmerLot = lots.find(
-                            (l) => l.farmerId === item.farmerId && l.date >= startDate && l.date <= endDate
-                          ) || lots.find((l) => l.farmerId === item.farmerId);
-                          if (farmerLot) {
-                            openPdfModalForLot(farmerLot);
-                            return;
-                          }
-                          setPrintStatement(item);
-                        }}
-                        className="px-3 py-2 rounded-xl bg-[#FEF8ED] border-2 border-[#d4af37] text-[#1e293b] text-xs font-black hover:bg-[#faebd1] transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                        title="Generate Official Form C PDF with Commission & Deductions"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-[#d4af37]" />
-                        <span>Generate Form C PDF</span>
-                      </button>
+                       {/* Form C PDF Disabled */}
 
                       <button
                         type="button"
@@ -880,16 +855,6 @@ MERCHANT'S DEDUCTIONS SUMMARY (from Farmer's Total)
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {shp.notes && <span className="text-[#64748b]">💬 {shp.notes}</span>}
-                                  <button
-                                    type="button"
-                                    id={`form-c-shp-btn-${shp.id}`}
-                                    onClick={() => openPdfModalForShipment(shp)}
-                                    className="px-2.5 py-1 rounded-lg bg-[#FEF8ED] border border-[#d4af37] text-[#1e293b] font-bold text-xs hover:bg-[#faebd1] transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                                    title="Generate Form C PDF for this consignment"
-                                  >
-                                    <FileText className="w-3 h-3 text-[#d4af37]" />
-                                    <span>Form C PDF</span>
-                                  </button>
                                   <button
                                     type="button"
                                     id={`delete-shipment-btn-${shp.id}`}
@@ -1155,28 +1120,6 @@ MERCHANT'S DEDUCTIONS SUMMARY (from Farmer's Total)
               </span>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
-              <button
-                type="button"
-                id="success-form-c-pdf-btn"
-                onClick={() => {
-                  setIsSuccessModalOpen(false);
-                  const farmerShip = shipments.find((s) => s.farmerId === lastSettledReceipt.farmerId);
-                  if (farmerShip) {
-                    openPdfModalForShipment(farmerShip);
-                    return;
-                  }
-                  const farmerLot = lots.find((l) => l.farmerId === lastSettledReceipt.farmerId);
-                  if (farmerLot) {
-                    openPdfModalForLot(farmerLot);
-                    return;
-                  }
-                  setPrintStatement(lastSettledReceipt);
-                }}
-                className="w-full sm:flex-1 py-2.5 rounded-xl bg-[#FEF8ED] border-2 border-[#d4af37] text-[#1e293b] text-xs font-black hover:bg-[#faebd1] transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-              >
-                <FileText className="w-3.5 h-3.5 text-[#d4af37]" />
-                <span>Generate Form C PDF</span>
-              </button>
               <button
                 type="button"
                 onClick={() => {

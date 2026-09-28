@@ -193,7 +193,7 @@ export const EditParchiModal: React.FC = () => {
       amountPaid: numPaid,
       balanceDue,
       paymentMode: numPaid > 0 ? paymentMode : undefined,
-      notes: notes.trim() || undefined,
+      notes: notes.trim(),
     };
 
     // Update lot in context

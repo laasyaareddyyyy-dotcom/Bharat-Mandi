@@ -25,6 +25,27 @@ import {
   HelpTicket,
 } from '../types';
 
+/**
+ * Recursively removes keys with `undefined` values from objects or arrays
+ * to prevent Firestore setDoc errors like "Unsupported field value: undefined".
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) return null as any;
+  if (data === null || typeof data !== 'object') return data;
+
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+
+  const result: Record<string, any> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (val !== undefined) {
+      result[key] = sanitizeForFirestore(val);
+    }
+  }
+  return result as T;
+}
+
 export function getActiveOwnerUid(): string {
   if (auth.currentUser?.uid) return auth.currentUser.uid;
   if (auth.currentUser?.email) return auth.currentUser.email;
@@ -71,12 +92,12 @@ export async function syncLocalToFirestore(data: {
       : 'MANDI-HYD-014';
     const profilePath = `merchants/${profileId}`;
     try {
-      await setDoc(doc(db, 'merchants', profileId), {
+      await setDoc(doc(db, 'merchants', profileId), sanitizeForFirestore({
         ...(data.profile || {}),
         merchantId: profileId,
         ownerUid: uid,
         updatedAt: new Date().toISOString(),
-      }, { merge: true });
+      }), { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, profilePath);
     }
@@ -89,11 +110,11 @@ export async function syncLocalToFirestore(data: {
       const cleanId = resolveDocId(farmer, 'FM', i);
       const path = `farmers/${cleanId}`;
       try {
-        await setDoc(doc(db, 'farmers', cleanId), {
+        await setDoc(doc(db, 'farmers', cleanId), sanitizeForFirestore({
           ...farmer,
           id: cleanId,
           ownerUid: uid,
-        }, { merge: true });
+        }), { merge: true });
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, path);
       }
@@ -107,11 +128,11 @@ export async function syncLocalToFirestore(data: {
       const cleanId = resolveDocId(lot, 'LOT', i);
       const path = `lots/${cleanId}`;
       try {
-        await setDoc(doc(db, 'lots', cleanId), {
+        await setDoc(doc(db, 'lots', cleanId), sanitizeForFirestore({
           ...lot,
           id: cleanId,
           ownerUid: uid,
-        }, { merge: true });
+        }), { merge: true });
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, path);
       }
@@ -125,11 +146,11 @@ export async function syncLocalToFirestore(data: {
       const cleanId = resolveDocId(shipment, 'SHIP', i);
       const path = `shipments/${cleanId}`;
       try {
-        await setDoc(doc(db, 'shipments', cleanId), {
+        await setDoc(doc(db, 'shipments', cleanId), sanitizeForFirestore({
           ...shipment,
           id: cleanId,
           ownerUid: uid,
-        }, { merge: true });
+        }), { merge: true });
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, path);
       }
@@ -143,11 +164,11 @@ export async function syncLocalToFirestore(data: {
       const cleanId = resolveDocId(payment, 'PAY', i);
       const path = `payments/${cleanId}`;
       try {
-        await setDoc(doc(db, 'payments', cleanId), {
+        await setDoc(doc(db, 'payments', cleanId), sanitizeForFirestore({
           ...payment,
           id: cleanId,
           ownerUid: uid,
-        }, { merge: true });
+        }), { merge: true });
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, path);
       }
@@ -161,11 +182,11 @@ export async function syncLocalToFirestore(data: {
       const cleanId = resolveDocId(settlement, 'SETTLE', i);
       const path = `settlements/${cleanId}`;
       try {
-        await setDoc(doc(db, 'settlements', cleanId), {
+        await setDoc(doc(db, 'settlements', cleanId), sanitizeForFirestore({
           ...settlement,
           id: cleanId,
           ownerUid: uid,
-        }, { merge: true });
+        }), { merge: true });
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, path);
       }
@@ -179,11 +200,11 @@ export async function syncLocalToFirestore(data: {
         const cleanId = resolveDocId(ticket, 'TCK', i);
         const path = `helpTickets/${cleanId}`;
         try {
-          await setDoc(doc(db, 'helpTickets', cleanId), {
+          await setDoc(doc(db, 'helpTickets', cleanId), sanitizeForFirestore({
             ...ticket,
             id: cleanId,
             authorUid: uid,
-          }, { merge: true });
+          }), { merge: true });
         } catch (err) {
           handleFirestoreError(err, OperationType.WRITE, path);
         }
@@ -377,12 +398,12 @@ export async function syncFarmerToCloud(farmer: Farmer): Promise<boolean> {
   }
 
   try {
-    await setDoc(doc(db, 'farmers', farmerId), {
+    await setDoc(doc(db, 'farmers', farmerId), sanitizeForFirestore({
       ...farmer,
       id: farmerId,
       ownerUid: uid,
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    }), { merge: true });
     return true;
   } catch (err) {
     console.warn('Failed to auto-sync farmer to cloud:', err);
@@ -413,12 +434,12 @@ export async function syncLotToCloud(lot: SaleLot): Promise<boolean> {
     return false;
   }
   try {
-    await setDoc(doc(db, 'lots', lotId), {
+    await setDoc(doc(db, 'lots', lotId), sanitizeForFirestore({
       ...lot,
       id: lotId,
       ownerUid: uid,
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    }), { merge: true });
     return true;
   } catch (err) {
     console.warn('Failed to auto-sync lot to cloud:', err);
@@ -449,12 +470,12 @@ export async function syncShipmentToCloud(shipment: Shipment): Promise<boolean> 
     return false;
   }
   try {
-    await setDoc(doc(db, 'shipments', shipmentId), {
+    await setDoc(doc(db, 'shipments', shipmentId), sanitizeForFirestore({
       ...shipment,
       id: shipmentId,
       ownerUid: uid,
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    }), { merge: true });
     return true;
   } catch (err) {
     console.warn('Failed to auto-sync shipment to cloud:', err);
@@ -485,12 +506,12 @@ export async function syncPaymentToCloud(payment: PaymentRecord): Promise<boolea
     return false;
   }
   try {
-    await setDoc(doc(db, 'payments', paymentId), {
+    await setDoc(doc(db, 'payments', paymentId), sanitizeForFirestore({
       ...payment,
       id: paymentId,
       ownerUid: uid,
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    }), { merge: true });
     return true;
   } catch (err) {
     console.warn('Failed to auto-sync payment to cloud:', err);
@@ -521,12 +542,12 @@ export async function syncSettlementToCloud(settlement: FifteenDaySettlement): P
     return false;
   }
   try {
-    await setDoc(doc(db, 'settlements', settlementId), {
+    await setDoc(doc(db, 'settlements', settlementId), sanitizeForFirestore({
       ...settlement,
       id: settlementId,
       ownerUid: uid,
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    }), { merge: true });
     return true;
   } catch (err) {
     console.warn('Failed to auto-sync settlement to cloud:', err);
@@ -541,12 +562,12 @@ export async function syncMerchantProfileToCloud(profile: MerchantProfile): Prom
     ? profile.merchantId.trim()
     : 'MANDI-HYD-014';
   try {
-    await setDoc(doc(db, 'merchants', profileId), {
+    await setDoc(doc(db, 'merchants', profileId), sanitizeForFirestore({
       ...profile,
       merchantId: profileId,
       ownerUid: uid,
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    }), { merge: true });
     return true;
   } catch (err) {
     console.warn('Failed to auto-sync merchant profile to cloud:', err);
@@ -715,12 +736,12 @@ export async function recordCloudUserSession(
 
     await setDoc(
       doc(db, 'userSessions', cleanPhone),
-      {
+      sanitizeForFirestore({
         phoneNumber: cleanPhone,
         currentSessionId: sessionId,
         lastLoginAt: new Date().toISOString(),
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'web-app',
-      },
+      }),
       { merge: true }
     );
     return true;

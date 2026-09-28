@@ -35,9 +35,9 @@ export const FarmerParchiView: React.FC<FarmerParchiViewProps> = ({
   farmerName,
   farmerLots,
 }) => {
-  const { setSelectedParchiLot, language, t } = useMandi();
+  const { setSelectedParchiLot, activeSessionDate, language, t } = useMandi();
 
-  const todayStr = getTodayDateString();
+  const todayStr = activeSessionDate || getTodayDateString();
   const currentMonthStr = todayStr.slice(0, 7);
 
   // View toggle: Daily vs Monthly vs All
@@ -46,16 +46,11 @@ export const FarmerParchiView: React.FC<FarmerParchiViewProps> = ({
   // Daily view controls
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
 
-  // Auto-adjust selectedDate if farmer has lots on other dates but 0 on current selectedDate
   useEffect(() => {
-    if (farmerLots.length > 0 && viewMode === 'daily') {
-      const dates = Array.from(new Set(farmerLots.map((l) => l.date).filter(Boolean))).sort().reverse();
-      const currentCount = farmerLots.filter((l) => l.date === selectedDate).length;
-      if (dates.length > 0 && currentCount === 0) {
-        setSelectedDate(dates[0]);
-      }
+    if (activeSessionDate) {
+      setSelectedDate(activeSessionDate);
     }
-  }, [farmerLots, viewMode, selectedDate]);
+  }, [activeSessionDate]);
 
   // Monthly view controls
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);

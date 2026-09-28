@@ -524,16 +524,6 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
 
             <button
               type="button"
-              id="detail-modal-form-c-btn"
-              onClick={handleFormCPdf}
-              className="px-3 py-2 rounded-xl bg-[#FEF8ED] border-2 border-[#d4af37] text-[#1e293b] text-xs font-black hover:bg-[#faebd1] transition flex items-center gap-1.5 cursor-pointer shadow-2xs min-touch-target"
-            >
-              <FileText className="w-3.5 h-3.5 text-[#d4af37]" />
-              <span>Form C PDF</span>
-            </button>
-
-            <button
-              type="button"
               id="detail-modal-edit-btn"
               onClick={() => {
                 onClose();

@@ -259,60 +259,62 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
         </div>
 
         {/* 5. MANDI CHARGES & COMMISSION DEDUCTIONS */}
-        <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white space-y-3.5 text-xs">
-          <div className="flex justify-between items-center border-b border-slate-200 pb-2.5">
+        <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-4">
+          <div className="flex justify-between items-center border-b border-slate-200 pb-3">
             <span className="text-xs font-black uppercase tracking-wider text-slate-900">
               MANDI CHARGES &amp; COMMISSION DEDUCTIONS
             </span>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-              FORM C SUMMARY
+            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-white px-3 py-1 rounded-full border border-slate-200 shadow-2xs">
+              FORM C ITEMIZATION
             </span>
           </div>
 
-          <div className="space-y-2 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             {/* Freight / Vehicle Charges */}
-            <div className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
-              <span className="font-medium text-slate-700">Total Vehicle / Freight Charges:</span>
-              <span className="font-mono font-bold text-slate-900">
+            <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center">
+              <div>
+                <span className="font-bold text-slate-800 block">Vehicle / Freight Charges</span>
+                <span className="text-[10px] text-slate-500">Transport &amp; Cartage</span>
+              </div>
+              <span className="font-mono font-bold text-slate-900 text-sm">
                 ₹{data.transportCharges.toFixed(2)}
               </span>
             </div>
 
             {/* Hamali / Loading Charges */}
-            <div className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
-              <span className="font-medium text-slate-700">Total Hamali / Loading &amp; Unloading:</span>
-              <span className="font-mono font-bold text-slate-900">
+            <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center">
+              <div>
+                <span className="font-bold text-slate-800 block">Hamali / Labor Charges</span>
+                <span className="text-[10px] text-slate-500">Loading &amp; Unloading</span>
+              </div>
+              <span className="font-mono font-bold text-slate-900 text-sm">
                 ₹{data.ammaliCharges.toFixed(2)}
               </span>
             </div>
 
             {/* Mandi Commission */}
-            <div className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-slate-700">Mandi Commission:</span>
-                {data.commissionPercent > 0 && (
-                  <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                    {data.commissionPercent}%
-                  </span>
-                )}
+            <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center">
+              <div>
+                <span className="font-bold text-slate-800 block">Mandi Agent Commission</span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {data.commissionPercent > 0 ? `Rate: ${data.commissionPercent}% on Gross` : 'Standard Rate'}
+                </span>
               </div>
-              <span className="font-mono font-bold text-red-700">
+              <span className="font-mono font-bold text-red-700 text-sm">
                 -₹{data.commissionAmount.toFixed(2)}
               </span>
             </div>
 
             {/* Miscellaneous Charges */}
             {(data.miscCommissionAmount || 0) > 0 && (
-              <div className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-slate-700">Miscellaneous &amp; Market Charges:</span>
-                  {data.miscCommissionPercent ? (
-                    <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                      {data.miscCommissionPercent}%
-                    </span>
-                  ) : null}
+              <div className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center">
+                <div>
+                  <span className="font-bold text-slate-800 block">Miscellaneous Market Charges</span>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {data.miscCommissionPercent ? `${data.miscCommissionPercent}%` : 'Fixed Fee'}
+                  </span>
                 </div>
-                <span className="font-mono font-bold text-red-700">
+                <span className="font-mono font-bold text-red-700 text-sm">
                   -₹{(data.miscCommissionAmount || 0).toFixed(2)}
                 </span>
               </div>
@@ -321,19 +323,19 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
             {/* Custom Deductions if any */}
             {Array.isArray(data.otherDeductions) &&
               data.otherDeductions.map((d, idx) => (
-                <div key={idx} className="flex justify-between items-center py-1 text-slate-700 border-b border-slate-100">
-                  <span className="font-medium text-slate-700">{d.name}:</span>
-                  <span className="font-mono font-bold text-red-700">-₹{Number(d.amount || 0).toFixed(2)}</span>
+                <div key={idx} className="p-3 bg-white rounded-xl border border-slate-200 flex justify-between items-center">
+                  <span className="font-bold text-slate-800">{d.name}</span>
+                  <span className="font-mono font-bold text-red-700 text-sm">-₹{Number(d.amount || 0).toFixed(2)}</span>
                 </div>
               ))}
+          </div>
 
-            {/* Total Deductions Highlight Bar */}
-            <div className="flex justify-between items-center p-3 rounded-xl bg-red-50/80 border border-red-200/90 font-bold text-xs mt-2.5 text-red-900">
-              <span className="text-slate-800 font-bold">Total Deductions (Freight + Hamali + Commission + Misc):</span>
-              <span className="font-mono font-black text-red-700 text-sm">
-                -₹{totalDeductionsSum.toFixed(2)}
-              </span>
-            </div>
+          {/* Total Deductions Highlight Bar */}
+          <div className="flex justify-between items-center p-3.5 rounded-xl bg-red-50 border border-red-200 font-bold text-xs text-red-950">
+            <span className="text-slate-900 font-bold">TOTAL MANDI DEDUCTIONS (Freight + Hamali + Commission + Misc):</span>
+            <span className="font-mono font-black text-red-700 text-base">
+              -₹{totalDeductionsSum.toFixed(2)}
+            </span>
           </div>
         </div>
 
@@ -355,40 +357,50 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
         </div>
 
         {/* 7. Bottom Settlement & Authorization Box */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 grid grid-cols-2 gap-4 text-xs">
-          <div className="space-y-1.5">
-            <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider block">
-              PAYMENT SETTLEMENT STATUS:
-            </span>
-            <div className="text-xs text-slate-700 space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Payments / Advances Made:</span>
-                <strong className="text-slate-900 font-mono">₹{data.amountPaid.toFixed(2)}</strong>
+        <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2.5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                PAYMENT SETTLEMENT STATUS
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                (data.paymentStatus || 'SETTLED').toLowerCase().includes('paid') || (data.paymentStatus || 'SETTLED').toLowerCase().includes('settled')
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+              }`}>
+                {data.paymentStatus || 'SETTLED'}
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center text-slate-700">
+                <span className="text-slate-600 font-medium">Payments / Advances Made:</span>
+                <span className="text-slate-900 font-mono font-bold">₹{data.amountPaid.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between border-t border-slate-200 pt-1 font-bold">
-                <span className="text-slate-900">Final Balance Due:</span>
-                <strong className="text-emerald-800 font-mono text-sm">
+              <div className="flex justify-between items-center text-slate-700">
+                <span className="text-slate-600 font-medium">Payment Mode:</span>
+                <span className="text-slate-900 font-bold uppercase">{data.paymentMode || 'Cash'}</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-slate-200 pt-2 font-bold text-slate-900">
+                <span className="text-slate-900 font-black">Final Balance Due:</span>
+                <span className="text-emerald-800 font-mono font-black text-base">
                   ₹{(data.balanceDue ?? Math.max(0, data.farmerNetPayable - data.amountPaid)).toFixed(2)}
-                </strong>
-              </div>
-              <div className="flex gap-2 text-[11px] text-slate-500 pt-0.5">
-                <span>Status:</span>
-                <strong className="text-slate-900 uppercase">{data.paymentStatus || 'SETTLED'}</strong>
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="text-right flex flex-col justify-between">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between text-right min-h-[120px]">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
               AUTHORIZATION &amp; SEAL
             </span>
-            <div className="border-b border-dotted border-slate-400 w-48 ml-auto my-3" />
+            <div className="border-b-2 border-dotted border-slate-400 w-48 ml-auto my-3" />
             <div>
-              <span className="text-xs font-bold text-slate-900 block">
+              <span className="text-xs font-black text-slate-900 block">
                 For {shopName}
               </span>
-              <span className="text-[10px] text-slate-500">
-                (Authorized Signatory / Mandi Licensee)
+              <span className="text-[10px] text-slate-500 block mt-0.5">
+                (Authorized Signatory / APMC Mandi Licensee)
               </span>
             </div>
           </div>

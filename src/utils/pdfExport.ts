@@ -692,10 +692,11 @@ export async function sharePdfFile(options: SharePdfOptions): Promise<SharePdfRe
   // 1. Feature detect Web Share API with file sharing capability
   if (canSharePdfFile(file)) {
     try {
+      // NOTE: Passing both 'text' and 'files' to navigator.share causes Android/iOS WhatsApp to create 2 separate share items (double sharing).
+      // When sharing a file, pass only title and files.
       await navigator.share({
         files: [file],
         title,
-        text,
       });
       return {
         shared: true,

@@ -32,7 +32,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
-import { WeightUnit, PaymentStatus, PaymentMode, Expenditures, FlowerQuality, SaleLot, CommodityCategory } from '../../types';
+import { WeightUnit, PaymentStatus, PaymentMode, Expenditures, FlowerQuality, SaleLot, CommodityCategory, Farmer } from '../../types';
 import { flowerVarietiesData } from '../../translations';
 import {
   formatDisplayDate,
@@ -108,6 +108,7 @@ export const NewSaleView: React.FC = () => {
   const [showInlineAddFarmer, setShowInlineAddFarmer] = useState(false);
 
   // New Inline Farmer Form State
+  const [editingFarmer, setEditingFarmer] = useState<Farmer | null>(null);
   const [newFarmerName, setNewFarmerName] = useState('');
   const [newFarmerPhone, setNewFarmerPhone] = useState('');
   const [newFarmerVillage, setNewFarmerVillage] = useState('');
@@ -336,7 +337,7 @@ export const NewSaleView: React.FC = () => {
       f.phone.includes(farmerSearch)
   );
 
-  // Handle Inline Add Farmer
+  // Handle Inline Add/Edit Farmer
   const handleSaveInlineFarmer = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFarmerName.trim()) {
@@ -355,19 +356,31 @@ export const NewSaleView: React.FC = () => {
       return;
     }
 
-    const created = addFarmer({
-      name: newFarmerName.trim(),
-      phone: cleanPhone || '',
-      village: newFarmerVillage.trim() || 'Local Mandi Belt',
-      primaryCrops: [flowerVariety],
-      connectedMerchantIds: [merchantProfile.merchantId],
-      photoUrl: newFarmerPhotoUrl.trim() || undefined,
-    });
+    if (editingFarmer) {
+      updateFarmer(editingFarmer.id, {
+        name: newFarmerName.trim(),
+        phone: cleanPhone || editingFarmer.phone,
+        village: newFarmerVillage.trim() || editingFarmer.village,
+        photoUrl: newFarmerPhotoUrl.trim() || editingFarmer.photoUrl,
+      });
+      setSelectedFarmerId(editingFarmer.id);
+      setEditingFarmer(null);
+    } else {
+      const created = addFarmer({
+        name: newFarmerName.trim(),
+        phone: cleanPhone || '',
+        village: newFarmerVillage.trim() || 'Local Mandi Belt',
+        primaryCrops: [flowerVariety],
+        connectedMerchantIds: [merchantProfile.merchantId],
+        photoUrl: newFarmerPhotoUrl.trim() || undefined,
+      });
+      setSelectedFarmerId(created.id);
+    }
 
-    setSelectedFarmerId(created.id);
     setNewFarmerName('');
     setNewFarmerPhone('');
     setNewFarmerVillage('');
+    setNewFarmerPhotoUrl('');
     setShowInlineAddFarmer(false);
   };
 
@@ -508,7 +521,7 @@ export const NewSaleView: React.FC = () => {
       paymentStatus,
       amountPaid: numericPaid,
       balanceDue,
-      notes: notes.trim() || undefined,
+      notes: notes.trim(),
     });
 
     // Play cash chime sound effect
@@ -563,7 +576,7 @@ export const NewSaleView: React.FC = () => {
       balanceDue,
       paymentMode: numericPaid > 0 ? paymentMode : undefined,
       paymentReference: numericPaid > 0 ? paymentReference.trim() : undefined,
-      notes: notes.trim() || undefined,
+      notes: notes.trim(),
       shipmentId: newShipment.id,
     };
 
@@ -951,9 +964,28 @@ export const NewSaleView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="text-right">
-                <span className="text-[10px] text-[#64748b] block">Mobile for Parchi</span>
-                <span className="font-mono font-bold text-[#1a3a52]">+91 {selectedFarmer.phone}</span>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <span className="text-[10px] text-[#64748b] block">Mobile for Parchi</span>
+                  <span className="font-mono font-bold text-[#1a3a52]">+91 {selectedFarmer.phone}</span>
+                </div>
+                <button
+                  type="button"
+                  id="newsale-edit-consignor-btn"
+                  onClick={() => {
+                    setEditingFarmer(selectedFarmer);
+                    setNewFarmerName(selectedFarmer.name);
+                    setNewFarmerPhone(selectedFarmer.phone);
+                    setNewFarmerVillage(selectedFarmer.village);
+                    setNewFarmerPhotoUrl(selectedFarmer.photoUrl || '');
+                    setShowInlineAddFarmer(true);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition flex items-center gap-1 cursor-pointer shadow-2xs shrink-0"
+                  title="Edit this farmer's details"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-[#d4af37]" />
+                  <span>Edit</span>
+                </button>
               </div>
             </div>
           ) : (
@@ -2090,35 +2122,15 @@ export const NewSaleView: React.FC = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-            <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 id="newsale-switch-date-btn"
                 onClick={() => setIsDateSwitcherOpen(true)}
-                className="px-3 py-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-[#1e293b] font-bold text-xs hover:bg-[#f1f5f9] transition flex items-center justify-center gap-1.5 cursor-pointer min-w-0"
+                className="px-3.5 py-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-[#1e293b] font-bold text-xs hover:bg-[#f1f5f9] transition flex items-center justify-center gap-1.5 cursor-pointer min-w-0"
               >
                 <Calendar className="w-3.5 h-3.5 text-[#64748b] shrink-0" />
                 <span className="truncate">Switch Date</span>
-              </button>
-
-              <button
-                type="button"
-                id="newsale-generate-pdf-btn"
-                onClick={() => {
-                  if (computedVarietyRows.length > 0 && selectedFarmer) {
-                    setIsDraftPdfOpen(true);
-                  } else if (dateLots.length > 0) {
-                    openPdfModalForLot(dateLots[0]);
-                  } else if (lots.length > 0) {
-                    openPdfModalForLot(lots[0]);
-                  } else {
-                    setIsDraftPdfOpen(true);
-                  }
-                }}
-                className="px-3.5 py-3 rounded-xl bg-[#FEF8ED] border border-[#d4af37] text-[#1e293b] font-bold text-xs hover:bg-[#faebd1] transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer min-w-0"
-              >
-                <FileText className="w-4 h-4 text-[#d4af37] shrink-0" />
-                <span className="truncate">Form C PDF</span>
               </button>
             </div>
 
@@ -2228,16 +2240,6 @@ export const NewSaleView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                  <button
-                    type="button"
-                    id={`newsale-lot-pdf-btn-${lot.id}`}
-                    onClick={() => openPdfModalForLot(lot)}
-                    className="px-3 py-1.5 rounded-lg bg-[#FEF8ED] border border-[#d4af37] text-[#1e293b] font-bold text-xs hover:bg-[#faebd1] transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                    title="Generate Form C PDF with commission & deduction breakdown"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-[#d4af37]" />
-                    <span>Form C PDF</span>
-                  </button>
                   <button
                     type="button"
                     onClick={() => setSelectedParchiLot(lot)}

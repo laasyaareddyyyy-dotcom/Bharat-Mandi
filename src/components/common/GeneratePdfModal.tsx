@@ -459,7 +459,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
 
   // WhatsApp / Native Share with PDF file attachment via Web Share API
   const handleShareWhatsApp = async () => {
-    if (!pdfPrintAreaRef.current) return;
+    if (!pdfPrintAreaRef.current || isSharingPdf) return;
     setIsSharingPdf(true);
     setPdfStatusMessage('Rendering Form C PDF for file sharing...');
 
@@ -486,16 +486,15 @@ ${itemsSummary}
 _Generated via भारत MANDI System_`;
 
     try {
-      const isThermal = pdfLayoutFormat === 'thermal';
       const filename = `FormC-Invoice-${sourceParchiNumber}.pdf`;
 
-      // 1. Generate PDF blob from the invoice canvas element
+      // 1. Generate PDF blob from the invoice canvas element using the EXACT SAME format as download
       const result = await exportElementToPdf(pdfPrintAreaRef.current, {
         filename,
         title: `APMC Form C Invoice #${sourceParchiNumber}`,
-        format: isThermal ? 'thermal-80mm' : 'a4',
+        format: pdfLayoutFormat,
         orientation: 'portrait',
-        marginMm: isThermal ? 3 : 5,
+        marginMm: pdfLayoutFormat === 'thermal-80mm' ? 4 : 6,
         scale: 2,
         autoDownload: false,
       });
@@ -504,55 +503,28 @@ _Generated via भारत MANDI System_`;
         throw new Error(result.error || 'Failed to render PDF');
       }
 
-      // 2. Convert Blob to standard File object
-      const pdfFile = createPdfFile(result.blob, filename);
+      // 2. Share PDF file via centralized helper
+      const shareRes = await sharePdfFile({
+        blob: result.blob,
+        filename,
+        title: `APMC Form C Invoice - ${sourceParchiNumber}`,
+        text: shareSummaryText,
+        fallbackToDownload: true,
+      });
 
-      // 3. Feature-detect and invoke Web Share API with files
-      if (canSharePdfFile(pdfFile)) {
-        try {
-          await navigator.share({
-            files: [pdfFile],
-            title: `APMC Form C Invoice - ${sourceParchiNumber}`,
-            text: shareSummaryText,
-          });
-          setPdfStatusMessage('Form C PDF shared successfully!');
-        } catch (err: any) {
-          if (err?.name === 'AbortError') {
-            console.log('[Form C Share] User dismissed share dialog.');
-            setPdfStatusMessage('');
-          } else {
-            console.warn('[Form C Share API Error]', err);
-            const shareRes = await sharePdfFile({
-              blob: result.blob,
-              filename,
-              fallbackToDownload: true,
-            });
-            if (shareRes.downloaded) {
-              setPdfStatusMessage(
-                "Your browser doesn't support direct file sharing — please download the PDF and attach it manually in WhatsApp."
-              );
-            }
-          }
-        }
-      } else {
-        // Fallback for browsers without direct Web Share file support
-        const shareRes = await sharePdfFile({
-          blob: result.blob,
-          filename,
-          fallbackToDownload: true,
-        });
-        if (shareRes.downloaded) {
-          setPdfStatusMessage(
-            "Your browser doesn't support direct file sharing — please download the PDF and attach it manually in WhatsApp."
-          );
-        }
+      if (shareRes.shared) {
+        setPdfStatusMessage('✓ Form C PDF shared successfully!');
+      } else if (shareRes.downloaded) {
+        setPdfStatusMessage(
+          "Your browser doesn't support direct file sharing — the PDF has been downloaded so you can attach it in WhatsApp."
+        );
       }
     } catch (err: any) {
       console.error('[Form C Share Fatal Error]', err);
       setPdfStatusMessage('Could not share PDF. Please use the Download PDF button.');
     } finally {
       setIsSharingPdf(false);
-      setTimeout(() => setPdfStatusMessage(''), 7000);
+      setTimeout(() => setPdfStatusMessage(''), 6000);
     }
   };
 

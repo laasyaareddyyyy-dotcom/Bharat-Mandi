@@ -342,7 +342,7 @@ interface MandiContextType {
   totalOutstandingDues: number;
   totalPaidToDate: number;
 
-  getFarmerStats: (farmerId: string) => {
+  getFarmerStats: (farmerId: string, startDate?: string, endDate?: string) => {
     totalLots: number;
     totalVolume: number;
     totalTurnover: number;
@@ -634,7 +634,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         // fallback
       }
     }
-    return deduplicateLots(sanitizeLotsCommission(generateInitialLots()));
+    return [];
   });
 
   // Payments - dynamic per user phone
@@ -650,7 +650,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         // fallback
       }
     }
-    return deduplicatePayments(initialPayments);
+    return [];
   });
 
   // Shipments (Multi-variety grouped shipments with one-time Hamali & Transport)
@@ -666,7 +666,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         // fallback
       }
     }
-    return deduplicateShipments(generateInitialShipments('2024-09-15'));
+    return [];
   });
 
   // 15-Day Settlements
@@ -2975,8 +2975,16 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [todayShipments, todayLots]);
 
   const totalOutstandingDues = useMemo(() => {
-    return lots.reduce((acc, l) => acc + l.balanceDue, 0);
-  }, [lots]);
+    return lots
+      .filter((l) => {
+        if (activeCommodityFilter !== 'all') {
+          const lotCat = l.commodityCategory || 'flowers';
+          if (lotCat !== activeCommodityFilter) return false;
+        }
+        return true;
+      })
+      .reduce((acc, l) => acc + (l.balanceDue || 0), 0);
+  }, [lots, activeCommodityFilter]);
 
   const totalPaidToDate = useMemo(() => {
     return payments.reduce((acc, p) => acc + p.amount, 0);
@@ -3043,14 +3051,16 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return result;
   }, [todayShipments, todayLots]);
 
-  // Stats for specific farmer (Scoped to active commodity)
-  const getFarmerStats = (farmerId: string) => {
+  // Stats for specific farmer (Scoped to active commodity and optional date range)
+  const getFarmerStats = (farmerId: string, startDate?: string, endDate?: string) => {
     const farmerLots = lots.filter((l) => {
       if (l.farmerId !== farmerId) return false;
       if (activeCommodityFilter !== 'all') {
         const lotCat = l.commodityCategory || 'flowers';
         if (lotCat !== activeCommodityFilter) return false;
       }
+      if (startDate && l.date < startDate) return false;
+      if (endDate && l.date > endDate) return false;
       return true;
     });
     const totalLots = farmerLots.length;
