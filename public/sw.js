@@ -40,7 +40,7 @@ self.addEventListener('fetch', (event) => {
   // Pass non-GET and Firestore / API requests directly to network
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api/') || url.hostname.includes('firestore.googleapis.com')) {
+  if (url.pathname.startsWith('/api/')) {
     return;
   }
 

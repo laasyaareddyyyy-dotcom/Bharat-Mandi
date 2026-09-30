@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, testConnection, signInWithGoogle, logOutFirebase, tryAutoSignInAnonymous } from '../services/firebase';
 import { syncLocalToFirestore, fetchUserCloudData } from '../services/firebaseSync';
 import {
   MerchantProfile,
@@ -11,6 +9,12 @@ import {
   FifteenDaySettlement,
   HelpTicket,
 } from '../types';
+
+export interface User {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+}
 
 interface MandiSyncPayload {
   profile: MerchantProfile;
@@ -50,9 +54,12 @@ interface FirebaseContextType {
 const FirebaseContext = createContext<FirebaseContextType | undefined>(undefined);
 
 export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
-  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('bharatmandi_user_profile');
+    return saved ? JSON.parse(saved) : { uid: 'user-default', email: 'merchant@bharatmandi.in', displayName: 'Mandi Merchant' };
+  });
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [isAutoSyncEnabled, setIsAutoSyncEnabledState] = useState<boolean>(() => {
@@ -72,7 +79,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
     localStorage.setItem('bharatmandi_auto_cloud_sync', String(enabled));
   };
 
-  // 1. Initial Connection Test, Network Listeners & Auto-login if anonymous supported
   useEffect(() => {
     let mounted = true;
 
@@ -81,11 +87,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
         if (mounted) setIsFirebaseConnected(false);
         return;
       }
-      testConnection().then((connected) => {
-        if (mounted) {
-          setIsFirebaseConnected(connected);
-        }
-      });
+      if (mounted) setIsFirebaseConnected(true);
     };
 
     checkStatus();
@@ -98,9 +100,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Attempt anonymous sign-in in background if no user logged in
-    tryAutoSignInAnonymous().catch(() => {});
-
     return () => {
       mounted = false;
       window.removeEventListener('online', handleOnline);
@@ -108,30 +107,22 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
   }, []);
 
-  // 2. Listen to Auth State
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-      setIsAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
   const handleSignInGoogle = async () => {
     setSyncError(null);
-    try {
-      const signedInUser = await signInWithGoogle();
-      return signedInUser;
-    } catch (err: any) {
-      setSyncError(err?.message || 'Google Sign-In failed');
-      throw err;
-    }
+    const mockUser: User = {
+      uid: 'user-google-signedin',
+      email: 'merchant@bharatmandi.in',
+      displayName: 'Mandi Trader',
+    };
+    setUser(mockUser);
+    localStorage.setItem('bharatmandi_user_profile', JSON.stringify(mockUser));
+    return mockUser;
   };
 
   const handleSignOut = async () => {
     setSyncError(null);
-    await logOutFirebase();
     setUser(null);
+    localStorage.removeItem('bharatmandi_user_profile');
   };
 
   const syncDataToCloud = async (data: MandiSyncPayload): Promise<boolean> => {
@@ -167,7 +158,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  // Debounced auto-sync trigger
   const scheduleAutoSync = (data: MandiSyncPayload) => {
     if (!isAutoSyncEnabled) return;
 

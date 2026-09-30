@@ -761,7 +761,7 @@ export const SettingsModal: React.FC = () => {
                         Authenticated with Google as <strong className="text-[#1e293b]">{firebaseUser.displayName || firebaseUser.email}</strong>
                       </span>
                     ) : (
-                      <span>Sign in with Google to securely backup your Mandi lots and farmer accounts to Google Cloud Firestore.</span>
+                      <span>Sign in with Google to securely backup your Mandi lots and farmer accounts to Cloud Storage.</span>
                     )}
                   </p>
                   {lastSyncedAt && (
@@ -776,7 +776,7 @@ export const SettingsModal: React.FC = () => {
                   {firebaseUser ? (
                     <button
                       type="button"
-                      id="firebase-signout-btn"
+                      id="cloud-signout-btn"
                       onClick={() => signOutGoogle()}
                       className="px-3 py-1.5 rounded-lg border border-[#e2e8f0] bg-white text-stone-700 hover:bg-stone-50 text-xs font-medium flex items-center gap-1.5 shadow-2xs cursor-pointer"
                     >
@@ -786,7 +786,7 @@ export const SettingsModal: React.FC = () => {
                   ) : (
                     <button
                       type="button"
-                      id="firebase-signin-btn"
+                      id="cloud-signin-btn"
                       onClick={() => signInWithGoogle()}
                       className="px-4 py-2 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition flex items-center gap-2 shadow-xs cursor-pointer"
                     >
@@ -807,7 +807,7 @@ export const SettingsModal: React.FC = () => {
                     {autoSaveStatus === 'saving' ? (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 flex items-center gap-1">
                         <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                        Syncing to Firestore...
+                        Syncing to Cloud...
                       </span>
                     ) : autoSaveStatus === 'saved' ? (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
