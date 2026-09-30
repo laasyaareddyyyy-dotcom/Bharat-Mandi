@@ -29,7 +29,8 @@ import { LanguageSettingsModal } from '../common/LanguageSettingsModal';
 import { getLanguageInfo } from '../../data/indianLanguages';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 import { validateIndianMobile, cleanIndianMobile } from '../../utils/phoneValidation';
-import { checkCloudDuplicateRegistration } from '../../services/firebaseSync';
+import { checkCloudDuplicateRegistration } from '../../services/supabaseSync';
+import { sendPhoneOtp, verifyPhoneOtp, isSupabaseConfigured } from '../../services/supabase';
 
 type Role = 'farmer' | 'merchant';
 type AuthStep = 'step1-role' | 'step2-auth' | 'step2-otp' | 'step2-profile' | 'step3-commodities';
@@ -260,18 +261,44 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     }
     const cleanPhone = phoneVal.cleanNumber;
     setPhone(cleanPhone);
-    setSelectedRole(acct.role);
-    setAuthMethod('phone');
-    setAuthMode('login');
-    setErrorMsg('');
-    setIsOtpSending(true);
+    const resolvedRole = acct.role;
+    setSelectedRole(resolvedRole);
+    setPortalMode(resolvedRole);
+    switchUserAccount(cleanPhone);
 
-    setTimeout(() => {
-      setIsOtpSending(false);
-      setOtp(['1', '2', '3', '4', '5', '6']);
-      setStep('step2-otp');
-      sounds.playCashChime();
-    }, 250);
+    const restoredCommodities: CommodityCategory[] =
+      acct.selectedCommodities && acct.selectedCommodities.length > 0
+        ? (acct.selectedCommodities as CommodityCategory[])
+        : (['flowers'] as CommodityCategory[]);
+    setUserCommodities(restoredCommodities);
+
+    if (resolvedRole === 'farmer') {
+      const matchingFarmer = farmers.find(
+        (f) =>
+          cleanIndianMobile(f.phone) === cleanPhone ||
+          f.name.toLowerCase() === acct.fullName.toLowerCase() ||
+          f.id === acct.id
+      );
+      if (matchingFarmer) {
+        setActiveFarmerId(matchingFarmer.id);
+      }
+    }
+
+    try {
+      localStorage.setItem('phoolmitra_onboarding_completed', 'true');
+      localStorage.setItem('bharatmandi_onboarding_completed', 'true');
+      localStorage.setItem('phoolmitra_user_role', resolvedRole);
+      localStorage.setItem('bharatmandi_user_role', resolvedRole);
+      localStorage.setItem('phoolmitra_active_phone_v1', cleanPhone);
+      localStorage.setItem('bharatmandi_active_phone_v1', cleanPhone);
+      localStorage.setItem('phoolmitra_user_commodities', JSON.stringify(restoredCommodities));
+      localStorage.setItem('bharatmandi_user_commodities', JSON.stringify(restoredCommodities));
+    } catch {
+      // ignore
+    }
+
+    sounds.playGavelStrike();
+    onComplete();
   };
 
   const handleSelectRole = (role: Role, mode: 'signup' | 'login' = 'signup') => {
@@ -324,15 +351,28 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     setIsOtpSending(true);
     sounds.playBidTick();
 
-    setTimeout(() => {
+    if (authMethod === 'phone') {
+      const res = await sendPhoneOtp(phone);
+      setIsOtpSending(false);
+      if (!res.success) {
+        setErrorMsg(res.error || 'Failed to send OTP code');
+        return;
+      }
+      if (res.simulated) {
+        setOtp(['1', '2', '3', '4', '5', '6']);
+      } else {
+        setOtp(['', '', '', '', '', '']);
+      }
+    } else {
       setIsOtpSending(false);
       setOtp(['1', '2', '3', '4', '5', '6']);
-      setStep('step2-otp');
-      sounds.playCashChime();
-    }, 400);
+    }
+
+    setStep('step2-otp');
+    sounds.playCashChime();
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     const entered = otp.join('');
     if (entered.length < 6) {
       setErrorMsg('Please enter 6 digits');
@@ -341,6 +381,15 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
     setIsVerifying(true);
     sounds.playCashChime();
+
+    if (authMethod === 'phone' && isSupabaseConfigured()) {
+      const verifyRes = await verifyPhoneOtp(phone, entered);
+      if (!verifyRes.success) {
+        setIsVerifying(false);
+        setErrorMsg(verifyRes.error || 'Invalid OTP code. Please check and try again.');
+        return;
+      }
+    }
 
     setTimeout(() => {
       setIsVerifying(false);
@@ -1116,7 +1165,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                   disabled={isOtpSending}
                   className="flex-1 py-4 px-6 rounded-2xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-base sm:text-lg transition shadow-md flex items-center justify-center gap-2 active:scale-[0.99] cursor-pointer disabled:opacity-50"
                 >
-                  <span>{content.sendOtpBtn}</span>
+                  <span className="text-white font-black">{content.sendOtpBtn}</span>
                   <ArrowRight className="w-5 h-5 text-[#d4af37]" />
                 </button>
               </div>

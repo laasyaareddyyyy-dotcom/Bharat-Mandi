@@ -15,7 +15,7 @@ import { PhotoUploadPicker } from '../common/PhotoUploadPicker';
 import { flowerVarietiesData } from '../../translations';
 import { Farmer } from '../../types';
 import { validateIndianMobile, cleanIndianMobile } from '../../utils/phoneValidation';
-import { checkCloudDuplicateFarmer } from '../../services/firebaseSync';
+import { checkCloudDuplicateFarmer } from '../../services/supabaseSync';
 
 interface FarmerSignUpModalProps {
   isOpen: boolean;

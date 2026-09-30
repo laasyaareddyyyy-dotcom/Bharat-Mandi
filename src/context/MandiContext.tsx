@@ -42,7 +42,7 @@ import {
   deletePaymentFromCloud,
   syncSettlementToCloud,
   syncMerchantProfileToCloud,
-} from '../services/firebaseSync';
+} from '../services/supabaseSync';
 import {
   initialFarmers,
   initialMerchantProfile,

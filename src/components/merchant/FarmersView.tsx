@@ -33,7 +33,7 @@ import { FarmerKathaStatementView } from './FarmerKathaStatementView';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 import { sounds } from '../../utils/audio';
 import { validateIndianMobile, cleanIndianMobile } from '../../utils/phoneValidation';
-import { checkCloudDuplicateFarmer } from '../../services/firebaseSync';
+import { checkCloudDuplicateFarmer } from '../../services/supabaseSync';
 
 export interface FarmersViewProps {
   initialTab?: 'connected' | 'incoming';

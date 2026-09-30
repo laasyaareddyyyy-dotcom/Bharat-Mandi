@@ -20,7 +20,7 @@ import { PhotoUploadPicker } from '../common/PhotoUploadPicker';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 import { sounds } from '../../utils/audio';
 import { validateIndianMobile, cleanIndianMobile } from '../../utils/phoneValidation';
-import { checkCloudDuplicateRegistration } from '../../services/firebaseSync';
+import { checkCloudDuplicateRegistration } from '../../services/supabaseSync';
 
 interface OwnerSignUpModalProps {
   isOpen: boolean;
