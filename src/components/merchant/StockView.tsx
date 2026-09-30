@@ -20,10 +20,11 @@ import {
 import { useMandi } from '../../context/MandiContext';
 import { StockItem, CommodityCategory, WeightUnit } from '../../types';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
+import { CustomVarietyInput } from '../common/CustomVarietyInput';
 import { sounds } from '../../utils/audio';
 
 export const StockView: React.FC = () => {
-  const { stocks, addStockItem, updateStockItem, deleteStockItem, userCommodities, language } = useMandi();
+  const { stocks, addStockItem, updateStockItem, deleteStockItem, userCommodities, addCustomVarietyName, language } = useMandi();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -93,6 +94,8 @@ export const StockView: React.FC = () => {
       setTimeout(() => setFeedbackMsg(null), 4000);
       return;
     }
+
+    addCustomVarietyName(name.trim(), category);
 
     addStockItem({
       name: name.trim(),
@@ -431,13 +434,12 @@ export const StockView: React.FC = () => {
             <form onSubmit={handleCreateStock} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs bg-[#f8fafc]">
               <div className="space-y-1">
                 <label className="font-bold text-slate-700">Commodity Produce Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Sharbati Wheat, Red Onion, Dutch Rose"
+                <CustomVarietyInput
+                  category={category}
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-semibold focus:ring-2 focus:ring-[#1a3a52]/20 focus:border-[#1a3a52] bg-white outline-none"
+                  onChange={(val) => setName(val)}
+                  placeholder="e.g. Sharbati Wheat, Red Onion, Dutch Rose"
+                  required
                 />
               </div>
 

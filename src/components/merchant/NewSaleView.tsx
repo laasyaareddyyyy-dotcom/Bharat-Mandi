@@ -46,6 +46,7 @@ import { DigitalWeighingScale } from '../interactive/DigitalWeighingScale';
 import { InteractiveRateCalculator } from '../interactive/InteractiveRateCalculator';
 import { GeneratePdfModal } from '../common/GeneratePdfModal';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
+import { CustomVarietyInput } from '../common/CustomVarietyInput';
 import { sounds } from '../../utils/audio';
 
 export interface ConsignmentVarietyRow {
@@ -90,6 +91,7 @@ export const NewSaleView: React.FC = () => {
     userCommodities,
     registeredAccounts,
     activeCommodityFilter,
+    addCustomVarietyName,
     language,
     t,
   } = useMandi();
@@ -492,6 +494,13 @@ export const NewSaleView: React.FC = () => {
       setTimeout(() => setActionFeedbackMsg(null), 4000);
       return;
     }
+
+    // Register custom variety names for suggestion dropdowns across the app
+    computedVarietyRows.forEach((r) => {
+      if (r.displayName) {
+        addCustomVarietyName(r.displayName, r.commodityCategory);
+      }
+    });
 
     // Call addShipment to group all varieties into ONE shipment and deduct Hamali & Transport ONCE
     const newShipment = addShipment({
@@ -1257,19 +1266,17 @@ export const NewSaleView: React.FC = () => {
                     })}
                   </div>
 
-                  {/* Custom Variety Input if not in quick chips */}
+                  {/* Custom Variety Input with typed suggestions dropdown ("come down there showing the same") */}
                   <div>
-                    <input
-                      type="text"
-                      placeholder={`Or enter custom ${getSafeCommodityConfig(row.commodityCategory || 'flowers').name} name`}
+                    <CustomVarietyInput
+                      category={row.commodityCategory || 'flowers'}
                       value={row.customVariety}
-                      onChange={(e) => {
-                        const val = e.target.value;
+                      onChange={(val) => {
                         setVarietyRows((prev) =>
                           prev.map((r) => (r.id === row.id ? { ...r, customVariety: val } : r))
                         );
                       }}
-                      className="w-full px-3 py-1.5 rounded-lg border border-[#e2e8f0] text-xs focus:outline-hidden focus:border-[#1a3a52] bg-white"
+                      placeholder={`Type or select custom ${getSafeCommodityConfig(row.commodityCategory || 'flowers').name} name`}
                     />
                   </div>
 

@@ -55,6 +55,7 @@ import {
   generateInitialShipments,
   getTodayDateString,
   getPastDateString,
+  COMMODITY_CONFIGS,
 } from '../data/initialData';
 import {
   deduplicateFarmers,
@@ -264,6 +265,14 @@ interface MandiContextType {
   // QR Modal
   isQRModalOpen: boolean;
   setIsQRModalOpen: (open: boolean) => void;
+
+  // Custom Variety Names Suggestions & Persistence across whole app
+  customVarietyNames: string[];
+  addCustomVarietyName: (name: string, category?: CommodityCategory) => void;
+  getSuggestedVarietyNames: (
+    category?: CommodityCategory | 'all',
+    query?: string
+  ) => { name: string; category?: CommodityCategory; icon: string; isCustom: boolean }[];
 
   // Settings Modal
   isSettingsOpen: boolean;
@@ -915,6 +924,93 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   });
 
   const [isAuditTrailOpen, setIsAuditTrailOpen] = useState<boolean>(false);
+
+  // Custom Commodity Variety Names State (Persisted in localStorage & synced across app)
+  const [customVarietyNames, setCustomVarietyNames] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('bharatmandi_custom_variety_names_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.filter((n) => typeof n === 'string' && n.trim().length > 0);
+      }
+    } catch {}
+    return [];
+  });
+
+  const addCustomVarietyName = useCallback((name: string, category?: CommodityCategory) => {
+    const clean = name.trim();
+    if (!clean || clean.length <= 1 || clean.toLowerCase() === 'standard') return;
+
+    setCustomVarietyNames((prev) => {
+      if (prev.some((existing) => existing.toLowerCase() === clean.toLowerCase())) {
+        return prev;
+      }
+      const updated = [clean, ...prev];
+      try {
+        localStorage.setItem('bharatmandi_custom_variety_names_v1', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const getSuggestedVarietyNames = useCallback(
+    (category: CommodityCategory | 'all' = 'all', query: string = '') => {
+      const cleanQuery = query.trim().toLowerCase();
+      const results: { name: string; category?: CommodityCategory; icon: string; isCustom: boolean }[] = [];
+      const seenNames = new Set<string>();
+
+      const addResult = (name: string, cat?: CommodityCategory, isCustom: boolean = false) => {
+        const trimmed = name.trim();
+        if (!trimmed || trimmed.toLowerCase() === 'standard') return;
+        const key = trimmed.toLowerCase();
+        if (seenNames.has(key)) return;
+        if (cleanQuery && !key.includes(cleanQuery)) return;
+
+        seenNames.add(key);
+        const icon = cat && COMMODITY_CONFIGS[cat] ? COMMODITY_CONFIGS[cat].icon : '🌸';
+        results.push({ name: trimmed, category: cat, icon, isCustom });
+      };
+
+      // 1. First prioritize custom typed names from customVarietyNames state
+      customVarietyNames.forEach((n) => addResult(n, category !== 'all' ? category : undefined, true));
+
+      // 2. Add names from existing recorded lots, shipments, stocks, and farmers
+      lots.forEach((l) => {
+        if (l.flowerVariety) addResult(l.flowerVariety, l.commodityCategory, true);
+      });
+      shipments.forEach((s) => {
+        s.items?.forEach((item) => {
+          if (item.flowerVariety) addResult(item.flowerVariety, item.commodityCategory || s.commodityCategory, true);
+        });
+      });
+      stocks.forEach((st) => {
+        if (st.name) addResult(st.name, st.category, true);
+      });
+      farmers.forEach((f) => {
+        f.primaryCrops?.forEach((crop) => addResult(crop, undefined, true));
+      });
+
+      // 3. Add predefined commodity varieties from COMMODITY_CONFIGS
+      const categoriesToScan: CommodityCategory[] =
+        category !== 'all' && COMMODITY_CONFIGS[category]
+          ? [category]
+          : (['flowers', 'grains', 'vegetables', 'fruits'] as CommodityCategory[]);
+
+      categoriesToScan.forEach((cat) => {
+        const config = COMMODITY_CONFIGS[cat];
+        if (config && config.varieties) {
+          config.varieties.forEach((v) => {
+            addResult(v.en, cat, false);
+            if (v.hi) addResult(v.hi, cat, false);
+            if (v.te) addResult(v.te, cat, false);
+          });
+        }
+      });
+
+      return results;
+    },
+    [customVarietyNames, lots, shipments, stocks, farmers]
+  );
 
   // Help Desk & Support State
   const [helpTickets, setHelpTickets] = useState<HelpTicket[]>(() => {
@@ -3377,6 +3473,9 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         clearParchiAuditLogs,
         isQRModalOpen,
         setIsQRModalOpen,
+        customVarietyNames,
+        addCustomVarietyName,
+        getSuggestedVarietyNames,
         isSettingsOpen,
         setIsSettingsOpen,
         isPortalSelectorOpen,

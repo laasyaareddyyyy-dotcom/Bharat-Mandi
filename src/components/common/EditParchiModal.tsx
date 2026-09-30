@@ -29,6 +29,7 @@ import {
   PaymentMode,
 } from '../../types';
 import { COMMODITY_CONFIGS } from '../../data/initialData';
+import { CustomVarietyInput } from './CustomVarietyInput';
 import { sounds } from '../../utils/audio';
 
 export const EditParchiModal: React.FC = () => {
@@ -43,6 +44,7 @@ export const EditParchiModal: React.FC = () => {
     selectedParchiLot,
     setSelectedParchiLot,
     userCommodities,
+    addCustomVarietyName,
     language,
     t,
   } = useMandi();
@@ -151,6 +153,10 @@ export const EditParchiModal: React.FC = () => {
     }
 
     const cleanPhone = farmerPhone.replace(/\D/g, '').slice(-10);
+
+    if (flowerVariety.trim()) {
+      addCustomVarietyName(flowerVariety.trim(), commodityCategory);
+    }
 
     // Auto update status based on amountPaid vs net
     let finalStatus: PaymentStatus = paymentStatus;
@@ -385,13 +391,12 @@ export const EditParchiModal: React.FC = () => {
                 <label className="block text-[11px] font-bold text-[#64748b] mb-1">
                   Variety Name
                 </label>
-                <input
-                  type="text"
-                  required
+                <CustomVarietyInput
+                  category={commodityCategory}
                   value={flowerVariety}
-                  onChange={(e) => setFlowerVariety(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#e2e8f0] font-bold text-xs focus:outline-hidden focus:border-[#1a3a52]"
+                  onChange={(val) => setFlowerVariety(val)}
                   placeholder="e.g. Yellow Marigold / Banthi"
+                  required
                 />
               </div>
 
