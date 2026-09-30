@@ -71,7 +71,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
   const [isLangModalOpen, setIsLangModalOpen] = useState<boolean>(false);
 
   const currentLangInfo = getLanguageInfo(language);
-  const [otp, setOtp] = useState<string[]>(['4', '3', '2', '1']);
+  const [otp, setOtp] = useState<string[]>(['1', '2', '3', '4', '5', '6']);
   const [isOtpSending, setIsOtpSending] = useState<boolean>(false);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -133,9 +133,9 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       emailLabel: 'Email Address',
       passwordLabel: 'Create Password / PIN',
       passwordHint: 'Used to secure your transactions and settlements',
-      sendOtpBtn: 'Send 4-Digit Verification Code',
+      sendOtpBtn: 'Send 6-Digit Verification Code',
       otpTitle: 'Enter Verification Code',
-      otpSub: 'Enter the 4-digit code sent to ',
+      otpSub: 'Enter the 6-digit code sent to ',
       verifyBtn: 'Verify & Continue',
       profileTitle: 'Complete Your Profile',
       profileSub: 'Setup your identity on the Mandi ledger',
@@ -182,9 +182,9 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       emailLabel: 'ఈమెయిల్ చిరునామా',
       passwordLabel: 'పాస్‌వర్డ్ / పిన్ సృష్టించండి',
       passwordHint: 'మీ ఖాతా భద్రత కోసం ఉపయోగించబడుతుంది',
-      sendOtpBtn: '4 అంకెల OTP కోడ్ పంపండి',
+      sendOtpBtn: '6 అంకెల OTP కోడ్ పంపండి',
       otpTitle: 'OTP కోడ్ నమోదు చేయండి',
-      otpSub: 'ఈ నంబరుకు OTP పంపాము: ',
+      otpSub: 'ఈ నంబరుకు 6 అంకెల OTP పంపాము: ',
       verifyBtn: 'ధృవీకరించి కొనసాగించండి',
       profileTitle: 'ప్రొఫైల్ వివరాలు పూర్తి చేయండి',
       profileSub: 'మండీ లెడ్జర్‌లో మీ గుర్తింపును నమోదు చేయండి',
@@ -231,9 +231,9 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       emailLabel: 'ईमेल पता',
       passwordLabel: 'पासवर्ड / पिन बनाएं',
       passwordHint: 'खाते की सुरक्षा के लिए',
-      sendOtpBtn: '4 अंकों का कोड भेजें',
+      sendOtpBtn: '6 अंकों का कोड भेजें',
       otpTitle: 'सत्यापन कोड दर्ज करें',
-      otpSub: 'सत्यापन कोड भेजा गया: ',
+      otpSub: '6 अंकों का सत्यापन कोड भेजा गया: ',
       verifyBtn: 'सत्यापित कर आगे बढ़ें',
       profileTitle: 'प्रोफ़ाइल विवरण भरें',
       profileSub: 'मंडी लेजर में अपनी पहचान दर्ज करें',
@@ -268,7 +268,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
     setTimeout(() => {
       setIsOtpSending(false);
-      setOtp(['4', '3', '2', '1']);
+      setOtp(['1', '2', '3', '4', '5', '6']);
       setStep('step2-otp');
       sounds.playCashChime();
     }, 250);
@@ -326,7 +326,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
     setTimeout(() => {
       setIsOtpSending(false);
-      setOtp(['4', '3', '2', '1']);
+      setOtp(['1', '2', '3', '4', '5', '6']);
       setStep('step2-otp');
       sounds.playCashChime();
     }, 400);
@@ -334,8 +334,8 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
   const handleVerifyOtp = () => {
     const entered = otp.join('');
-    if (entered.length < 4) {
-      setErrorMsg('Please enter 4 digits');
+    if (entered.length < 6) {
+      setErrorMsg('Please enter 6 digits');
       return;
     }
 
@@ -1139,8 +1139,8 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
               </p>
             </div>
 
-            {/* 4 Digit Boxes */}
-            <div className="flex justify-center gap-3 sm:gap-4 my-4">
+            {/* 6 Digit Boxes */}
+            <div className="flex justify-center gap-2 sm:gap-3 my-4">
               {otp.map((digit, idx) => (
                 <input
                   key={idx}
@@ -1148,16 +1148,34 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                   type="tel"
                   maxLength={1}
                   value={digit}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Backspace' && !digit && idx > 0) {
+                      document.getElementById(`otp-${idx - 1}`)?.focus();
+                    }
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+                    if (pasted) {
+                      const newOtp = [...otp];
+                      for (let i = 0; i < 6; i++) {
+                        newOtp[i] = pasted[i] || '';
+                      }
+                      setOtp(newOtp);
+                      const nextFocus = Math.min(pasted.length, 5);
+                      document.getElementById(`otp-${nextFocus}`)?.focus();
+                    }
+                  }}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '');
                     const newOtp = [...otp];
                     newOtp[idx] = val;
                     setOtp(newOtp);
-                    if (val && idx < 3) {
+                    if (val && idx < 5) {
                       document.getElementById(`otp-${idx + 1}`)?.focus();
                     }
                   }}
-                  className="w-14 h-16 sm:w-16 sm:h-18 text-center text-3xl font-mono font-black rounded-2xl border-2 border-[#e2e8f0] focus:border-[#1a3a52] bg-[#f8fafc] text-[#1e293b] outline-none"
+                  className="w-11 h-14 sm:w-14 sm:h-16 text-center text-2xl sm:text-3xl font-mono font-black rounded-xl sm:rounded-2xl border-2 border-[#e2e8f0] focus:border-[#1a3a52] bg-[#f8fafc] text-[#1e293b] outline-none shadow-2xs"
                 />
               ))}
             </div>
