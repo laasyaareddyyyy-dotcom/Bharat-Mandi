@@ -374,24 +374,16 @@ interface MandiContextType {
 
 const MandiContext = createContext<MandiContextType | undefined>(undefined);
 
-// Migrate legacy phoolmitra_ storage keys to bharatmandi_ so user data is never lost
+// Ensure whole entire app is refreshed with zero data starting from 0
 const migrateLegacyStorageKeys = () => {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('phoolmitra_')) {
-        const newKey = key.replace('phoolmitra_', 'bharatmandi_');
-        if (!localStorage.getItem(newKey)) {
-          const val = localStorage.getItem(key);
-          if (val !== null) {
-            localStorage.setItem(newKey, val);
-          }
-        }
-      }
+    const isResetDone = localStorage.getItem('bharatmandi_app_zero_data_v3');
+    if (!isResetDone) {
+      localStorage.clear();
+      localStorage.setItem('bharatmandi_app_zero_data_v3', 'true');
+      return;
     }
-    // Purge any existing duplicate data across all localStorage keys
-    purgeDuplicatesFromLocalStorage();
   } catch {
     // ignore storage access restrictions
   }
@@ -613,12 +605,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         // fallback
       }
     }
-    return deduplicateFarmers(
-      initialFarmers.map((f, idx) => ({
-        ...f,
-        id: (f.id && f.id !== 'undefined') ? String(f.id).trim() : `FM-${String(idx + 1).padStart(3, '0')}`,
-      }))
-    );
+    return [];
   });
 
   // Lots - dynamic per user phone
@@ -845,7 +832,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
     }
-    return deduplicateConnectionRequests(initialConnectionRequests);
+    return [];
   });
 
   // Synced Statements across connected farmers & merchants
@@ -938,7 +925,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (Array.isArray(parsed) && parsed.length > 0) return deduplicateHelpTickets(parsed);
       }
     } catch {}
-    return deduplicateHelpTickets(initialHelpTickets);
+    return [];
   });
 
   const [isHelpDeskOpen, setIsHelpDeskOpen] = useState<boolean>(false);
@@ -3261,27 +3248,28 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  // Reset all data for current logged in user
+  // Reset all data for whole entire app to 100% zero data
   const resetAllData = () => {
-    if (currentUserPhone) {
-      const keys = getUserStorageKeys(currentUserPhone);
-      localStorage.removeItem(keys.MERCHANT);
-      localStorage.removeItem(keys.FARMERS);
-      localStorage.removeItem(keys.LOTS);
-      localStorage.removeItem(keys.PAYMENTS);
-      localStorage.removeItem(keys.REQUESTS);
-      localStorage.removeItem(keys.AUTO_REMOVE_PARCHI);
-      localStorage.removeItem(keys.AUDIT_LOGS);
+    try {
+      localStorage.clear();
+    } catch {
+      // ignore
     }
 
     setParchiAuditLogs([]);
     setAutoRemoveParchiAfterPrintState(false);
 
     setMerchantProfile(initialMerchantProfile);
-    setFarmers(initialFarmers);
-    setLots(generateInitialLots());
-    setPayments(initialPayments);
-    setConnectionRequests(initialConnectionRequests);
+    setFarmers([]);
+    setLots([]);
+    setShipments([]);
+    setPayments([]);
+    setSettlements([]);
+    setStocks([]);
+    setEmployees([]);
+    setConnectionRequests([]);
+    setSyncedStatements([]);
+    setHelpTickets([]);
     setActiveSessionDate(getTodayDateString());
   };
 
