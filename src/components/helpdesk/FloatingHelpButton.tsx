@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 export const FloatingHelpButton: React.FC = () => {
-  const { openHelpDesk, helpTickets, isHelpDeskOpen } = useMandi();
+  const { openHelpDesk, helpTickets, isHelpDeskOpen, portalMode } = useMandi();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   if (isHelpDeskOpen) return null;
@@ -84,21 +84,23 @@ export const FloatingHelpButton: React.FC = () => {
             )}
           </button>
 
-          <button
-            id="floating-admin-btn"
-            type="button"
-            onClick={() => {
-              setIsMenuOpen(false);
-              openHelpDesk('admin-dashboard');
-            }}
-            className="w-full p-2 rounded-xl text-left hover:bg-[#eef3f7] hover:text-[#1a3a52] font-semibold text-[#1e293b] flex items-center gap-2 transition cursor-pointer"
-          >
-            <Headphones className="w-4 h-4 text-amber-700" />
-            <div>
-              <span className="block font-bold">Support Admin Desk</span>
-              <span className="text-[10px] text-[#64748b] font-normal">Staff & ticket dashboard</span>
-            </div>
-          </button>
+          {portalMode === 'admin' && (
+            <button
+              id="floating-admin-btn"
+              type="button"
+              onClick={() => {
+                setIsMenuOpen(false);
+                openHelpDesk('admin-dashboard');
+              }}
+              className="w-full p-2 rounded-xl text-left hover:bg-[#eef3f7] hover:text-[#1a3a52] font-semibold text-[#1e293b] flex items-center gap-2 transition cursor-pointer"
+            >
+              <Headphones className="w-4 h-4 text-amber-700" />
+              <div>
+                <span className="block font-bold">Support Admin Desk</span>
+                <span className="text-[10px] text-[#64748b] font-normal">Staff & ticket dashboard</span>
+              </div>
+            </button>
+          )}
 
           <button
             id="floating-faq-btn"

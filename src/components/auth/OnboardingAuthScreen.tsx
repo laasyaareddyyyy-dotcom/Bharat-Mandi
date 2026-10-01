@@ -24,15 +24,15 @@ import {
 import { useMandi } from '../../context/MandiContext';
 import { Language, CommodityCategory, WeightUnit } from '../../types';
 import { sounds } from '../../utils/audio';
-import { COMMODITY_CONFIGS } from '../../data/initialData';
+import { COMMODITY_CONFIGS, DEFAULT_MARKET_YARD_NAME } from '../../data/initialData';
 import { LanguageSettingsModal } from '../common/LanguageSettingsModal';
 import { getLanguageInfo } from '../../data/indianLanguages';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
-import { validateIndianMobile, cleanIndianMobile } from '../../utils/phoneValidation';
+import { validateIndianMobile, cleanIndianMobile, isAdminUniqueNumber } from '../../utils/phoneValidation';
 import { checkCloudDuplicateRegistration } from '../../services/supabaseSync';
 import { sendPhoneOtp, verifyPhoneOtp, isSupabaseConfigured } from '../../services/supabase';
 
-type Role = 'farmer' | 'merchant';
+type Role = 'farmer' | 'merchant' | 'admin';
 type AuthStep = 'step1-role' | 'step2-auth' | 'step2-otp' | 'step2-profile' | 'step3-commodities';
 type AuthMethod = 'phone' | 'email';
 
@@ -261,7 +261,8 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     }
     const cleanPhone = phoneVal.cleanNumber;
     setPhone(cleanPhone);
-    const resolvedRole = acct.role;
+    const isAdminUser = acct.role === 'admin' || isAdminUniqueNumber(cleanPhone);
+    const resolvedRole: Role = isAdminUser ? 'admin' : (acct.role as Role);
     setSelectedRole(resolvedRole);
     setPortalMode(resolvedRole);
     switchUserAccount(cleanPhone);
@@ -452,23 +453,32 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
         }
       }
 
-      // 4. Returning User OR Login Mode: NEVER ask for credentials again! Log in directly.
-      if (existingAccount || authMode === 'login') {
-        const cleanPhone = existingAccount ? cleanIndianMobile(existingAccount.phoneNumber) : cleanIdentifier;
-        const resolvedRole = existingAccount?.role || selectedRole;
+      // 4. Returning User OR Login Mode OR Admin Unique Number: NEVER ask for credentials again! Log in directly.
+      const cleanPhone = existingAccount ? cleanIndianMobile(existingAccount.phoneNumber) : cleanIdentifier;
+      const isAdminUser = selectedRole === 'admin' || isAdminUniqueNumber(cleanPhone) || (existingAccount as any)?.role === 'admin';
+      const resolvedRole: Role = isAdminUser ? 'admin' : ((existingAccount?.role as Role) || selectedRole);
 
+      if (isAdminUser || existingAccount || authMode === 'login' || selectedRole === 'admin') {
         if (!existingAccount) {
-          // In login mode with no prior local entry: auto-create account entry to bypass credentials
-          const fallbackName = resolvedRole === 'merchant' ? (merchantProfile.ownerName || 'Mandi Merchant') : 'Kisan Member';
-          const fallbackShop = resolvedRole === 'merchant' ? (merchantProfile.shopName || 'Mandi Store') : 'Green Valley';
+          // Auto-create account entry to bypass credentials
+          const fallbackName = resolvedRole === 'admin'
+            ? 'APMC Super Administrator'
+            : resolvedRole === 'merchant'
+            ? (merchantProfile.ownerName || 'Mandi Merchant')
+            : 'Kisan Member';
+          const fallbackShop = resolvedRole === 'admin'
+            ? 'APMC Central Administration Office'
+            : resolvedRole === 'merchant'
+            ? (merchantProfile.shopName || 'Mandi Store')
+            : 'Green Valley';
           const newAccData = {
             role: resolvedRole,
             fullName: fallbackName,
             phoneNumber: cleanPhone,
             shopOrVillage: fallbackShop,
-            shopAddress: resolvedRole === 'merchant' ? 'APMC Market Yard' : undefined,
-            licenseOrCrop: 'flowers',
-            selectedCommodities: selectedCommodities,
+            shopAddress: resolvedRole === 'admin' ? 'Administrative Complex, APMC Yard 1' : resolvedRole === 'merchant' ? 'APMC Market Yard' : undefined,
+            licenseOrCrop: resolvedRole === 'admin' ? 'All Mandi Commodities' : 'flowers',
+            selectedCommodities: selectedCommodities.length > 0 ? selectedCommodities : (['flowers'] as CommodityCategory[]),
           };
           registerNewAccount(newAccData);
         }
@@ -521,7 +531,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       setShopOrVillage('');
       setShopAddress('');
       setShopNumber('');
-      setMarketName('Agri APMC Market Yard');
+      setMarketName(DEFAULT_MARKET_YARD_NAME);
       setValidationError('');
       setStep('step2-profile');
     }, 450);
@@ -613,9 +623,9 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
         fullName: name.trim() || 'Mandi Merchant',
         phoneNumber: cleanPhone,
         shopOrVillage: shopOrVillage.trim() || 'Mandi Trading Co.',
-        shopAddress: shopAddress.trim() || 'APMC Market Yard',
+        shopAddress: shopAddress.trim() || 'Market Yard',
         shopNumber: shopNumber.trim() || 'Shop 1',
-        marketName: marketName.trim() || 'Agri APMC Market Yard',
+        marketName: marketName.trim() || DEFAULT_MARKET_YARD_NAME,
         licenseOrCrop: selectedCommodities.join(', '),
         selectedCommodities: selectedCommodities,
       });
@@ -624,9 +634,9 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
         ownerName: name.trim() || 'Mandi Merchant',
         shopName: shopOrVillage.trim() || 'Mandi Trading Co.',
         shopNumber: shopNumber.trim() || 'Shop 1',
-        apmcMarketName: marketName.trim() || 'Agri APMC Market Yard',
+        apmcMarketName: marketName.trim() || DEFAULT_MARKET_YARD_NAME,
         phoneNumber: `+91 ${cleanPhone}`,
-        address: shopAddress.trim() || 'APMC Market Yard',
+        address: shopAddress.trim() || 'Market Yard',
       });
 
       setPortalMode('merchant');
@@ -1001,6 +1011,21 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                 </div>
               )}
 
+              {/* Dynamic matched admin unique key indicator */}
+              {isAdminUniqueNumber(cleanId) && (
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-2.5 text-xs text-amber-950">
+                  <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-amber-900">
+                      APMC Central Admin Unique Key Recognized
+                    </p>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      Authentication will route directly to the APMC Mandi Central Administration Portal.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Auth Method Switcher (Phone vs Email) */}
               <div className="flex rounded-xl bg-[#F8F6F0] p-1 border border-[#e2e8f0]">
                 <button
@@ -1322,7 +1347,20 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                       type="text"
                       value={shopAddress}
                       onChange={(e) => setShopAddress(e.target.value)}
-                      placeholder="e.g., Stall 12, APMC Wholesale Market"
+                      placeholder="e.g., Stall 12, Wholesale Market Yard"
+                      className="w-full px-4 py-3 rounded-xl border border-[#e2e8f0] bg-white text-sm font-bold text-[#1e293b] focus:outline-none focus:border-[#1a3a52]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#64748b] block mb-1">
+                      Market Yard Name
+                    </label>
+                    <input
+                      type="text"
+                      value={marketName}
+                      onChange={(e) => setMarketName(e.target.value)}
+                      placeholder="e.g., Gudimalkapur Flower Market Yard"
                       className="w-full px-4 py-3 rounded-xl border border-[#e2e8f0] bg-white text-sm font-bold text-[#1e293b] focus:outline-none focus:border-[#1a3a52]"
                     />
                   </div>

@@ -952,6 +952,19 @@ export const DashboardView: React.FC = () => {
                       </button>
 
                       <div className="flex items-center gap-1">
+                        {/* Form C PDF Invoice */}
+                        <button
+                          type="button"
+                          id={`card-formc-pdf-btn-${shipment.id}`}
+                          onClick={() => {
+                            sounds.playBidTick();
+                            openPdfModalForShipment(shipment);
+                          }}
+                          className="p-1.5 rounded-lg bg-blue-50 border border-blue-200 text-[#1a3a52] hover:bg-blue-100 transition cursor-pointer"
+                          title="Generate Form C PDF Invoice"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-[#1a3a52]" />
+                        </button>
 
                         {/* Parchi Slip */}
                         <button
@@ -1328,7 +1341,7 @@ export const DashboardView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => openPdfModalForShipment(shipment)}
-                                className="p-1.5 rounded-lg border border-[#e2e8f0] hover:bg-[#f1f5f9] text-[#d4af37] transition cursor-pointer hidden sm:inline-flex"
+                                className="p-1.5 rounded-lg border border-blue-200 bg-blue-50/50 hover:bg-blue-100 text-[#1a3a52] transition cursor-pointer inline-flex"
                                 title="Form C PDF"
                               >
                                 <FileText className="w-3.5 h-3.5" />
@@ -1464,8 +1477,8 @@ export const DashboardView: React.FC = () => {
                   <strong className="font-mono">{merchantProfile.shopNumber || 'Shop 1'}</strong>
                 </div>
                 <div className="flex justify-between p-2 rounded-lg bg-[#f1f5f9]">
-                  <span className="text-[#64748b]">APMC Market Yard:</span>
-                  <strong>{merchantProfile.apmcMarketName || 'Agri APMC Market Yard'}</strong>
+                  <span className="text-[#64748b]">Market Yard Name:</span>
+                  <strong>{merchantProfile.apmcMarketName || 'Gudimalkapur Flower Market Yard'}</strong>
                 </div>
                 <div className="flex justify-between p-2 rounded-lg bg-[#f1f5f9]">
                   <span className="text-[#64748b]">APMC License No:</span>

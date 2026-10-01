@@ -153,15 +153,17 @@ export const COMMODITY_CONFIGS: Record<CommodityCategory, CommodityCategoryMeta>
 
 export const ALL_COMMODITIES: CommodityCategory[] = ['flowers', 'grains', 'vegetables', 'fruits'];
 
+export const DEFAULT_MARKET_YARD_NAME = 'Gudimalkapur Flower Market Yard';
+
 export const initialMerchantProfile: MerchantProfile = {
-  shopName: "",
-  ownerName: "",
-  photoUrl: "",
-  shopNumber: "",
-  apmcMarketName: "",
-  merchantId: "",
-  phoneNumber: "",
-  licenseNumber: "",
+  shopName: "Ravi Flowers (Sri Venkateshwara Florals)",
+  ownerName: "Ravi Kumar",
+  photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+  shopNumber: "Shop No. 27, Gate #3",
+  apmcMarketName: "Gudimalkapur Wholesale Flower Market",
+  merchantId: "MND-HYD-9849",
+  phoneNumber: "9849012345",
+  licenseNumber: "APMC/HYD/FL-2024/8892",
   defaultCommissionRate: 4,
   defaultExpenditureRate: 6,
   selectedCommodities: ['flowers', 'grains', 'vegetables', 'fruits'],
@@ -171,7 +173,7 @@ export const initialMerchantProfile: MerchantProfile = {
     vegetables: { defaultCommissionRate: 5, defaultHamaliRate: 35, defaultTransportRate: 80, defaultStorageRate: 15 },
     fruits: { defaultCommissionRate: 6, defaultHamaliRate: 45, defaultTransportRate: 90, defaultStorageRate: 25 },
   },
-  address: ""
+  address: "Market Yard, Gudimalkapur, Mehdipatnam, Hyderabad, Telangana - 500028"
 };
 
 export const initialFarmers: Farmer[] = [];
@@ -215,7 +217,7 @@ export const generateInitialShipments = (_sessionDate: string = '2024-09-15'): S
   return [];
 };
 
-export const generateInitialLots = (): SaleLot[] => {
+export const generateInitialLots = (_sessionDate: string = getTodayDateString()): SaleLot[] => {
   return [];
 };
 

@@ -5,6 +5,7 @@ import {
   Store,
   ShieldCheck,
   Check,
+  CheckCircle2,
   Sparkles,
   Phone,
   MapPin,
@@ -16,6 +17,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
+import { DEFAULT_MARKET_YARD_NAME } from '../../data/initialData';
 import { PhotoUploadPicker } from '../common/PhotoUploadPicker';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 import { sounds } from '../../utils/audio';
@@ -386,7 +388,7 @@ export const OwnerSignUpModal: React.FC<OwnerSignUpModalProps> = ({ isOpen, onCl
 
               <div>
                 <label className="block text-xs font-semibold text-[#1e293b] mb-1">
-                  Flower Market Yard Name *
+                  Market Yard Name *
                 </label>
                 <input
                   id="owner-signup-market-input"
@@ -514,10 +516,23 @@ export const OwnerSignUpModal: React.FC<OwnerSignUpModalProps> = ({ isOpen, onCl
             <button
               type="submit"
               id="save-owner-signup-btn"
-              className="px-5 py-2.5 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition flex items-center gap-1.5 shadow-xs min-touch-target cursor-pointer"
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs min-touch-target cursor-pointer ${
+                savedSuccess
+                  ? 'bg-emerald-600 text-white font-black'
+                  : 'bg-[#1a3a52] text-white hover:bg-[#122839]'
+              }`}
             >
-              <Check className="w-4 h-4 text-[#d4af37]" />
-              <span>Save &amp; Update Profile</span>
+              {savedSuccess ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>Saved Profile</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 text-[#d4af37]" />
+                  <span>Save Profile</span>
+                </>
+              )}
             </button>
           </div>
         </div>

@@ -28,7 +28,7 @@ import {
 import { useMandi } from '../../context/MandiContext';
 import { useFirebase } from '../../context/FirebaseContext';
 import { Language, CommodityCategory } from '../../types';
-import { getTodayDateString, COMMODITY_CONFIGS } from '../../data/initialData';
+import { getTodayDateString, COMMODITY_CONFIGS, DEFAULT_MARKET_YARD_NAME } from '../../data/initialData';
 import { LanguageSettingsModal } from '../common/LanguageSettingsModal';
 import { getLanguageInfo } from '../../data/indianLanguages';
 import { PhotoUploadPicker } from '../common/PhotoUploadPicker';
@@ -307,9 +307,9 @@ export const SettingsModal: React.FC = () => {
         {/* SCROLLABLE BODY */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 min-h-0 space-y-6 bg-[#f8fafc]">
           {savedSuccess && (
-            <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-2">
-              <Check className="w-4 h-4" />
-              <span>Merchant profile and session settings saved!</span>
+            <div className="p-3.5 rounded-xl bg-emerald-50 border-2 border-emerald-400 text-emerald-900 text-xs font-black flex items-center gap-2 shadow-xs animate-in fade-in duration-200">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>✓ {language === 'te' ? 'ప్రొఫైల్ విజయవంతంగా సేవ్ చేయబడింది! (సేవ్ చేయబడిన ప్రొఫైల్)' : 'Profile saved successfully! Saved Profile.'}</span>
             </div>
           )}
 

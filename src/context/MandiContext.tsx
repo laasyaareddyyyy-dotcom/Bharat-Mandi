@@ -46,6 +46,7 @@ import {
 import {
   initialFarmers,
   initialMerchantProfile,
+  DEFAULT_MARKET_YARD_NAME,
   initialPayments,
   initialConnectionRequests,
   initialHelpTickets,
@@ -601,8 +602,9 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          const nonDummy = parsed.filter((f) => f && f.id && !String(f.id).startsWith('farmer-'));
           return deduplicateFarmers(
-            parsed
+            nonDummy
               .filter((f) => f && typeof f === 'object')
               .map((f, idx) => ({
                 ...f,
@@ -614,7 +616,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         // fallback
       }
     }
-    return [];
+    return initialFarmers;
   });
 
   // Lots - dynamic per user phone
@@ -625,12 +627,15 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return deduplicateLots(sanitizeLotsCommission(Array.isArray(parsed) ? parsed : []));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const nonDummy = parsed.filter((l) => l && l.id && !String(l.id).startsWith('lot-10'));
+          return deduplicateLots(sanitizeLotsCommission(nonDummy));
+        }
       } catch {
         // fallback
       }
     }
-    return [];
+    return generateInitialLots();
   });
 
   // Payments - dynamic per user phone
@@ -1334,7 +1339,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           ownerName: acct.fullName,
           photoUrl: acct.photoUrl || '',
           shopNumber: acct.shopNumber || '',
-          apmcMarketName: acct.marketName || 'Flower Market Yard',
+          apmcMarketName: acct.marketName || DEFAULT_MARKET_YARD_NAME,
           merchantId: `MANDI-${cleanPhone.slice(-4)}`,
           phoneNumber: `+91 ${cleanPhone}`,
           licenseNumber: acct.licenseOrCrop || '',

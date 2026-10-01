@@ -24,6 +24,7 @@ import { SettlementView } from './components/merchant/SettlementView';
 import { SupportView } from './components/merchant/SupportView';
 import { FarmerPortalView } from './components/farmer/FarmerPortalView';
 import { FlowchartView } from './components/flowchart/FlowchartView';
+import { AdminPortalView } from './components/admin/AdminPortalView';
 import { OnboardingAuthScreen } from './components/auth/OnboardingAuthScreen';
 import { HelpDeskModal } from './components/helpdesk/HelpDeskModal';
 import { SplashScreen } from './components/common/SplashScreen';
@@ -65,12 +66,11 @@ const MainLayout: React.FC = () => {
 
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = React.useState<boolean>(() => {
     try {
-      return (
-        localStorage.getItem('bharatmandi_onboarding_completed') === 'true' ||
-        localStorage.getItem('phoolmitra_onboarding_completed') === 'true'
-      );
+      const explicitFalse = localStorage.getItem('bharatmandi_onboarding_completed') === 'false';
+      if (explicitFalse) return false;
+      return true;
     } catch {
-      return false;
+      return true;
     }
   });
 
@@ -129,6 +129,8 @@ const MainLayout: React.FC = () => {
         >
           {portalMode === 'farmer' ? (
             <FarmerPortalView />
+          ) : portalMode === 'admin' ? (
+            <AdminPortalView />
           ) : portalMode === 'flowchart' ? (
             <FlowchartView />
           ) : (

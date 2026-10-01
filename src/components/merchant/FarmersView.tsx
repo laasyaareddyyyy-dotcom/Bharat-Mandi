@@ -24,6 +24,7 @@ import {
   AlertCircle,
   Receipt,
   Trash2,
+  Mic,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
 import { Farmer } from '../../types';
@@ -31,6 +32,8 @@ import { flowerVarietiesData } from '../../translations';
 import { PhotoUploadPicker } from '../common/PhotoUploadPicker';
 import { FarmerKathaStatementView } from './FarmerKathaStatementView';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
+import { VoiceInputModal } from '../common/VoiceInputModal';
+import { FarmerVoiceParseResult } from '../../services/voiceAi';
 import { sounds } from '../../utils/audio';
 import { validateIndianMobile, cleanIndianMobile } from '../../utils/phoneValidation';
 import { checkCloudDuplicateFarmer } from '../../services/supabaseSync';
@@ -69,9 +72,30 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
   const [activeTab, setActiveTab] = useState<'connected' | 'incoming'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [editingFarmer, setEditingFarmer] = useState<Farmer | null>(null);
   const [selectedLedgerFarmer, setSelectedLedgerFarmer] = useState<Farmer | null>(null);
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
+
+  const handleFarmerVoiceParsed = (res: FarmerVoiceParseResult) => {
+    // Populate form fields directly
+    setFormName(res.name);
+    setFormVillage(res.village);
+    setFormPhone(res.phone);
+
+    // Register farmer directly without manual typing
+    const newFarmer = addFarmer({
+      name: res.name || 'Kisan Member',
+      phone: res.phone || '9876543210',
+      village: res.village || 'Mandi Yard',
+      primaryCrops: res.primaryCrops && res.primaryCrops.length > 0 ? res.primaryCrops : ['flowers'],
+      connectedMerchantIds: [merchantProfile.merchantId],
+    });
+
+    sounds.playCashChime?.();
+    setNotificationMsg(`✓ Voice Registration Complete: Registered ${newFarmer.name} (${newFarmer.village}, +91 ${newFarmer.phone}) directly!`);
+    setTimeout(() => setNotificationMsg(null), 5000);
+  };
 
   // Delete Confirmation State
   const [deleteModalConfig, setDeleteModalConfig] = useState<{
@@ -379,6 +403,14 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              id="open-voice-add-farmer-btn"
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <Mic className="w-4 h-4 text-slate-950 animate-pulse" />
+              <span>🎙️ Voice Register Farmer (Awaaz Se)</span>
+            </button>
             <button
               id="open-farmer-signup-wizard-btn"
               onClick={() => setIsFarmerSignUpOpen(true)}
@@ -998,6 +1030,14 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
         cancelText="CANCEL"
         onConfirm={handleConfirmDeleteFarmer}
         onCancel={() => setDeleteModalConfig({ isOpen: false, farmer: null })}
+      />
+
+      {/* Voice Input Modal for Farmer Registration */}
+      <VoiceInputModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        mode="farmer"
+        onFarmerParsed={handleFarmerVoiceParsed}
       />
     </div>
   );

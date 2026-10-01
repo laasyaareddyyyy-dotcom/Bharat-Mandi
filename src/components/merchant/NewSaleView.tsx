@@ -30,6 +30,8 @@ import {
   Layers,
   Percent,
   Edit3,
+  Mic,
+  X,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
 import { WeightUnit, PaymentStatus, PaymentMode, Expenditures, FlowerQuality, SaleLot, CommodityCategory, Farmer } from '../../types';
@@ -47,6 +49,8 @@ import { InteractiveRateCalculator } from '../interactive/InteractiveRateCalcula
 import { GeneratePdfModal } from '../common/GeneratePdfModal';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 import { CustomVarietyInput } from '../common/CustomVarietyInput';
+import { VoiceInputModal } from '../common/VoiceInputModal';
+import { SaleVoiceParseResult } from '../../services/voiceAi';
 import { sounds } from '../../utils/audio';
 
 export interface ConsignmentVarietyRow {
@@ -108,6 +112,8 @@ export const NewSaleView: React.FC = () => {
   const [farmerSearch, setFarmerSearch] = useState<string>('');
   const [isFarmerDropdownOpen, setIsFarmerDropdownOpen] = useState(false);
   const [showInlineAddFarmer, setShowInlineAddFarmer] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [voiceNotification, setVoiceNotification] = useState<string | null>(null);
 
   // New Inline Farmer Form State
   const [editingFarmer, setEditingFarmer] = useState<Farmer | null>(null);
@@ -115,6 +121,71 @@ export const NewSaleView: React.FC = () => {
   const [newFarmerPhone, setNewFarmerPhone] = useState('');
   const [newFarmerVillage, setNewFarmerVillage] = useState('');
   const [newFarmerPhotoUrl, setNewFarmerPhotoUrl] = useState('');
+
+  const handleSaleVoiceParsed = (res: SaleVoiceParseResult) => {
+    // 1. Auto-select or create farmer
+    let targetFarmerId = selectedFarmerId;
+    if (res.farmerName || res.farmerPhone) {
+      const cleanInputPhone = res.farmerPhone ? res.farmerPhone.replace(/\D/g, '').slice(-10) : '';
+      const existing = farmers.find(
+        (f) =>
+          (cleanInputPhone && f.phone && f.phone.replace(/\D/g, '').slice(-10) === cleanInputPhone) ||
+          (res.farmerName && f.name.toLowerCase().includes(res.farmerName.toLowerCase()))
+      );
+
+      if (existing) {
+        targetFarmerId = existing.id;
+        setSelectedFarmerId(existing.id);
+      } else if (res.farmerName) {
+        const created = addFarmer({
+          name: res.farmerName,
+          phone: res.farmerPhone || '9876543210',
+          village: res.farmerVillage || 'Mandi Yard',
+          primaryCrops: [res.commodityCategory],
+          connectedMerchantIds: [merchantProfile.merchantId],
+        });
+        targetFarmerId = created.id;
+        setSelectedFarmerId(created.id);
+      }
+    }
+
+    // 2. Fill sale consignment row directly
+    const cat = res.commodityCategory || 'flowers';
+    const varName = res.varietyName || 'Rose';
+    const qty = res.quantity || 10;
+    const unit = res.unit || 'Kgs';
+    const rate = res.ratePerUnit || 50;
+
+    setVarietyRows([
+      {
+        id: `var-voice-${Date.now()}`,
+        commodityCategory: cat,
+        flowerVariety: varName,
+        customVariety: varName,
+        quantity: qty,
+        unit: unit,
+        boxesCount: '',
+        packagingType: 'Boxes',
+        flowerQuality: 'Good',
+        rate: rate,
+      },
+    ]);
+
+    // 3. Update commission and charges if provided
+    if (res.commissionPercent !== undefined) {
+      setCommissionRate(res.commissionPercent);
+    }
+    if (res.laborCharge) {
+      setAmmaliCharge(res.laborCharge);
+    }
+    if (res.rentCharge) {
+      setTransportCharge(res.rentCharge);
+    }
+
+    sounds.playCashChime?.();
+    setVoiceNotification(`✓ Voice Entry Applied: ${qty} ${unit} of ${varName} @ ₹${rate} for ${res.farmerName || 'Farmer'}. All calculations generated!`);
+    setTimeout(() => setVoiceNotification(null), 6000);
+  };
 
   // Primary commodity for initial variety row (synced with active commodity)
   const initialCategory: CommodityCategory = (
@@ -166,6 +237,7 @@ export const NewSaleView: React.FC = () => {
   const [showDigitalScale, setShowDigitalScale] = useState<boolean>(false);
   const [showRateNegotiator, setShowRateNegotiator] = useState<boolean>(false);
   const [isDraftPdfOpen, setIsDraftPdfOpen] = useState<boolean>(false);
+  const [selectedLotForPdf, setSelectedLotForPdf] = useState<SaleLot | null>(null);
 
   // Charges State: Deductions per transaction (Hamali, Transport, Mandi Commission, and Misleene Commission)
   const [ammaliCharge, setAmmaliCharge] = useState<number | ''>(''); // Hamali / Loading (₹)
@@ -667,18 +739,39 @@ export const NewSaleView: React.FC = () => {
             <p className="text-xs text-[#64748b]">{t('newSaleSubtitle')}</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              id="newsale-voice-entry-btn"
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-xs font-black transition flex items-center gap-2 shadow-md cursor-pointer animate-pulse"
+            >
+              <Mic className="w-4 h-4 text-slate-950" />
+              <span>🎙️ Voice Sale Entry (Awaaz Se)</span>
+            </button>
             <button
               type="button"
               id="newsale-open-dateswitcher-btn"
               onClick={() => setIsDateSwitcherOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-[#eef3f7] hover:bg-[#dbe7f0] border border-[#1a3a52]/30 text-[#1a3a52] text-xs font-bold transition flex items-center gap-1.5"
+              className="px-3 py-2 rounded-xl bg-[#eef3f7] hover:bg-[#dbe7f0] border border-[#1a3a52]/30 text-[#1a3a52] text-xs font-bold transition flex items-center gap-1.5"
             >
               <Calendar className="w-3.5 h-3.5" />
               <span>Calendar / New Day Session</span>
             </button>
           </div>
         </div>
+
+        {voiceNotification && (
+          <div className="p-3.5 rounded-xl bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs font-bold flex items-center justify-between gap-2 shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>{voiceNotification}</span>
+            </div>
+            <button type="button" onClick={() => setVoiceNotification(null)} className="text-amber-800 hover:text-amber-950">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Date Selector & Daily Rollover Controls */}
         <div className="p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0] flex flex-wrap items-center justify-between gap-3">
@@ -2143,6 +2236,20 @@ export const NewSaleView: React.FC = () => {
 
             <button
               type="button"
+              id="newsale-generate-formc-pdf-btn"
+              onClick={() => {
+                setSelectedLotForPdf(null);
+                setIsDraftPdfOpen(true);
+              }}
+              className="w-full sm:w-auto px-4 py-3.5 rounded-xl border-2 border-[#1a3a52] text-[#1a3a52] bg-blue-50/80 hover:bg-blue-100 font-extrabold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-xs hover:shadow-md cursor-pointer whitespace-nowrap shrink-0"
+              title="Generate official Form C PDF invoice with APMC commission & itemized deductions"
+            >
+              <FileText className="w-4 h-4 text-[#1a3a52] shrink-0" />
+              <span>Form C PDF</span>
+            </button>
+
+            <button
+              type="button"
               id="save-and-generate-parchi-btn"
               onClick={(e) => handleSaveLot(e)}
               className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-[#1a3a52] text-white font-black text-xs sm:text-sm hover:bg-[#122839] active:scale-95 transition flex items-center justify-center gap-2 shadow-md hover:shadow-lg cursor-pointer whitespace-nowrap shrink-0"
@@ -2257,6 +2364,19 @@ export const NewSaleView: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    id={`formc-pdf-lot-btn-${lot.id}`}
+                    onClick={() => {
+                      setSelectedLotForPdf(lot);
+                      setIsDraftPdfOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-[#1a3a52]/30 bg-blue-50/80 hover:bg-blue-100 text-[#1a3a52] font-bold text-xs transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                    title="Generate & view official Form C PDF invoice for this parchi"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-[#1a3a52]" />
+                    <span>Form C PDF</span>
+                  </button>
+                  <button
+                    type="button"
                     id={`edit-recent-lot-btn-${lot.id}`}
                     onClick={() => openEditParchiModal(lot)}
                     className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 font-bold text-xs transition flex items-center gap-1 shadow-2xs cursor-pointer"
@@ -2322,38 +2442,54 @@ export const NewSaleView: React.FC = () => {
       {isDraftPdfOpen && (
         <GeneratePdfModal
           isOpen={isDraftPdfOpen}
-          onClose={() => setIsDraftPdfOpen(false)}
-          lots={dateLots.length > 0 ? dateLots : undefined}
-          draftData={{
-            farmerName: selectedFarmer?.name || (dateLots[0]?.farmerName) || 'Farmer Consignor',
-            farmerVillage: selectedFarmer?.village || (dateLots[0]?.farmerVillage) || 'APMC Yard',
-            farmerPhone: selectedFarmer?.phone || (dateLots[0]?.farmerPhone) || '',
-            grossTotal: computedVarietyRows.length > 0 ? grossTotal : undefined,
-            transportCharges: numericTransport,
-            ammaliCharges: numericAmmali,
-            commissionPercent: numericCommissionRate,
-            commissionAmount: numericCommissionAmount,
-            miscCommissionPercent: numericMiscCommissionRate,
-            miscCommissionAmount: numericMiscCommissionAmount,
-            date: saleDate,
-            time: 'Morning Auction',
-            items:
-              computedVarietyRows.length > 0
-                ? computedVarietyRows.map((r) => ({
-                    id: r.id,
-                    flowerVariety: r.displayName,
-                    flowerQuality: r.flowerQuality,
-                    quantity: r.numericQuantity,
-                    unit: r.unit,
-                    boxesCount: r.numericBoxes > 0 ? r.numericBoxes : undefined,
-                    packagingType: r.packagingType,
-                    rate: r.numericRate,
-                    grossTotal: r.lineGross,
-                  }))
-                : undefined,
+          onClose={() => {
+            setIsDraftPdfOpen(false);
+            setSelectedLotForPdf(null);
           }}
+          lot={selectedLotForPdf}
+          lots={!selectedLotForPdf && dateLots.length > 0 ? dateLots : undefined}
+          draftData={
+            !selectedLotForPdf
+              ? {
+                  farmerName: selectedFarmer?.name || (dateLots[0]?.farmerName) || 'Farmer Consignor',
+                  farmerVillage: selectedFarmer?.village || (dateLots[0]?.farmerVillage) || 'APMC Yard',
+                  farmerPhone: selectedFarmer?.phone || (dateLots[0]?.farmerPhone) || '',
+                  grossTotal: computedVarietyRows.length > 0 ? grossTotal : undefined,
+                  transportCharges: numericTransport,
+                  ammaliCharges: numericAmmali,
+                  commissionPercent: numericCommissionRate,
+                  commissionAmount: numericCommissionAmount,
+                  miscCommissionPercent: numericMiscCommissionRate,
+                  miscCommissionAmount: numericMiscCommissionAmount,
+                  date: saleDate,
+                  time: 'Morning Auction',
+                  items:
+                    computedVarietyRows.length > 0
+                      ? computedVarietyRows.map((r) => ({
+                          id: r.id,
+                          flowerVariety: r.displayName,
+                          flowerQuality: r.flowerQuality,
+                          quantity: r.numericQuantity,
+                          unit: r.unit,
+                          boxesCount: r.numericBoxes > 0 ? r.numericBoxes : undefined,
+                          packagingType: r.packagingType,
+                          rate: r.numericRate,
+                          grossTotal: r.lineGross,
+                        }))
+                      : undefined,
+                }
+              : undefined
+          }
         />
       )}
+
+      {/* Voice Input Modal for Sale Entry */}
+      <VoiceInputModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        mode="sale"
+        onSaleParsed={handleSaleVoiceParsed}
+      />
     </div>
   );
 };

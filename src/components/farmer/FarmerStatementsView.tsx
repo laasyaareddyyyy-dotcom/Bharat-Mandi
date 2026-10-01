@@ -503,7 +503,7 @@ export const FarmerStatementsView: React.FC<FarmerStatementsViewProps> = ({
                 merchantOverride={{
                   shopName: selectedStatement.merchantName,
                   shopNumber: selectedStatement.merchantShopNumber || 'Shop 1',
-                  apmcMarketName: 'Agri APMC Market Yard',
+                  apmcMarketName: 'Gudimalkapur Flower Market Yard',
                   ownerName: selectedStatement.merchantName,
                   phoneNumber: selectedStatement.merchantPhone ? `+91 ${selectedStatement.merchantPhone}` : '+91 9999999999',
                 }}

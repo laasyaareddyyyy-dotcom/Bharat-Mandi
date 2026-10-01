@@ -69,7 +69,7 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
 
     const shopName = merchantOverride?.shopName || merchantProfile?.shopName || 'APMC Commission Agent';
     const shopNumber = merchantOverride?.shopNumber || merchantProfile?.shopNumber || 'Shop 1';
-    const apmcMarketName = merchantOverride?.apmcMarketName || merchantProfile?.apmcMarketName || 'Agri APMC Market Yard';
+    const apmcMarketName = merchantOverride?.apmcMarketName || merchantProfile?.apmcMarketName || 'Gudimalkapur Flower Market Yard';
     const ownerName = merchantOverride?.ownerName || merchantProfile?.ownerName || 'Commission Merchant';
     const phoneNumber = merchantOverride?.phoneNumber || merchantProfile?.phoneNumber || '+91 9999999999';
 

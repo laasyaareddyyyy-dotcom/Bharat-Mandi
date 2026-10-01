@@ -12,7 +12,8 @@ export type Language =
   | 'or'
   | 'as';
 
-export type PortalMode = 'merchant' | 'farmer' | 'flowchart';
+export type PortalMode = 'merchant' | 'farmer' | 'admin' | 'flowchart';
+export type Role = 'merchant' | 'farmer' | 'admin';
 
 export type CommodityCategory = 'flowers' | 'grains' | 'vegetables' | 'fruits';
 
@@ -297,7 +298,7 @@ export interface ConnectionRequest {
 export interface RegisteredAccount {
   id: string;
   phoneNumber: string;
-  role: 'merchant' | 'farmer';
+  role: Role;
   fullName: string;
   shopOrVillage: string;
   licenseOrCrop: string;

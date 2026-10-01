@@ -29,6 +29,8 @@ import { getLanguageInfo } from '../../data/indianLanguages';
 export const Navbar: React.FC = () => {
   const {
     merchantProfile,
+    portalMode,
+    setPortalMode,
     activeSessionDate,
     setMerchantTab,
     setDashboardTab,
@@ -110,8 +112,8 @@ export const Navbar: React.FC = () => {
   };
 
   const shopDisplayTitle = merchantProfile.shopNumber
-    ? `${merchantProfile.shopNumber} - ${merchantProfile.apmcMarketName || 'APMC Market Yard'}`
-    : 'Shop 1 - Agri APMC Market Yard';
+    ? `${merchantProfile.shopNumber} - ${merchantProfile.apmcMarketName || 'Gudimalkapur Flower Market Yard'}`
+    : 'Shop 1 - Gudimalkapur Flower Market Yard';
 
   return (
     <header className="no-print">
@@ -143,6 +145,12 @@ export const Navbar: React.FC = () => {
         <p className="text-[10px] sm:text-xs text-slate-200 font-medium mt-0.5 max-w-xl mx-auto leading-snug">
           {t('appHeaderSubtitle')}
         </p>
+
+        {portalMode === 'admin' && (
+          <div className="mt-1.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-md">
+            <span>APMC Central Admin Portal Active</span>
+          </div>
+        )}
 
         {/* Language Settings trigger button */}
         <div className="flex items-center justify-center gap-1.5 mt-2">

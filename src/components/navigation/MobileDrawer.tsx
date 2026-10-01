@@ -164,7 +164,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 </span>
               </div>
               <p className="text-[11px] text-slate-200/80 mt-0.5">
-                {merchantProfile.shopNumber || 'Shop 1'} • {merchantProfile.apmcMarketName || 'APMC Yard'}
+                {merchantProfile.shopNumber || 'Shop 1'} • {merchantProfile.apmcMarketName || 'Gudimalkapur Flower Market Yard'}
               </p>
             </div>
           </div>

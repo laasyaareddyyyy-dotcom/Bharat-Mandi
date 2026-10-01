@@ -232,7 +232,7 @@ export const FarmerPortalView: React.FC = () => {
             ownerName: a.fullName,
             phoneNumber: clean,
             shopNumber: a.shopNumber || '',
-            apmcMarketName: a.marketName || 'APMC Yard',
+            apmcMarketName: a.marketName || 'Gudimalkapur Flower Market Yard',
             photoUrl: a.photoUrl,
             commissionRate: 4,
           });
@@ -252,7 +252,7 @@ export const FarmerPortalView: React.FC = () => {
         ownerName: merchantProfile.ownerName || 'Commission Merchant',
         phoneNumber: cleanActivePhone,
         shopNumber: merchantProfile.shopNumber || '',
-        apmcMarketName: merchantProfile.apmcMarketName || 'APMC Yard',
+        apmcMarketName: merchantProfile.apmcMarketName || 'Gudimalkapur Flower Market Yard',
         photoUrl: merchantProfile.photoUrl,
         commissionRate: merchantProfile.defaultCommissionRate || 4,
       });

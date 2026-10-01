@@ -34,6 +34,7 @@ export const HelpDeskModal: React.FC = () => {
     setHelpDeskTab,
     helpTickets,
     setSelectedHelpTicketId,
+    portalMode,
     t,
   } = useMandi();
 
@@ -164,25 +165,27 @@ export const HelpDeskModal: React.FC = () => {
               )}
             </button>
 
-            <button
-              id="helpdesk-tab-admin"
-              type="button"
-              onClick={() => {
-                setSelectedHelpTicketId(null);
-                setHelpDeskTab('admin-dashboard');
-              }}
-              className={`flex items-center gap-2 px-4 py-2.5 border-b-2 text-xs font-bold transition cursor-pointer ${
-                helpDeskTab === 'admin-dashboard'
-                  ? 'border-[#1a3a52] text-[#1a3a52]'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Headphones className="w-4 h-4" />
-              <span>{t('supportAdmin')}</span>
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-100 text-amber-900">
-                ADMIN
-              </span>
-            </button>
+            {portalMode === 'admin' && (
+              <button
+                id="helpdesk-tab-admin"
+                type="button"
+                onClick={() => {
+                  setSelectedHelpTicketId(null);
+                  setHelpDeskTab('admin-dashboard');
+                }}
+                className={`flex items-center gap-2 px-4 py-2.5 border-b-2 text-xs font-bold transition cursor-pointer ${
+                  helpDeskTab === 'admin-dashboard'
+                    ? 'border-[#1a3a52] text-[#1a3a52]'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Headphones className="w-4 h-4" />
+                <span>{t('supportAdmin')}</span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-100 text-amber-900">
+                  ADMIN
+                </span>
+              </button>
+            )}
 
             <button
               id="helpdesk-tab-faq"

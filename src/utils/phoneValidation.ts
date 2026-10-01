@@ -18,6 +18,71 @@ export interface PhoneValidationResult {
 
 export const ERROR_INVALID_INDIAN_MOBILE = 'Enter a valid 10-digit Indian mobile number';
 
+export const DEFAULT_ADMIN_PHONE_NUMBERS = [
+  '9000000000',
+  '9999999999',
+  '8888888888',
+  '9876543210',
+  '9898989898',
+  '9110387978',
+];
+
+export function getCustomAdminNumbers(): string[] {
+  try {
+    if (typeof window !== 'undefined') {
+      const raw = localStorage.getItem('bharatmandi_admin_numbers');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map((n: string) => cleanIndianMobile(n));
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export function getAllAdminNumbers(): string[] {
+  const custom = getCustomAdminNumbers();
+  const all = [...DEFAULT_ADMIN_PHONE_NUMBERS];
+  for (const num of custom) {
+    if (!all.includes(num)) all.push(num);
+  }
+  return all;
+}
+
+export function isAdminUniqueNumber(input: string | undefined | null): boolean {
+  if (!input) return false;
+  const clean = cleanIndianMobile(input);
+  return getAllAdminNumbers().includes(clean);
+}
+
+export function addCustomAdminNumber(input: string): boolean {
+  const clean = cleanIndianMobile(input);
+  if (!clean || clean.length !== 10) return false;
+  try {
+    const list = getCustomAdminNumbers();
+    if (!list.includes(clean)) {
+      list.push(clean);
+      localStorage.setItem('bharatmandi_admin_numbers', JSON.stringify(list));
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function removeCustomAdminNumber(input: string): boolean {
+  const clean = cleanIndianMobile(input);
+  try {
+    const list = getCustomAdminNumbers().filter((n) => n !== clean);
+    localStorage.setItem('bharatmandi_admin_numbers', JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Strips country code (+91, 91, 0) and formatting characters.
  */
@@ -82,6 +147,14 @@ export const validateIndianMobile = (raw: string | undefined | null): PhoneValid
       isValid: false,
       cleanNumber: clean,
       error: ERROR_INVALID_INDIAN_MOBILE,
+    };
+  }
+
+  // Admin Gateway Check: Authorized admin numbers bypass normal dummy filters
+  if (isAdminUniqueNumber(clean)) {
+    return {
+      isValid: true,
+      cleanNumber: clean,
     };
   }
 
