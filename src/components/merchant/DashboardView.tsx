@@ -476,56 +476,7 @@ export const DashboardView: React.FC = () => {
         </div>
       </section>
 
-      {/* SECTION 4: MONEY OWED */}
-      <section className="space-y-2.5">
-        <div className="flex items-center gap-2 border-b-2 border-red-500/30 pb-2">
-          <div className="w-8 h-8 rounded-xl bg-red-700 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <AlertCircle className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-extrabold text-red-900 tracking-tight">
-                4. Money Owed
-              </h2>
-              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
-                Pending Dues
-              </span>
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-red-700 font-medium">
-              {language === 'te'
-                ? 'బాకీలు • రైతులకు చెల్లించాల్సిన బాకీలు'
-                : 'Outstanding farmer dues pending settlement'}
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-red-50/80 rounded-xl p-4 sm:p-5 border border-red-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="space-y-0.5">
-            <span className="text-[11px] uppercase font-bold text-red-800 tracking-wider block">
-              {language === 'te' ? 'Outstanding Farmer Dues (రైతులకు బాకీ)' : 'Outstanding Farmer Dues'}
-            </span>
-            <span className="text-xl sm:text-2xl font-extrabold text-red-700 font-mono block">
-              ₹{totalOutstandingDues.toLocaleString('en-IN')}
-            </span>
-            <span className="text-[11px] text-red-800/80 font-medium block">
-              Total pending dues payable across all recorded consignments
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setMerchantTab('farmers');
-            }}
-            className="px-3.5 py-2 rounded-xl bg-red-700 text-white font-bold text-xs hover:bg-red-800 transition shadow-2xs cursor-pointer shrink-0 flex items-center gap-1.5"
-          >
-            <Users className="w-3.5 h-3.5 text-white" />
-            <span>Open Farmer Dues Katha</span>
-          </button>
-        </div>
-      </section>
-
-      {/* SECTION 5: CONSIGNMENTS */}
+      {/* SECTION 4: CONSIGNMENTS */}
       <section className="space-y-3">
         <div className="flex items-center gap-2 border-b-2 border-[#1a3a52]/20 pb-2">
           <div className="w-8 h-8 rounded-xl bg-[#1a3a52] text-white flex items-center justify-center shrink-0 shadow-xs">

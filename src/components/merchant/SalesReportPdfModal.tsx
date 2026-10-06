@@ -82,12 +82,15 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Format date helper (e.g. "2026-09-16" -> "16/9/2026")
+  // Format date helper (e.g. "2026-09-16" -> "16/09/2026")
   const formatDateSlash = (dateStr: string): string => {
     try {
       const parts = dateStr.split('-');
       if (parts.length === 3) {
-        return `${Number(parts[2])}/${Number(parts[1])}/${parts[0]}`;
+        const day = parts[2].padStart(2, '0');
+        const month = parts[1].padStart(2, '0');
+        const year = parts[0];
+        return `${day}/${month}/${year}`;
       }
       return dateStr;
     } catch {
@@ -199,7 +202,7 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
         format: 'a4',
         orientation: 'portrait',
         marginMm: 6,
-        fitToPage: true,
+        fitToPage: false,
         autoDownload: true,
       });
 
@@ -249,7 +252,7 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
         title: `Sales Report (${startDate} - ${endDate})`,
         format: 'a4',
         marginMm: 6,
-        fitToPage: true,
+        fitToPage: false,
         autoDownload: false,
       });
 

@@ -68,7 +68,9 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
     const isThermal = format === 'thermal-80mm';
 
     const shopName = merchantOverride?.shopName || merchantProfile?.shopName || 'Wholesale Commission Agent';
-    const shopNumber = merchantOverride?.shopNumber || merchantProfile?.shopNumber || 'Shop 1';
+    const rawShopNumber = merchantOverride?.shopNumber || merchantProfile?.shopNumber || 'Shop 1';
+    const cleanShopNumber = rawShopNumber.replace(/^(shop\s*no\.?|shop\s*#?|stall\s*no\.?|shop)\s*/i, '').trim();
+    const shopNumberDisplay = `Shop No. ${cleanShopNumber || rawShopNumber}`;
     const apmcMarketName = merchantOverride?.apmcMarketName || merchantProfile?.apmcMarketName || 'Gudimalkapur Market Yard';
     const ownerName = merchantOverride?.ownerName || merchantProfile?.ownerName || 'Commission Merchant';
     const phoneNumber = merchantOverride?.phoneNumber || merchantProfile?.phoneNumber || '+91 9999999999';
@@ -88,79 +90,79 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
         ref={ref}
         id="form-c-official-invoice-canvas"
         className={`bg-white text-slate-900 border border-slate-200 rounded-2xl shadow-sm mx-auto ${
-          isThermal ? 'p-3 max-w-md space-y-2.5 text-xs' : 'p-4 sm:p-6 max-w-3xl space-y-3.5 min-w-[680px] sm:min-w-0'
+          isThermal ? 'p-3 max-w-md space-y-2.5 text-xs' : 'p-5 sm:p-6 max-w-3xl space-y-4 w-full'
         }`}
         style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
       >
         {/* 1. Top Header Pill & Letterhead */}
-        <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-200">
+          <div className="flex items-start gap-3">
             <img
               src="/bharat_mandi_logo.png"
               alt="भारत मंडी Logo"
               referrerPolicy="no-referrer"
-              className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 bg-transparent"
+              className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 bg-transparent mt-0.5"
             />
-            <div className="text-left">
-              <div className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-[9px] font-bold tracking-widest text-slate-700 uppercase border border-slate-200 mb-0.5">
+            <div className="text-left space-y-1">
+              <div className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-[9px] font-bold tracking-widest text-slate-700 uppercase border border-slate-200">
                 MANDI SALE PARCHI • FORM C
               </div>
-              <h1 className="text-lg sm:text-xl font-black text-slate-900 uppercase tracking-tight leading-tight">
+              <h1 className="text-lg sm:text-xl font-black text-slate-900 uppercase tracking-tight leading-snug break-words my-0.5">
                 {shopName}
               </h1>
-              <p className="text-[11px] font-semibold text-slate-700">
-                Shop No. {shopNumber} • {apmcMarketName}
+              <p className="text-xs font-bold text-slate-800 leading-snug">
+                {shopNumberDisplay} • {apmcMarketName}
               </p>
-              <p className="text-[9px] text-slate-500">
-                Proprietor: <span className="font-semibold text-slate-800">{ownerName}</span> | Contact: <span className="font-semibold text-slate-800">{phoneNumber}</span>
+              <p className="text-[10px] text-slate-600 leading-snug">
+                Proprietor: <span className="font-bold text-slate-900">{ownerName}</span> | Contact: <span className="font-bold text-slate-900">{phoneNumber}</span>
               </p>
             </div>
           </div>
-          <div className="text-right shrink-0">
-            <span className="text-[9px] font-mono uppercase px-2 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg font-bold">
+          <div className="text-right shrink-0 pt-1">
+            <span className="text-[9px] font-mono uppercase px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg font-bold inline-block shadow-2xs">
               OFFICIAL MANDI RECEIPT
             </span>
           </div>
         </div>
 
-        {/* 2. 4-Column Metadata Box */}
-        <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200 grid grid-cols-4 gap-2.5 text-xs">
-          <div>
-            <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
+        {/* 2. 4-Column Metadata Box with Generous Proportions & Zero Text Overlap */}
+        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-12 gap-3 text-xs">
+          <div className="col-span-3">
+            <span className="text-[9px] text-slate-500 uppercase font-extrabold tracking-wider block mb-1">
               PARCHI / INV NO.
             </span>
-            <span className="font-mono font-black text-slate-900 text-xs sm:text-sm block truncate">
+            <span className="font-mono font-black text-slate-900 text-xs sm:text-sm block break-all">
               {data.parchiNumber || 'FC-2026-PREVIEW'}
             </span>
           </div>
 
-          <div>
-            <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
+          <div className="col-span-3">
+            <span className="text-[9px] text-slate-500 uppercase font-extrabold tracking-wider block mb-1">
               DATE &amp; TIME
             </span>
-            <span className="font-bold text-slate-800 text-xs block truncate">
+            <span className="font-bold text-slate-800 text-xs block break-words leading-tight">
               {data.date} • {data.time || 'Morning Auction'}
             </span>
           </div>
 
-          <div>
-            <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
+          <div className="col-span-3">
+            <span className="text-[9px] text-slate-500 uppercase font-extrabold tracking-wider block mb-1">
               FARMER
             </span>
-            <span className="font-black text-slate-900 text-xs block truncate">
+            <span className="font-black text-slate-900 text-xs sm:text-sm block break-words leading-tight">
               {data.farmerName || 'Ramesh Patel'}
             </span>
           </div>
 
-          <div>
-            <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">
+          <div className="col-span-3">
+            <span className="text-[9px] text-slate-500 uppercase font-extrabold tracking-wider block mb-1">
               VILLAGE &amp; CONTACT
             </span>
-            <span className="font-bold text-slate-800 text-xs block truncate">
-              {data.farmerVillage || 'Kadi'}
+            <span className="font-bold text-slate-800 text-xs block break-words leading-tight">
+              {data.farmerVillage || 'Yard'}
             </span>
             {data.farmerPhone && (
-              <span className="text-[10px] font-mono text-slate-600 block truncate">
+              <span className="text-[10px] font-mono text-slate-600 block mt-0.5">
                 +91 {data.farmerPhone}
               </span>
             )}
@@ -171,7 +173,7 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <div className="min-w-[620px] sm:min-w-0">
             <div>
-              <div className="bg-slate-100 border-b border-slate-200 py-1.5 px-2.5 text-[9px] sm:text-[10px] font-black text-slate-700 uppercase tracking-wider grid grid-cols-12 items-center">
+              <div className="bg-slate-100 border-b border-slate-200 py-2 px-3 text-[10px] font-black text-slate-700 uppercase tracking-wider grid grid-cols-12 items-center">
                 <div className="col-span-2">PARCHI &amp; DATE</div>
                 <div className="col-span-2">ITEM / CROP</div>
                 <div className="col-span-1 text-center">QTY</div>
@@ -186,7 +188,6 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
 
               <div className="divide-y divide-slate-100 bg-white">
                 {data.items.map((item, idx) => {
-                  const isCompact = data.items.length > 5;
                   const itemHamali = item.hamali ?? (data.items.length === 1 ? data.ammaliCharges : 0);
                   const itemTrans = item.transport ?? (data.items.length === 1 ? data.transportCharges : 0);
                   const itemComm = item.commission ?? (data.items.length === 1 ? data.commissionAmount : 0);
@@ -196,44 +197,44 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
                   return (
                     <div
                       key={idx}
-                      className={`${isCompact ? 'py-1.5 px-2.5 text-[10px]' : 'py-2 px-3 text-[11px]'} grid grid-cols-12 items-center hover:bg-slate-50/50 leading-snug`}
+                      className="py-2.5 px-3 text-xs grid grid-cols-12 items-center hover:bg-slate-50/50 leading-normal"
                     >
-                      <div className="col-span-2 font-mono text-[10px]">
-                        <span className="font-bold text-[#1a3a52] block truncate">
+                      <div className="col-span-2 font-mono text-[11px]">
+                        <span className="font-bold text-[#1a3a52] block break-all">
                           {item.parchiNumber || data.parchiNumber || `#${idx + 1}`}
                         </span>
-                        <span className="text-slate-500">{item.date || data.date}</span>
+                        <span className="text-slate-500 text-[10px] block">{item.date || data.date}</span>
                       </div>
-                      <div className="col-span-2 font-bold text-slate-900 truncate pr-1">
-                        <div>{item.flowerVariety}</div>
+                      <div className="col-span-2 font-bold text-slate-900 break-words pr-1">
+                        <div className="text-xs font-bold leading-tight">{item.flowerVariety}</div>
                         {item.boxesCount && item.boxesCount > 0 && (
-                          <span className="text-[9px] font-normal text-slate-500 block">
+                          <span className="text-[10px] font-semibold text-slate-500 block mt-0.5">
                             {item.boxesCount} {item.packagingType || 'Boxes'}
                           </span>
                         )}
                       </div>
-                      <div className="col-span-1 text-center font-mono text-slate-800 text-[10px]">
+                      <div className="col-span-1 text-center font-mono font-semibold text-slate-800 text-[11px]">
                         {item.quantity} {item.unit}
                       </div>
-                      <div className="col-span-1 text-center font-mono text-slate-800 text-[10px]">
+                      <div className="col-span-1 text-center font-mono font-semibold text-slate-800 text-[11px]">
                         ₹{item.rate.toFixed(2)}
                       </div>
-                      <div className="col-span-1 text-right font-mono font-bold text-slate-900 text-[10px]">
+                      <div className="col-span-1 text-right font-mono font-bold text-slate-900 text-[11px]">
                         ₹{item.grossTotal.toFixed(2)}
                       </div>
-                      <div className="col-span-1 text-right font-mono text-red-700 text-[10px]">
+                      <div className="col-span-1 text-right font-mono text-red-700 text-[11px]">
                         {itemHamali > 0 ? `₹${itemHamali.toFixed(2)}` : '₹0.00'}
                       </div>
-                      <div className="col-span-1 text-right font-mono text-red-700 text-[10px]">
+                      <div className="col-span-1 text-right font-mono text-red-700 text-[11px]">
                         {itemTrans > 0 ? `₹${itemTrans.toFixed(2)}` : '₹0.00'}
                       </div>
-                      <div className="col-span-1 text-right font-mono text-red-700 text-[10px]">
+                      <div className="col-span-1 text-right font-mono text-red-700 text-[11px]">
                         {itemComm > 0 ? `₹${itemComm.toFixed(2)}` : '₹0.00'}
                       </div>
-                      <div className="col-span-1 text-right font-mono text-red-700 text-[10px]">
+                      <div className="col-span-1 text-right font-mono text-red-700 text-[11px]">
                         {itemMisc > 0 ? `₹${itemMisc.toFixed(2)}` : '₹0.00'}
                       </div>
-                      <div className="col-span-1 text-right font-mono font-black text-emerald-800 text-[10px]">
+                      <div className="col-span-1 text-right font-mono font-black text-emerald-800 text-[11px]">
                         ₹{itemNet.toFixed(2)}
                       </div>
                     </div>

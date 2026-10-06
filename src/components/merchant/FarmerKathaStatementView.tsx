@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
 import { SaleLot, Farmer } from '../../types';
-import { formatDisplayDate, getTodayDateString, getPastDateString } from '../../data/initialData';
+import { formatDisplayDate, formatDateDMY, getTodayDateString, getPastDateString } from '../../data/initialData';
 import {
   exportElementToPdf,
   printHtmlViaIframe,
@@ -659,7 +659,7 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
         orientation: 'portrait',
         marginMm: 6,
         scale: 2,
-        fitToPage: true,
+        fitToPage: false,
         autoDownload: true,
       });
       if (result.success) {
@@ -719,7 +719,7 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
         orientation: 'portrait',
         marginMm: 6,
         scale: 2,
-        fitToPage: true,
+        fitToPage: false,
         autoDownload: false,
       });
 
@@ -1266,9 +1266,14 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
             {showCustomDatePickers && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 p-3.5 rounded-2xl bg-slate-50 border border-slate-200 animate-in fade-in">
                 <div className="space-y-1">
-                  <label htmlFor="katha-start-date" className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-[#1a3a52]" />
-                    <span>{language === 'te' ? 'ప్రారంభ తేదీ:' : 'Start Date:'}</span>
+                  <label htmlFor="katha-start-date" className="text-xs font-bold text-slate-700 flex items-center justify-between gap-1">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-[#1a3a52]" />
+                      <span>{language === 'te' ? 'ప్రారంభ తేదీ:' : 'Start Date:'}</span>
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-100/80 px-1.5 py-0.5 rounded">
+                      {formatDateDMY(startDate)}
+                    </span>
                   </label>
                   <input
                     id="katha-start-date"
@@ -1280,9 +1285,14 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="katha-end-date" className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-[#1a3a52]" />
-                    <span>{language === 'te' ? 'ముగింపు తేదీ:' : 'End Date:'}</span>
+                  <label htmlFor="katha-end-date" className="text-xs font-bold text-slate-700 flex items-center justify-between gap-1">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-[#1a3a52]" />
+                      <span>{language === 'te' ? 'ముగింపు తేదీ:' : 'End Date:'}</span>
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-100/80 px-1.5 py-0.5 rounded">
+                      {formatDateDMY(endDate)}
+                    </span>
                   </label>
                   <input
                     id="katha-end-date"

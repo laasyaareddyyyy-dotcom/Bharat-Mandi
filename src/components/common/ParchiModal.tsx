@@ -517,8 +517,12 @@ _Generated via भारत MANDI Ledger_`;
                   </h2>
                 </div>
               </div>
-              <p className="text-[11px] font-semibold text-slate-700">
-                {merchantProfile.shopNumber} • {merchantProfile.apmcMarketName}
+              <p className="text-[11px] font-bold text-slate-800 leading-snug">
+                {merchantProfile.shopNumber ? (
+                  merchantProfile.shopNumber.toLowerCase().includes('shop')
+                    ? merchantProfile.shopNumber
+                    : `Shop No. ${merchantProfile.shopNumber}`
+                ) : 'Shop No. 1'} • {merchantProfile.apmcMarketName}
               </p>
               <p className="text-[10px] text-slate-500 font-mono">
                 Adathiya: {merchantProfile.ownerName || 'Merchant'} | Ph: {merchantProfile.phoneNumber}

@@ -223,14 +223,34 @@ export function getPastDateString(daysAgo: number): string {
   return `${year}-${month}-${day}`;
 }
 
-export function formatDisplayDate(dateStr: string): string {
+export function formatDateDMY(dateStr: string): string {
+  if (!dateStr) return '';
   try {
     const parts = dateStr.split('-');
     if (parts.length === 3) {
-      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const day = parts[2].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[0];
+      return `${day}/${month}/${year}`;
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
+
+export function formatDisplayDate(dateStr: string): string {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const month = parts[1].padStart(2, '0');
+      const day = parts[2].padStart(2, '0');
+      const d = new Date(Number(year), Number(month) - 1, Number(day));
       return d.toLocaleDateString('en-IN', {
         weekday: 'short',
-        day: 'numeric',
+        day: '2-digit',
         month: 'short',
         year: 'numeric',
       });

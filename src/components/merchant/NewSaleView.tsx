@@ -37,6 +37,7 @@ import { useMandi } from '../../context/MandiContext';
 import { WeightUnit, PaymentStatus, PaymentMode, Expenditures, FlowerQuality, SaleLot, CommodityCategory, Farmer } from '../../types';
 import {
   formatDisplayDate,
+  formatDateDMY,
   getTodayDateString,
   getPastDateString,
   COMMODITY_CONFIGS,
@@ -130,7 +131,7 @@ export const NewSaleView: React.FC = () => {
     {
       id: 'var-1',
       commodityCategory: initialCategory,
-      flowerVariety: initialVariety,
+      flowerVariety: '',
       customVariety: '',
       quantity: '',
       unit: initialUnit,
@@ -150,11 +151,11 @@ export const NewSaleView: React.FC = () => {
         prev.map((r) => ({
           ...r,
           commodityCategory: activeCommodityFilter,
-          flowerVariety: targetConfig.varieties[0]?.en || 'Standard',
+          flowerVariety: '',
           customVariety: '',
           unit: (targetConfig.allowedUnits[0] as WeightUnit) || 'Kgs',
           packagingType: activeCommodityFilter === 'grains' ? 'Bags' : 'Boxes',
-          rate: targetConfig.varieties[0]?.defaultRate || 40,
+          rate: '',
         }))
       );
     }
@@ -602,32 +603,24 @@ export const NewSaleView: React.FC = () => {
       {
         id: `var-${Date.now()}`,
         commodityCategory: primaryCommodity,
-        flowerVariety: primaryConfig.varieties[0]?.en || 'Standard',
+        flowerVariety: '',
         customVariety: '',
-        quantity: 50,
+        quantity: '',
         unit: (primaryConfig.allowedUnits[0] as WeightUnit) || 'Kgs',
         boxesCount: '',
         packagingType: primaryCommodity === 'grains' ? 'Bags' : 'Boxes',
         flowerQuality: 'Good',
-        rate: primaryConfig.varieties[0]?.defaultRate || 40,
+        rate: '',
       },
     ]);
     setActiveRowId(`var-${Date.now()}`);
     setAmmaliCharge('');
     setTransportCharge('');
     setCommissionRate('');
+    setMiscCommissionRate('');
     setNotes('');
     setPaymentReference('');
-    if (paymentChoice === 'pay_now') {
-      const resetGross = 50 * (primaryConfig.varieties[0]?.defaultRate || 40);
-      if (payPortion === 'full') {
-        setAmountPaidNow(resetGross);
-      } else {
-        setAmountPaidNow(Math.round(resetGross / 2));
-      }
-    } else {
-      setAmountPaidNow(0);
-    }
+    setAmountPaidNow('');
   };
 
   const todayStr = getTodayDateString();
@@ -666,7 +659,7 @@ export const NewSaleView: React.FC = () => {
           </div>
 
           {/* Mandi Trading Date Selector */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
+          <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
             <label htmlFor="sale-date-input" className="text-xs font-bold text-[#1e293b] flex items-center gap-1 shrink-0 cursor-pointer">
               <Calendar className="w-4 h-4 text-[#1a3a52]" />
               <span>Mandi Trading Date:</span>
@@ -682,6 +675,9 @@ export const NewSaleView: React.FC = () => {
               }}
               className="px-2.5 py-1 rounded-lg border border-[#e2e8f0] bg-white text-xs font-mono font-bold text-[#1a3a52] focus:outline-hidden focus:border-[#1a3a52] cursor-pointer shadow-2xs"
             />
+            <span className="text-xs font-bold text-[#1a3a52] bg-emerald-100/80 px-2 py-0.5 rounded-md font-mono border border-emerald-200" title="Format: DD/MM/YYYY">
+              {formatDateDMY(saleDate)}
+            </span>
           </div>
         </div>
       </div>
@@ -938,7 +934,7 @@ export const NewSaleView: React.FC = () => {
             <label className="text-xs font-bold uppercase tracking-wider text-[#1a3a52] block">
               {language === 'te'
                 ? '2 & 3. పువ్వుల రకాలు & ధరలు'
-                : '2 & 3. Consignment Item Varieties & Rates'}
+                : '2 & 3. Item Varieties & Rates'}
             </label>
           </div>
 
@@ -970,11 +966,6 @@ export const NewSaleView: React.FC = () => {
                       <span className="font-bold text-sm text-[#1e293b]">
                         {row.customVariety.trim() || row.flowerVariety}
                       </span>
-                      {isActive && (
-                        <span className="text-[10px] uppercase font-bold text-[#1a3a52] bg-[#eef3f7] px-2 py-0.5 rounded-md">
-                          Active Item
-                        </span>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1020,19 +1011,17 @@ export const NewSaleView: React.FC = () => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const newDefaultVariety = cfg.varieties[0]?.en || 'Standard';
                               const newDefaultUnit = (cfg.allowedUnits[0] as WeightUnit) || 'Kgs';
-                              const newDefaultRate = cfg.varieties[0]?.defaultRate || 40;
                               setVarietyRows((prev) =>
                                 prev.map((r) =>
                                   r.id === row.id
                                     ? {
                                         ...r,
                                         commodityCategory: cat,
-                                        flowerVariety: newDefaultVariety,
+                                        flowerVariety: '',
                                         customVariety: '',
                                         unit: newDefaultUnit,
-                                        rate: newDefaultRate,
+                                        rate: '',
                                       }
                                     : r
                                 )
@@ -1256,23 +1245,21 @@ export const NewSaleView: React.FC = () => {
                 const newId = `var-${Date.now()}`;
                 const addCat = (userCommodities[0] || 'flowers') as CommodityCategory;
                 const addCfg = getSafeCommodityConfig(addCat);
-                const addVariety = addCfg.varieties[0]?.en || 'Standard';
                 const addUnit = (addCfg.allowedUnits[0] as WeightUnit) || 'Kgs';
-                const addRate = addCfg.varieties[0]?.defaultRate || 40;
 
                 setVarietyRows((prev) => [
                   ...prev,
                   {
                     id: newId,
                     commodityCategory: addCat,
-                    flowerVariety: addVariety,
+                    flowerVariety: '',
                     customVariety: '',
-                    quantity: 30,
+                    quantity: '',
                     unit: addUnit,
                     boxesCount: '',
                     packagingType: addCat === 'grains' ? 'Bags' : 'Boxes',
                     flowerQuality: 'Good',
-                    rate: addRate,
+                    rate: '',
                   },
                 ]);
                 setActiveRowId(newId);
@@ -1295,7 +1282,7 @@ export const NewSaleView: React.FC = () => {
           </div>
         </div>
 
-        {/* Step 4: Deductions per Transaction (Hamali, Transport & optional Commission) */}
+        {/* Step 4: Deductions per Transaction (Hamali & Transport) */}
         <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-2xs overflow-hidden">
           {/* Header */}
           <div className="p-4 sm:p-5 bg-[#f8fafc] border-b border-[#e2e8f0] select-none">
@@ -1303,7 +1290,7 @@ export const NewSaleView: React.FC = () => {
               <div>
                 <h3 className="text-xs font-black uppercase tracking-wider text-[#1a3a52] flex items-center gap-1.5">
                   <Receipt className="w-4 h-4 text-[#1a3a52]" />
-                  <span>{language === 'te' ? '4. తగ్గింపు ఛార్జీలు (హమాలీ, రవాణా & కమీషన్)' : '4. Deductions per Transaction (Hamali, Transport & Commission)'}</span>
+                  <span>{language === 'te' ? '4. తగ్గింపు ఛార్జీలు (హమాలీ & రవాణా)' : '4. Deductions per Transaction (Hamali & Transport)'}</span>
                 </h3>
               </div>
 
@@ -1315,9 +1302,9 @@ export const NewSaleView: React.FC = () => {
             </div>
           </div>
 
-          {/* Body: Hamali, Transport, and Commission Inputs */}
+          {/* Body: Hamali and Transport Inputs */}
           <div className="p-4 sm:p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* 1. Hamali / Loading Charges (₹) */}
               <div className="p-4 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] space-y-2.5">
                 <div className="flex items-center justify-between">
@@ -1391,133 +1378,12 @@ export const NewSaleView: React.FC = () => {
                   Vehicle / truck freight charge
                 </div>
               </div>
-
-              {/* 3. Mandi Commission Rate (%) */}
-              <div className="p-4 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1e293b] flex items-center gap-1.5">
-                    <Percent className="w-4 h-4 text-[#d4af37]" />
-                    <span>{language === 'te' ? 'మండి కమీషన్ (%)' : 'Mandi Comm (%)'}</span>
-                  </span>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                    numericCommissionRate > 0 
-                      ? 'text-amber-800 bg-amber-50 border-amber-200' 
-                      : 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                  }`}>
-                    {numericCommissionRate > 0 ? `₹${numericCommissionAmount}` : '0% (None)'}
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-[#64748b] mb-1">
-                    {language === 'te' ? 'మండి కమీషన్ శాతం (%)' : 'Mandi Commission Rate (%)'}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-500">%</span>
-                    <input
-                      id="lot-commission-input"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      placeholder="0"
-                      value={commissionRate}
-                      onChange={(e) => {
-                        setCommissionRate(e.target.value === '' ? '' : parseFloat(e.target.value));
-                      }}
-                      className="w-full pl-8 pr-3 py-2 rounded-lg border border-[#e2e8f0] text-xs font-bold bg-white focus:outline-hidden focus:border-[#1a3a52]"
-                    />
-                  </div>
-                </div>
-
-                {/* Quick Presets */}
-                <div className="flex items-center gap-1.5 pt-1">
-                  {[0, 2, 4, 5].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => setCommissionRate(pct === 0 ? '' : pct)}
-                      className={`px-2 py-0.5 text-[10px] font-bold rounded-md border transition cursor-pointer ${
-                        (pct === 0 && (commissionRate === '' || commissionRate === 0)) || commissionRate === pct
-                          ? 'bg-[#1a3a52] text-white border-[#1a3a52]'
-                          : 'bg-white text-[#64748b] border-[#e2e8f0] hover:bg-gray-50'
-                      }`}
-                    >
-                      {pct === 0 ? '0%' : `${pct}%`}
-                    </button>
-                  ))}
-                  <span className="text-[10px] text-gray-400 ml-auto">
-                    {numericCommissionRate > 0 ? `-₹${numericCommissionAmount}` : 'No cut'}
-                  </span>
-                </div>
-              </div>
-
-              {/* 4. Miscellaneous Charges Rate (%) - Beside Mandi Commission */}
-              <div className="p-4 rounded-xl border border-amber-200/80 bg-[#fdfaf3] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1e293b] flex items-center gap-1.5">
-                    <Percent className="w-4 h-4 text-amber-600" />
-                    <span>{language === 'te' ? 'ఇతర ఖర్చులు (%)' : 'Misc Charges (%)'}</span>
-                  </span>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                    numericMiscCommissionRate > 0 
-                      ? 'text-purple-800 bg-purple-50 border-purple-200' 
-                      : 'text-slate-600 bg-slate-50 border-slate-200'
-                  }`}>
-                    {numericMiscCommissionRate > 0 ? `₹${numericMiscCommissionAmount}` : '0% (None)'}
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-[#64748b] mb-1">
-                    {language === 'te' ? 'ఇతర ఖర్చులు శాతం (%)' : 'Miscellaneous Charges Rate (%)'}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-500">%</span>
-                    <input
-                      id="lot-misc-commission-input"
-                      type="number"
-                      min="0"
-                      max="50"
-                      step="0.5"
-                      placeholder="0"
-                      value={miscCommissionRate}
-                      onChange={(e) => {
-                        setMiscCommissionRate(e.target.value === '' ? '' : parseFloat(e.target.value));
-                      }}
-                      className="w-full pl-8 pr-3 py-2 rounded-lg border border-[#e2e8f0] text-xs font-bold bg-white focus:outline-hidden focus:border-[#1a3a52]"
-                    />
-                  </div>
-                </div>
-
-                {/* Quick Presets */}
-                <div className="flex items-center gap-1.5 pt-1">
-                  {[0, 0.5, 1, 2].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => setMiscCommissionRate(pct === 0 ? '' : pct)}
-                      className={`px-2 py-0.5 text-[10px] font-bold rounded-md border transition cursor-pointer ${
-                        (pct === 0 && (miscCommissionRate === '' || miscCommissionRate === 0)) || miscCommissionRate === pct
-                          ? 'bg-amber-700 text-white border-amber-700'
-                          : 'bg-white text-[#64748b] border-[#e2e8f0] hover:bg-gray-50'
-                      }`}
-                    >
-                      {pct === 0 ? '0%' : `${pct}%`}
-                    </button>
-                  ))}
-                  <span className="text-[10px] text-gray-400 ml-auto">
-                    {numericMiscCommissionRate > 0 ? `-₹${numericMiscCommissionAmount}` : 'No cut'}
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Step 5: Farmer Net Payable Highlight & Payment Details */}
+        {/* Farmer Net Payable Highlight Banner */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl border-2 border-[#1a3a52]/40 shadow-xs space-y-4">
-          {/* Prominent Farmer Net Banner */}
           <div className="p-4 rounded-xl bg-gradient-to-r from-[#1a3a52] to-[#122839] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-sm">
             <div>
               <span className="text-[11px] uppercase tracking-wider text-[#d4af37] font-bold block">
@@ -1530,269 +1396,6 @@ export const NewSaleView: React.FC = () => {
             <span className="text-2xl sm:text-3xl font-black font-mono text-white">
               ₹{farmerNetPayable.toLocaleString('en-IN')}
             </span>
-          </div>
-
-          {/* Payment Status & Settlement */}
-          <div className="space-y-4 pt-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-[#1a3a52] block">
-                5. {t('paymentSettlementNow')}
-              </label>
-              <span className="text-[11px] text-[#64748b] font-medium">
-                Farmer Net: <strong className="text-[#1e293b] font-mono">₹{farmerNetPayable.toLocaleString('en-IN')}</strong>
-              </span>
-            </div>
-
-            {/* Primary Choice: Pay Now vs Pay Later */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Pay Now Option Button */}
-              <button
-                type="button"
-                id="payment-choice-pay-now-btn"
-                onClick={() => {
-                  setPaymentChoice('pay_now');
-                  if (payPortion === 'full') {
-                    setAmountPaidNow(farmerNetPayable);
-                  } else {
-                    setAmountPaidNow(Math.round(farmerNetPayable / 2));
-                  }
-                }}
-                className={`p-3.5 rounded-xl border text-left transition flex items-start gap-3 cursor-pointer ${
-                  paymentChoice === 'pay_now'
-                    ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
-                    : 'bg-[#f8fafc] border-[#e2e8f0] hover:bg-[#f1f5f9]'
-                }`}
-              >
-                <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                    paymentChoice === 'pay_now'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-emerald-100 text-emerald-800'
-                  }`}
-                >
-                  <Wallet className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs sm:text-sm text-[#1e293b]">
-                      {t('payNow')}
-                    </span>
-                    {paymentChoice === 'pay_now' && (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                        Active
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-[#64748b] mt-0.5 leading-tight">
-                    {t('payNowDesc')}
-                  </p>
-                </div>
-              </button>
-
-              {/* Pay Later Option Button */}
-              <button
-                type="button"
-                id="payment-choice-pay-later-btn"
-                onClick={() => {
-                  setPaymentChoice('pay_later');
-                  setAmountPaidNow(0);
-                }}
-                className={`p-3.5 rounded-xl border text-left transition flex items-start gap-3 cursor-pointer ${
-                  paymentChoice === 'pay_later'
-                    ? 'bg-red-50/80 border-red-500 ring-2 ring-red-500/20 shadow-xs'
-                    : 'bg-[#f8fafc] border-[#e2e8f0] hover:bg-[#f1f5f9]'
-                }`}
-              >
-                <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                    paymentChoice === 'pay_later'
-                      ? 'bg-red-600 text-white shadow-xs'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  <Clock className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs sm:text-sm text-[#1e293b]">
-                      {t('payLater')}
-                    </span>
-                    {paymentChoice === 'pay_later' && (
-                      <span className="text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
-                        Credit / Unpaid
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-[#64748b] mt-0.5 leading-tight">
-                    {t('payLaterDesc')}
-                  </p>
-                </div>
-              </button>
-            </div>
-
-            {/* When Pay Later is selected */}
-            {paymentChoice === 'pay_later' && (
-              <div className="p-4 rounded-xl bg-red-50/70 border border-red-200 space-y-2">
-                <div className="flex items-center gap-2 text-red-900 font-bold text-xs">
-                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>{language === 'te' ? 'బాకీ ఖాతా (చెల్లించని లాట్)' : 'Unpaid Credit Consignment'}</span>
-                </div>
-                <p className="text-xs text-red-800 leading-relaxed">
-                  The net amount of <strong className="font-mono">₹{farmerNetPayable.toLocaleString('en-IN')}</strong> will be recorded as <strong>Unpaid</strong>. When you click <em>Save &amp; Generate Mandi Parchi</em>, it will immediately go directly to the <strong>Payments</strong> tab under <em>{selectedFarmer?.name || 'Farmer'}</em> as an outstanding balance for later settlement.
-                </p>
-              </div>
-            )}
-
-            {/* When Pay Now is selected */}
-            {paymentChoice === 'pay_now' && (
-              <div className="space-y-4 p-4 sm:p-5 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0]">
-                {/* Full vs Partial Selection */}
-                <div>
-                  <label className="block text-xs font-semibold text-[#1e293b] mb-2">
-                    Payment Amount Choice:
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      id="pay-portion-full-btn"
-                      onClick={() => {
-                        setPayPortion('full');
-                        setAmountPaidNow(farmerNetPayable);
-                      }}
-                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
-                        payPortion === 'full' && numericPaid >= farmerNetPayable
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                          : 'bg-white text-[#1e293b] border-[#e2e8f0] hover:bg-[#f1f5f9]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{t('fullAmount')} (₹{farmerNetPayable.toLocaleString('en-IN')})</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      id="pay-portion-partial-btn"
-                      onClick={() => {
-                        setPayPortion('partial');
-                        if (amountPaidNow === farmerNetPayable || amountPaidNow === 0 || amountPaidNow === '') {
-                          setAmountPaidNow(Math.round(farmerNetPayable / 2));
-                        }
-                      }}
-                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
-                        payPortion === 'partial' || (numericPaid > 0 && numericPaid < farmerNetPayable)
-                          ? 'bg-[#d4af37] text-[#1e293b] border-[#d4af37] shadow-2xs font-black'
-                          : 'bg-white text-[#1e293b] border-[#e2e8f0] hover:bg-[#f1f5f9]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-1.5">
-                        <Coins className="w-3.5 h-3.5" />
-                        <span>{t('partialAmount')} (Custom Edit)</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Amount Paid Edit Input & Status Badge */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="lot-amount-paid-input" className="block text-xs font-semibold text-[#1e293b]">
-                      {t('amountPaidNow')}
-                    </label>
-                    <span className="text-[11px] font-bold">
-                      {numericPaid >= farmerNetPayable && farmerNetPayable > 0 ? (
-                        <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                          ✓ {t('statusPaid')} (Full)
-                        </span>
-                      ) : numericPaid > 0 ? (
-                        <span className="text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                          ⚠ {t('statusPartial')} (Remaining Due: ₹{balanceDue.toLocaleString('en-IN')})
-                        </span>
-                      ) : (
-                        <span className="text-red-800 bg-red-100 px-2 py-0.5 rounded-md">
-                          {t('statusUnpaid')}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-2.5 text-sm text-gray-500 font-bold">₹</span>
-                    <input
-                      id="lot-amount-paid-input"
-                      type="number"
-                      min="0"
-                      max={farmerNetPayable}
-                      step="any"
-                      placeholder="Enter amount paid"
-                      value={amountPaidNow}
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                        setAmountPaidNow(val);
-                        if (typeof val === 'number') {
-                          if (val >= farmerNetPayable && farmerNetPayable > 0) {
-                            setPayPortion('full');
-                          } else if (val > 0) {
-                            setPayPortion('partial');
-                          }
-                        }
-                      }}
-                      className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-[#e2e8f0] text-sm font-mono font-bold bg-white focus:outline-hidden focus:border-[#1a3a52] focus:ring-1 focus:ring-[#1a3a52]"
-                    />
-                  </div>
-
-                  {/* Quick percentage shortcuts */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[11px] text-[#64748b]">Quick presets:</span>
-                    {[
-                      { label: '25%', frac: 0.25 },
-                      { label: '50%', frac: 0.5 },
-                      { label: '75%', frac: 0.75 },
-                      { label: 'Full', frac: 1 },
-                    ].map(({ label, frac }) => (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => {
-                          const amt = Math.round(farmerNetPayable * frac);
-                          setAmountPaidNow(amt);
-                          if (frac === 1) {
-                            setPayPortion('full');
-                          } else {
-                            setPayPortion('partial');
-                          }
-                        }}
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-[#e2e8f0] bg-white hover:bg-[#f1f5f9] text-[#1e293b] transition cursor-pointer"
-                      >
-                        {label} (₹{Math.round(farmerNetPayable * frac).toLocaleString('en-IN')})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Remaining Balance Summary Card */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3.5 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] text-xs">
-              <div className="space-y-0.5">
-                <span className="font-semibold text-[#1e293b] block">
-                  {t('balanceDue')}:
-                </span>
-                <span className="text-[11px] text-[#64748b]">
-                  {balanceDue > 0
-                    ? `Remaining ₹${balanceDue.toLocaleString('en-IN')} automatically goes to Payments Khata as pending due`
-                    : 'Account fully settled! Zero pending dues remaining.'}
-                </span>
-              </div>
-              <span
-                className={`font-mono font-black text-base ${
-                  balanceDue > 0 ? 'text-red-700' : 'text-emerald-700'
-                }`}
-              >
-                ₹{balanceDue.toLocaleString('en-IN')}
-              </span>
-            </div>
           </div>
         </div>
 

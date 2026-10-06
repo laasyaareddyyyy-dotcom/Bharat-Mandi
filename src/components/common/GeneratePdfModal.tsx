@@ -443,7 +443,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
         orientation: 'portrait',
         marginMm: format === 'thermal-80mm' ? 4 : 6,
         scale: 2,
-        fitToPage: true,
+        fitToPage: false,
         autoDownload: true,
       });
 

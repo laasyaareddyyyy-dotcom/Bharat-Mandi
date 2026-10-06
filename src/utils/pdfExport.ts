@@ -464,10 +464,11 @@ export async function exportElementToPdf(
         format: isLetter ? 'letter' : 'a4',
       });
 
-      // Smart Single-Page Fitting:
-      // If fitToPage is true OR if naturalHeightMm is within 1.4x of printable height (common for single invoices/receipts)
-      const shouldFitToOnePage =
-        fitToPage === true || (fitToPage !== false && naturalHeightMm <= printableHeight * 1.4);
+      // Smart Auto-Pagination & Single-Page Fitting:
+      // Fit to 1 single page ONLY if content fits naturally within 1 page (naturalHeightMm <= printableHeight).
+      // If content exceeds 1 page (e.g. multi-item consignments, long statements), DO NOT squish or compress!
+      // Paginate cleanly onto Page 2, Page 3, etc. with full scale, font sizes, and unconstrained padding.
+      const shouldFitToOnePage = fitToPage === true && naturalHeightMm <= printableHeight;
 
       if (shouldFitToOnePage) {
         let renderWidth = printableWidth;

@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
 import { FifteenDaySettlement, PaymentMode, Shipment } from '../../types';
-import { formatDisplayDate, getTodayDateString, getPastDateString } from '../../data/initialData';
+import { formatDisplayDate, formatDateDMY, getTodayDateString, getPastDateString } from '../../data/initialData';
 import { sounds } from '../../utils/audio';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 import { exportElementToPdf, printHtmlViaIframe } from '../../utils/pdfExport';
@@ -441,7 +441,7 @@ MERCHANT'S DEDUCTIONS SUMMARY (from Farmer's Total)
       {/* Control Bar: Custom Date Pickers, Commission %, Search */}
       <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-2xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-[#64748b]">Period:</span>
             <input
               type="date"
@@ -464,6 +464,9 @@ MERCHANT'S DEDUCTIONS SUMMARY (from Farmer's Total)
               }}
               className="px-2.5 py-1.5 rounded-xl border border-[#e2e8f0] text-xs font-medium text-[#1e293b] focus:ring-2 focus:ring-[#1a3a52] focus:outline-none"
             />
+            <span className="text-xs font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md font-mono border border-emerald-200">
+              {formatDateDMY(startDate)} – {formatDateDMY(endDate)}
+            </span>
           </div>
 
           {/* Commission rate adjustment */}
