@@ -408,7 +408,7 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
         {/* 8. Footer */}
         <div className="text-center text-[10px] text-slate-500 pt-2 border-t border-slate-200 space-y-0.5">
           <p className="font-bold tracking-wider text-slate-600 uppercase">
-            OFFICIAL APMC MANDI SALE PARCHI • FORM C • GOVT REGULATED
+            OFFICIAL MANDI SALE PARCHI • FORM C •
           </p>
           <p className="text-[9px] text-slate-400">
             Generated via भारत MANDI Software • Valid Settlement Bill
