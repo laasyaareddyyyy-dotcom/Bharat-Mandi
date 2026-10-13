@@ -71,7 +71,18 @@ export const Navbar: React.FC = () => {
 
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [isLangModalOpen, setIsLangModalOpen] = useState(false);
+  const [hasUnreadSupportUpdate, setHasUnreadSupportUpdate] = useState<boolean>(() => {
+    return localStorage.getItem('bharatmandi_unread_ticket_update') === 'true';
+  });
   const commodityScrollRef = useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleUpdate = () => {
+      setHasUnreadSupportUpdate(localStorage.getItem('bharatmandi_unread_ticket_update') === 'true');
+    };
+    window.addEventListener('ticket_update', handleUpdate);
+    return () => window.removeEventListener('ticket_update', handleUpdate);
+  }, []);
 
   const currentLangInfo = getLanguageInfo(language);
 
@@ -141,65 +152,123 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="no-print">
-      {/* 1. TOP HEADER SECTION: Centered Logo, Title, Subtitle, and Languages (scrolls with page) */}
-      <div className="border-b border-[#132d42] bg-[#1a3a52] pt-2.5 pb-2 px-3 text-center flex flex-col items-center justify-center text-white">
-        {/* At the very top, show the logo, centered */}
-        <div
-          className="cursor-pointer select-none mx-auto mb-1 inline-block"
-          onClick={() => {
-            setMerchantTab('dashboard');
-            setDashboardTab('summary');
-          }}
-          title="Agricultural Marketplace"
-        >
-          <img
-            src="/bharat_mandi_logo.png"
-            alt="Agricultural Marketplace Logo"
-            referrerPolicy="no-referrer"
-            className="w-12 h-12 sm:w-14 sm:h-14 object-contain mx-auto shrink-0 drop-shadow-xs bg-transparent"
-          />
-        </div>
+      {/* 1. TOP HEADER SECTION: Horizontal Row with Balanced Vertical Padding */}
+      <div className="border-b border-[#132d42] bg-[#1a3a52] py-3.5 sm:py-4.5 px-3.5 sm:px-6 text-white">
+        <div className="max-w-7xl mx-auto flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+          {/* Left Side: Logo + Title & Subtitle Beside It */}
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <div
+              className="cursor-pointer select-none shrink-0"
+              onClick={() => {
+                setMerchantTab('dashboard');
+                setDashboardTab('summary');
+              }}
+              title="Agricultural Marketplace Settlement Tracker"
+            >
+              <img
+                src="/bharat_mandi_logo.png"
+                alt="Agricultural Marketplace Logo"
+                referrerPolicy="no-referrer"
+                className="w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow-xs bg-transparent"
+              />
+            </div>
 
-        {/* Below the logo, show the title Agricultural Marketplace Settlement Tracker */}
-        <h1 className="font-black text-sm sm:text-base md:text-lg tracking-tight text-white leading-tight">
-          {t('appHeaderTitle')}
-        </h1>
-
-        {/* Below the title, show the subtitle Multi-Commodity Settlement & Ledger for Farmers & Merchants */}
-        <p className="text-[10px] sm:text-xs text-slate-200 font-medium mt-0.5 max-w-xl mx-auto leading-snug">
-          {t('appHeaderSubtitle')}
-        </p>
-
-        {portalMode === 'admin' && (
-          <div className="mt-1.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-md">
-            <span>APMC Central Admin Portal Active</span>
+            <div className="flex flex-col text-left min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-black text-sm sm:text-base md:text-lg tracking-tight text-white leading-tight">
+                  {t('appHeaderTitle')}
+                </h1>
+                {portalMode === 'admin' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-2xs">
+                    Admin Portal
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] sm:text-xs text-slate-200 font-medium leading-snug truncate sm:whitespace-normal">
+                {t('appHeaderSubtitle')}
+              </p>
+            </div>
           </div>
-        )}
 
-        {/* Language Settings trigger button */}
-        <div className="flex items-center justify-center gap-1.5 mt-2">
-          <button
-            type="button"
-            id="navbar-language-settings-btn"
-            onClick={() => {
-              sounds.playBidTick?.();
-              setIsLangModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 text-[#1a3a52] text-xs font-bold rounded-xl border border-white/40 shadow-2xs transition cursor-pointer select-none group"
-            title="Click to open Indian Language Settings"
-          >
-            <Globe className="w-3.5 h-3.5 text-[#1a3a52] group-hover:rotate-12 transition-transform" />
-            <span className="font-black text-slate-900">{currentLangInfo.nativeName}</span>
-            {currentLangInfo.nativeName !== currentLangInfo.englishName && (
-              <span className="text-[10px] text-slate-600 font-normal">
-                ({currentLangInfo.englishName})
+          {/* Right Side: Language Selector & Online Status */}
+          <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
+            {/* Language Selector */}
+            <div className="flex items-center bg-white/10 rounded-xl p-0.5 border border-white/20">
+              <button
+                type="button"
+                id="navbar-lang-en-btn"
+                onClick={() => {
+                  sounds.playBidTick?.();
+                  setLanguage('en');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+                  language === 'en'
+                    ? 'bg-white text-[#1a3a52] shadow-2xs'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+                title="Switch to English"
+              >
+                English
+              </button>
+              <button
+                type="button"
+                id="navbar-lang-hi-btn"
+                onClick={() => {
+                  sounds.playBidTick?.();
+                  setLanguage('hi');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+                  language === 'hi'
+                    ? 'bg-white text-[#1a3a52] shadow-2xs'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+                title="हिंदी में बदलें"
+              >
+                हिंदी
+              </button>
+              <button
+                type="button"
+                id="navbar-language-settings-btn"
+                onClick={() => {
+                  sounds.playBidTick?.();
+                  setIsLangModalOpen(true);
+                }}
+                className="p-1 text-white/70 hover:text-white transition cursor-pointer"
+                title="Language Settings"
+              >
+                <Globe className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Online Status Indicator */}
+            <button
+              type="button"
+              id="navbar-header-online-status-btn"
+              onClick={handleQuickCloudSync}
+              disabled={isSyncing}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+                firebaseUser
+                  ? 'bg-emerald-500/20 text-emerald-100 border-emerald-400/40 hover:bg-emerald-500/30'
+                  : 'bg-white/10 text-slate-100 border-white/20 hover:bg-white/20'
+              }`}
+              title={
+                firebaseUser
+                  ? `Firebase Online Sync: Active (${lastSyncedAt || 'Live'}). Click to sync.`
+                  : 'Offline Storage Active. Click to connect Cloud Backup.'
+              }
+            >
+              {isSyncing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+              ) : firebaseUser ? (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              ) : (
+                <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+              )}
+              <span className="text-[11px] font-extrabold">
+                {syncFeedback ? syncFeedback : firebaseUser ? 'Online' : 'Offline'}
               </span>
-            )}
-            <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-semibold border border-slate-300 ml-0.5">
-              {t('changeLanguage')}
-            </span>
-            <ChevronDown className="w-3 h-3 text-slate-500 group-hover:text-slate-800" />
-          </button>
+            </button>
+          </div>
         </div>
 
         <LanguageSettingsModal
@@ -352,8 +421,12 @@ export const Navbar: React.FC = () => {
             <button
               type="button"
               id="desktop-nav-support"
-              onClick={() => setMerchantTab('support')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              onClick={() => {
+                setMerchantTab('support');
+                localStorage.removeItem('bharatmandi_unread_ticket_update');
+                setHasUnreadSupportUpdate(false);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 relative ${
                 merchantTab === 'support'
                   ? 'bg-[#1a3a52] text-white shadow-2xs'
                   : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/60'
@@ -361,6 +434,9 @@ export const Navbar: React.FC = () => {
             >
               <Headphones className="w-3.5 h-3.5" />
               <span>{t('helpDesk')}</span>
+              {hasUnreadSupportUpdate && (
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse ml-0.5" title="New ticket update" />
+              )}
             </button>
           </nav>
 

@@ -318,9 +318,11 @@ export interface ConnectionRequest {
 
 export interface RegisteredAccount {
   id: string;
+  merchantId?: string;
   phoneNumber: string;
   email?: string;
   password?: string;
+  pinHash?: string;
   role: Role;
   fullName: string;
   shopOrVillage: string;

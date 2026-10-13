@@ -132,7 +132,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
     { id: 'dashboard', label: t('tabDashboard'), icon: <TrendingUp className="w-4 h-4" /> },
     { id: 'new-sale', label: t('tabNewSale'), icon: <PlusCircle className="w-4 h-4" /> },
     { id: 'farmers', label: t('tabFarmers'), icon: <Users className="w-4 h-4" /> },
-    { id: 'settings', label: language === 'te' ? 'షాప్ సెట్టింగ్‌లు & వివరాలు' : 'Shop Settings & Info', icon: <Store className="w-4 h-4" /> },
+    { id: 'settings', label: t('tabSettings'), icon: <Store className="w-4 h-4" /> },
     { id: 'support', label: t('helpDesk'), icon: <Headphones className="w-4 h-4" /> },
   ];
 

@@ -19,6 +19,7 @@ import { useFirebase } from '../../context/FirebaseContext';
 import { FarmersView } from './FarmersView';
 import { ShopSettingsView } from './ShopSettingsView';
 import { SalesReportPdfModal } from './SalesReportPdfModal';
+import { UserTicketScreen } from '../support/UserTicketScreen';
 
 export const SupportView: React.FC = () => {
   const {
@@ -220,6 +221,11 @@ export const SupportView: React.FC = () => {
               <div className="support-title font-black text-[#1a3a52]">Shop Settings &amp; Info</div>
               <div className="support-desc">Configure rates, license, &amp; shop profile</div>
             </button>
+          </div>
+
+          {/* User Support Ticket Portal (Raise a ticket & View ticket responses) */}
+          <div className="pt-4 border-t border-slate-200">
+            <UserTicketScreen />
           </div>
 
           {/* Logout Button */}

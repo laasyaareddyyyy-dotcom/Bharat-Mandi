@@ -106,15 +106,15 @@ export const HelpDeskModal: React.FC = () => {
         {/* Quick Mandi Helplines Sub-bar */}
         <div className="flex-shrink-0 bg-[#F8F6F2] border-b border-slate-200 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
           <div className="flex flex-wrap items-center gap-4">
-            <span className="flex items-center gap-1.5 font-medium text-slate-800">
+            <a href="tel:9110387978" className="flex items-center gap-1.5 font-medium text-slate-800 hover:text-[#1a3a52]">
               <PhoneCall className="w-3.5 h-3.5 text-[#1a3a52]" />
-              <span>APMC Yard Helpline: <strong className="font-mono text-[#1a3a52]">1800-425-6263</strong></span>
-            </span>
+              <span>Helpline Number: <strong className="font-mono text-[#1a3a52]">9110387978</strong></span>
+            </a>
 
-            <span className="hidden sm:flex items-center gap-1.5 font-medium text-slate-800">
+            <a href="https://wa.me/919110387978" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 font-medium text-slate-800 hover:text-emerald-700">
               <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-              <span>WhatsApp: <strong className="font-mono text-slate-800">+91 94400 12345</strong></span>
-            </span>
+              <span>WhatsApp: <strong className="font-mono text-slate-800">9110387978</strong></span>
+            </a>
           </div>
 
           <div className="flex items-center gap-1.5 text-[11px]">

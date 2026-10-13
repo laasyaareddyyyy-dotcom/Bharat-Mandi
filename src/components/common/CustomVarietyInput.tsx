@@ -64,8 +64,12 @@ export const CustomVarietyInput: React.FC<CustomVarietyInputProps> = ({
 
   const defaultPlaceholder =
     category && category !== 'all' && COMMODITY_CONFIGS[category as CommodityCategory]
-      ? `Enter custom ${COMMODITY_CONFIGS[category as CommodityCategory].name} name...`
-      : 'Type or select custom flower / commodity name...';
+      ? (language === 'hi'
+          ? `${COMMODITY_CONFIGS[category as CommodityCategory].nameHi.split(' ')[0]} का नाम दर्ज या चुनें...`
+          : `Enter custom ${COMMODITY_CONFIGS[category as CommodityCategory].name} name...`)
+      : (language === 'hi'
+          ? 'किस्म या नाम दर्ज/चुनें...'
+          : 'Type or select custom flower / commodity name...');
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -102,7 +106,7 @@ export const CustomVarietyInput: React.FC<CustomVarietyInputProps> = ({
           <div className="px-2 py-1 flex items-center justify-between border-b border-[#e2e8f0]/80 pb-1 mb-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#1a3a52] flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-[#d4af37]" />
-              <span>Previously Typed &amp; Suggested Names</span>
+              <span>{language === 'hi' ? 'सुझाव एवं दर्ज की गई किस्में' : 'Previously Typed & Suggested Names'}</span>
             </span>
             <span className="text-[9px] text-[#64748b] font-mono">{suggestions.length} items</span>
           </div>
@@ -134,7 +138,7 @@ export const CustomVarietyInput: React.FC<CustomVarietyInputProps> = ({
                           : 'bg-amber-100 text-amber-900 border border-amber-200'
                       }`}
                     >
-                      🕒 Typed Before
+                      🕒 {language === 'hi' ? 'पूर्व दर्ज' : 'Typed Before'}
                     </span>
                   )}
                 </div>

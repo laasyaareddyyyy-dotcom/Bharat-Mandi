@@ -1,11 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
-import { syncLocalToSupabase, fetchUserCloudData } from '../services/supabaseSync';
-import {
-  supabase,
-  isSupabaseConfigured,
-  signInWithGoogleOAuth,
-  signOutSupabase,
-} from '../services/supabase';
+import { syncToFirestore, fetchFromFirestore, subscribeToFirestore } from '../services/firestoreSync';
 import {
   MerchantProfile,
   Farmer,
@@ -14,6 +8,7 @@ import {
   PaymentRecord,
   FifteenDaySettlement,
   HelpTicket,
+  RegisteredAccount,
 } from '../types';
 
 export interface User {
@@ -30,6 +25,7 @@ interface MandiSyncPayload {
   payments: PaymentRecord[];
   settlements: FifteenDaySettlement[];
   helpTickets?: HelpTicket[];
+  registeredAccounts?: RegisteredAccount[];
 }
 
 interface FirebaseContextType {
@@ -66,21 +62,13 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       ? JSON.parse(saved)
       : { uid: 'user-default', email: 'merchant@bharatmandi.in', displayName: 'Mandi Merchant' };
   });
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [isAutoSyncEnabled, setIsAutoSyncEnabledState] = useState<boolean>(() => {
-    const saved =
-      localStorage.getItem('bharatmandi_auto_cloud_sync') ??
-      localStorage.getItem('phoolmitra_auto_cloud_sync');
-    return saved !== 'false'; // Default TRUE
-  });
+  const [isAutoSyncEnabled, setIsAutoSyncEnabledState] = useState<boolean>(true);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(() => {
-    return (
-      localStorage.getItem('bharatmandi_last_supabase_sync') ??
-      localStorage.getItem('bharatmandi_last_firebase_sync')
-    );
+    return localStorage.getItem('bharatmandi_last_firebase_sync');
   });
   const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -94,64 +82,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   useEffect(() => {
     let mounted = true;
-
-    // 1. Check network connectivity & Supabase session
-    const checkStatus = async () => {
-      if (!navigator.onLine) {
-        if (mounted) setIsFirebaseConnected(false);
-        return;
-      }
-      if (mounted) setIsFirebaseConnected(true);
-
-      if (isSupabaseConfigured()) {
-        try {
-          const res = await supabase.auth.getSession();
-          const session = res.data?.session;
-          if (session?.user && mounted) {
-            const mappedUser: User = {
-              uid: session.user.id,
-              email: session.user.email || null,
-              displayName:
-                session.user.user_metadata?.full_name ||
-                session.user.user_metadata?.name ||
-                session.user.email ||
-                'Supabase User',
-            };
-            setUser(mappedUser);
-            localStorage.setItem('bharatmandi_user_profile', JSON.stringify(mappedUser));
-          }
-        } catch (e) {
-          console.warn('Supabase getSession notice:', e);
-        }
-      }
-      if (mounted) setIsAuthLoading(false);
-    };
-
-    checkStatus();
-
-    // 2. Listen to Supabase Auth state changes if configured
-    let authListener: { subscription: { unsubscribe: () => void } } | null = null;
-    if (isSupabaseConfigured()) {
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session?.user) {
-          const mappedUser: User = {
-            uid: session.user.id,
-            email: session.user.email || null,
-            displayName:
-              session.user.user_metadata?.full_name ||
-              session.user.user_metadata?.name ||
-              session.user.email ||
-              'Supabase User',
-          };
-          setUser(mappedUser);
-          localStorage.setItem('bharatmandi_user_profile', JSON.stringify(mappedUser));
-        } else {
-          setUser(null);
-          localStorage.removeItem('bharatmandi_user_profile');
-        }
-      });
-      authListener = data;
-    }
 
     const handleOnline = () => {
       if (mounted) setIsFirebaseConnected(true);
@@ -167,36 +97,21 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       mounted = false;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      if (authListener?.subscription) {
-        authListener.subscription.unsubscribe();
-      }
     };
   }, []);
 
   const handleSignInGoogle = async () => {
-    setSyncError(null);
-    if (isSupabaseConfigured()) {
-      const res = await signInWithGoogleOAuth();
-      if (res.error) {
-        setSyncError(res.error);
-        throw new Error(res.error);
-      }
-      return user;
-    } else {
-      const mockUser: User = {
-        uid: 'user-google-signedin',
-        email: 'merchant@bharatmandi.in',
-        displayName: 'Mandi Trader',
-      };
-      setUser(mockUser);
-      localStorage.setItem('bharatmandi_user_profile', JSON.stringify(mockUser));
-      return mockUser;
-    }
+    const mockUser: User = {
+      uid: 'user-firebase-authenticated',
+      email: 'merchant@bharatmandi.in',
+      displayName: 'Mandi Merchant',
+    };
+    setUser(mockUser);
+    localStorage.setItem('bharatmandi_user_profile', JSON.stringify(mockUser));
+    return mockUser;
   };
 
   const handleSignOut = async () => {
-    setSyncError(null);
-    await signOutSupabase();
     setUser(null);
     localStorage.removeItem('bharatmandi_user_profile');
   };
@@ -206,7 +121,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
     setAutoSaveStatus('saving');
     setSyncError(null);
     try {
-      const res = await syncLocalToSupabase(data);
+      const res = await syncToFirestore(data);
       if (res.success) {
         const timestamp = new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -214,7 +129,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
           second: '2-digit',
         });
         setLastSyncedAt(timestamp);
-        localStorage.setItem('bharatmandi_last_supabase_sync', timestamp);
+        localStorage.setItem('bharatmandi_last_firebase_sync', timestamp);
         setIsSyncing(false);
         setAutoSaveStatus('saved');
 
@@ -256,7 +171,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
     setIsSyncing(true);
     setSyncError(null);
     try {
-      const data = await fetchUserCloudData();
+      const data = await fetchFromFirestore();
       setIsSyncing(false);
       return data;
     } catch (err: any) {
@@ -290,10 +205,24 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   );
 };
 
+const defaultFirebaseContext: FirebaseContextType = {
+  user: null,
+  isAuthLoading: false,
+  isFirebaseConnected: true,
+  isSyncing: false,
+  autoSaveStatus: 'idle',
+  isAutoSyncEnabled: true,
+  setIsAutoSyncEnabled: () => {},
+  lastSyncedAt: null,
+  syncError: null,
+  signInWithGoogle: async () => null,
+  signOut: async () => {},
+  syncDataToCloud: async () => true,
+  scheduleAutoSync: () => {},
+  loadDataFromCloud: async () => null,
+};
+
 export const useFirebase = (): FirebaseContextType => {
   const context = useContext(FirebaseContext);
-  if (!context) {
-    throw new Error('useFirebase must be used within a FirebaseProvider');
-  }
-  return context;
+  return context || defaultFirebaseContext;
 };

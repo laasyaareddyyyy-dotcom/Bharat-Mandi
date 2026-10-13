@@ -47,10 +47,10 @@ export const LanguageSettingsModal: React.FC<LanguageSettingsModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                Indian Language Settings
+                {currentLanguage === 'hi' ? 'भारतीय भाषा सेटिंग्स' : 'Indian Language Settings'}
               </h3>
               <p className="text-xs text-slate-300 mt-0.5">
-                Select your preferred Mandi trading interface language
+                {currentLanguage === 'hi' ? 'अपनी पसंदीदा मंडी व्यापार भाषा चुनें' : 'Select your preferred Mandi trading interface language'}
               </p>
             </div>
           </div>
@@ -72,7 +72,7 @@ export const LanguageSettingsModal: React.FC<LanguageSettingsModalProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by language, script or region (e.g., Telugu, Kannada, Maharashtra)..."
+              placeholder={currentLanguage === 'hi' ? 'भाषा या क्षेत्र से खोजें (उदा. हिंदी, English)...' : 'Search by language, script or region...'}
               className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1a3a52]/30 focus:border-[#1a3a52]"
             />
             {searchQuery && (
@@ -81,7 +81,7 @@ export const LanguageSettingsModal: React.FC<LanguageSettingsModalProps> = ({
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
               >
-                Clear
+                {currentLanguage === 'hi' ? 'साफ़ करें' : 'Clear'}
               </button>
             )}
           </div>
@@ -91,7 +91,7 @@ export const LanguageSettingsModal: React.FC<LanguageSettingsModalProps> = ({
         <div className="px-4 py-2.5 bg-amber-50/70 border-b border-amber-200/60 flex items-center justify-between text-xs text-amber-900">
           <div className="flex items-center gap-2 font-medium">
             <Globe className="w-4 h-4 text-amber-700" />
-            <span>Active Language:</span>
+            <span>{currentLanguage === 'hi' ? 'सक्रिय भाषा:' : 'Active Language:'}</span>
             <span className="font-bold text-amber-950 bg-amber-200/60 px-2 py-0.5 rounded-md">
               {activeLang.nativeName} ({activeLang.englishName})
             </span>
@@ -105,7 +105,7 @@ export const LanguageSettingsModal: React.FC<LanguageSettingsModalProps> = ({
         <div className="p-3 sm:p-4 overflow-y-auto space-y-2 max-h-[50vh]">
           {filteredLanguages.length === 0 ? (
             <div className="text-center py-8 text-slate-500 text-xs">
-              No Indian language matching &quot;{searchQuery}&quot; found.
+              {currentLanguage === 'hi' ? `"${searchQuery}" से मेल खाती कोई भाषा नहीं मिली।` : `No language matching "${searchQuery}" found.`}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -170,13 +170,13 @@ export const LanguageSettingsModal: React.FC<LanguageSettingsModalProps> = ({
 
         {/* Footer */}
         <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-          <span>Supported Indian Mandi Regional Languages</span>
+          <span>{currentLanguage === 'hi' ? 'समर्थित मंडी क्षेत्रीय भाषाएं' : 'Supported Indian Mandi Regional Languages'}</span>
           <button
             type="button"
             onClick={onClose}
             className="px-4 py-1.5 bg-[#1a3a52] text-white rounded-lg font-bold hover:bg-[#234b6a] transition cursor-pointer"
           >
-            Done
+            {currentLanguage === 'hi' ? 'संपन्न' : 'Done'}
           </button>
         </div>
       </div>

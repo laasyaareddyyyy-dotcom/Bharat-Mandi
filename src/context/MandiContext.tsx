@@ -30,7 +30,6 @@ import {
   SyncedFarmerStatementItem,
 } from '../types';
 import { translations } from '../translations';
-import { useFirebase } from './FirebaseContext';
 import {
   syncFarmerToCloud,
   deleteFarmerFromCloud,
@@ -42,7 +41,17 @@ import {
   deletePaymentFromCloud,
   syncSettlementToCloud,
   syncMerchantProfileToCloud,
+  syncLocalToSupabase,
+  fetchUserCloudData,
 } from '../services/supabaseSync';
+import {
+  syncToFirestore,
+  fetchFromFirestore,
+  fetchUserAccountByPhone,
+  subscribeToFirestore,
+} from '../services/firestoreSync';
+import { createTicketInSupabase } from '../services/supabaseTickets';
+import { isSupabaseConfigured } from '../services/supabase';
 import {
   initialFarmers,
   initialMerchantProfile,
@@ -118,7 +127,7 @@ interface MandiContextType {
   currentUserAccount: RegisteredAccount | null;
   registeredAccounts: RegisteredAccount[];
   switchUserAccount: (phone: string) => void;
-  verifyPasswordAndLogin: (identifier: string, passwordInput: string) => { success: boolean; error?: string; account?: RegisteredAccount };
+  verifyPasswordAndLogin: (identifier: string, passwordInput: string) => Promise<{ success: boolean; error?: string; account?: RegisteredAccount }>;
   resetUserPassword: (identifier: string, newPasswordInput: string) => { success: boolean; error?: string };
   registerNewAccount: (account: Omit<RegisteredAccount, 'id' | 'createdAt'>) => { success: boolean; error?: string };
   checkUniqueness: (params: { shopName?: string; shopAddress?: string; phoneNumber?: string; excludePhone?: string }) => UniquenessCheckResult;
@@ -430,18 +439,51 @@ const getUserStorageKeys = (phone: string) => {
 };
 
 export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const {
-    user: firebaseUser,
-    autoSaveStatus,
-    isAutoSyncEnabled,
-    scheduleAutoSync,
-    loadDataFromCloud,
-  } = useFirebase();
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isAutoSyncEnabled, setIsAutoSyncEnabledState] = useState<boolean>(true);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+
+  const debounceTimerRef = React.useRef<any>(null);
+
+  const setIsAutoSyncEnabled = (enabled: boolean) => {
+    setIsAutoSyncEnabledState(enabled);
+  };
+
+  const loadDataFromCloud = useCallback(async () => {
+    return await fetchUserCloudData();
+  }, []);
+
+  const syncDataToCloud = useCallback(async (payload: any) => {
+    setAutoSaveStatus('saving');
+    try {
+      const res = await syncLocalToSupabase(payload);
+      if (res.success) {
+        setAutoSaveStatus('saved');
+        setLastSyncedAt(new Date().toLocaleTimeString());
+        setTimeout(() => setAutoSaveStatus('idle'), 3000);
+        return true;
+      } else {
+        setAutoSaveStatus('error');
+        return false;
+      }
+    } catch {
+      setAutoSaveStatus('error');
+      return false;
+    }
+  }, []);
+
+  const scheduleAutoSync = useCallback((payload: any) => {
+    if (!isAutoSyncEnabled) return;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setAutoSaveStatus('saving');
+    debounceTimerRef.current = setTimeout(() => {
+      syncDataToCloud(payload);
+    }, 1500);
+  }, [isAutoSyncEnabled, syncDataToCloud]);
 
   const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem(GLOBAL_STORAGE_KEYS.LANG) as Language | null;
-    const validCodes: Language[] = ['en', 'hi', 'te', 'kn', 'ta', 'mr', 'gu', 'bn', 'pa', 'ml', 'or', 'as'];
-    return (saved && validCodes.includes(saved)) ? saved : 'en';
+    return saved === 'hi' ? 'hi' : 'en';
   });
 
   const [currentUserPhone, setCurrentUserPhone] = useState<string>(() => {
@@ -1007,16 +1049,19 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const config = COMMODITY_CONFIGS[cat];
         if (config && config.varieties) {
           config.varieties.forEach((v) => {
-            addResult(v.en, cat, false);
-            if (v.hi) addResult(v.hi, cat, false);
-            if (v.te) addResult(v.te, cat, false);
+            if (language === 'hi') {
+              if (v.hi) addResult(v.hi, cat, false);
+              else addResult(v.en, cat, false);
+            } else {
+              if (v.en) addResult(v.en, cat, false);
+            }
           });
         }
       });
 
       return results;
     },
-    [customVarietyNames, lots, shipments, stocks, farmers]
+    [customVarietyNames, lots, shipments, stocks, farmers, language]
   );
 
   // Help Desk & Support State
@@ -1105,6 +1150,18 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const updated = [newTicket, ...helpTickets];
     saveHelpTickets(updated);
     setSelectedHelpTicketId(id);
+
+    // Mirror to Admin Portal Supabase Tickets table
+    createTicketInSupabase({
+      shop_name: resolvedShop || (resolvedRole === 'farmer' ? `Farmer (${resolvedVillage || 'Kisan'})` : 'Mandi Trader Shop'),
+      user_name: resolvedName,
+      user_phone: resolvedPhone,
+      category: ticketInput.category,
+      priority: ticketInput.priority === 'High' ? 'high' : ticketInput.priority === 'Low' ? 'low' : 'normal',
+      subject: ticketInput.subject,
+      message: ticketInput.description,
+    });
+
     return newTicket;
   };
 
@@ -1314,6 +1371,34 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setSelectedParchiLot(synthesizedLot);
   };
 
+  // Helper function to generate or get a unique, persistent Merchant ID (e.g., MND-1001, MND-1002)
+  const getOrCreateSequentialMerchantId = (
+    cleanPhone: string,
+    accounts: RegisteredAccount[]
+  ): string => {
+    if (!cleanPhone) return 'MND-1001';
+
+    const match = accounts.find(
+      (a) => a.phoneNumber && a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone
+    );
+    if (match?.merchantId) {
+      return match.merchantId;
+    }
+
+    const merchantAccounts = accounts.filter((a) => a.role === 'merchant');
+    const existingNums = merchantAccounts
+      .map((a) => a.merchantId)
+      .filter(Boolean)
+      .map((id) => {
+        const m = id?.match(/MND-(\d+)/i);
+        return m ? parseInt(m[1], 10) : 0;
+      })
+      .filter((n) => n >= 1000);
+
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1001 + merchantAccounts.length;
+    return `MND-${nextNum}`;
+  };
+
   // Switch User Account & Load Their Isolated Data
   const switchUserAccount = (phone: string) => {
     const cleanPhone = phone.replace(/\D/g, '').slice(-10);
@@ -1321,14 +1406,19 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     localStorage.setItem(GLOBAL_STORAGE_KEYS.ACTIVE_USER_PHONE, cleanPhone);
 
     const keys = getUserStorageKeys(cleanPhone);
+    const assignedMerchantId = getOrCreateSequentialMerchantId(cleanPhone, registeredAccounts);
 
-    // Load Merchant Profile
+    // 1. Load Merchant Profile from cache
     const savedMerchant = localStorage.getItem(keys.MERCHANT);
     if (savedMerchant) {
       try {
-        setMerchantProfile(JSON.parse(savedMerchant));
+        const parsedProf = JSON.parse(savedMerchant);
+        if (!parsedProf.merchantId || parsedProf.merchantId.startsWith('MANDI-')) {
+          parsedProf.merchantId = assignedMerchantId;
+        }
+        setMerchantProfile(parsedProf);
       } catch {
-        setMerchantProfile(initialMerchantProfile);
+        setMerchantProfile({ ...initialMerchantProfile, merchantId: assignedMerchantId });
       }
     } else {
       // Find account if registered
@@ -1342,7 +1432,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           photoUrl: acct.photoUrl || '',
           shopNumber: acct.shopNumber || '',
           apmcMarketName: acct.marketName || DEFAULT_MARKET_YARD_NAME,
-          merchantId: `MANDI-${cleanPhone.slice(-4)}`,
+          merchantId: acct.merchantId || assignedMerchantId,
           phoneNumber: `+91 ${cleanPhone}`,
           licenseNumber: acct.licenseOrCrop || '',
           defaultCommissionRate: 4,
@@ -1351,7 +1441,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         };
         setMerchantProfile(newProf);
       } else {
-        setMerchantProfile(initialMerchantProfile);
+        setMerchantProfile({ ...initialMerchantProfile, merchantId: assignedMerchantId });
       }
     }
 
@@ -1490,39 +1580,110 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     // Restore User Role & Portal Mode & Commodities from account record
-    const matchedAccount = registeredAccounts.find(
-      (a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone
-    );
-    if (matchedAccount) {
-      setPortalModeState(matchedAccount.role);
-      localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, matchedAccount.role);
-      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACTIVE_ROLE, matchedAccount.role);
+    if (cleanPhone.endsWith('9110387978')) {
+      setPortalModeState('admin');
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, 'admin');
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACTIVE_ROLE, 'admin');
       localStorage.setItem(GLOBAL_STORAGE_KEYS.ONBOARDING_DONE, 'true');
+    } else {
+      const matchedAccount = registeredAccounts.find(
+        (a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone
+      );
+      if (matchedAccount) {
+        setPortalModeState(matchedAccount.role);
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, matchedAccount.role);
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.ACTIVE_ROLE, matchedAccount.role);
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.ONBOARDING_DONE, 'true');
 
-      if (matchedAccount.selectedCommodities && matchedAccount.selectedCommodities.length > 0) {
-        setUserCommoditiesState(matchedAccount.selectedCommodities);
-        try {
-          localStorage.setItem('bharatmandi_user_commodities', JSON.stringify(matchedAccount.selectedCommodities));
-        } catch {
-          // ignore
+        if (matchedAccount.selectedCommodities && matchedAccount.selectedCommodities.length > 0) {
+          setUserCommoditiesState(matchedAccount.selectedCommodities);
+          try {
+            localStorage.setItem('bharatmandi_user_commodities', JSON.stringify(matchedAccount.selectedCommodities));
+          } catch {}
         }
       }
     }
+
+    // 2. Multi-Phone Cloud Restore: Fetch full previously saved account data from Cloud Firestore!
+    if (cleanPhone && cleanPhone.length === 10) {
+      fetchFromFirestore(cleanPhone).then((cloudData) => {
+        if (!cloudData) return;
+        if (cloudData.profile) {
+          setMerchantProfile(cloudData.profile);
+          try { localStorage.setItem(keys.MERCHANT, JSON.stringify(cloudData.profile)); } catch {}
+        }
+        if (Array.isArray(cloudData.farmers) && cloudData.farmers.length > 0) {
+          const mergedFarmers = deduplicateFarmers(cloudData.farmers);
+          setFarmers(mergedFarmers);
+          try { localStorage.setItem(keys.FARMERS, JSON.stringify(mergedFarmers)); } catch {}
+        }
+        if (Array.isArray(cloudData.lots) && cloudData.lots.length > 0) {
+          const mergedLots = deduplicateLots(sanitizeLotsCommission(cloudData.lots));
+          setLots(mergedLots);
+          try { localStorage.setItem(keys.LOTS, JSON.stringify(mergedLots)); } catch {}
+        }
+        if (Array.isArray(cloudData.payments) && cloudData.payments.length > 0) {
+          const mergedPayments = deduplicatePayments(cloudData.payments);
+          setPayments(mergedPayments);
+          try { localStorage.setItem(keys.PAYMENTS, JSON.stringify(mergedPayments)); } catch {}
+        }
+        if (Array.isArray(cloudData.shipments) && cloudData.shipments.length > 0) {
+          const mergedShipments = deduplicateShipments(cloudData.shipments);
+          setShipments(mergedShipments);
+          try { localStorage.setItem(keys.SHIPMENTS, JSON.stringify(mergedShipments)); } catch {}
+        }
+        if (Array.isArray(cloudData.settlements) && cloudData.settlements.length > 0) {
+          const mergedSettlements = deduplicateSettlements(cloudData.settlements);
+          setSettlements(mergedSettlements);
+          try { localStorage.setItem(keys.SETTLEMENTS, JSON.stringify(mergedSettlements)); } catch {}
+        }
+        if (Array.isArray(cloudData.stocks) && cloudData.stocks.length > 0) {
+          const mergedStocks = deduplicateStocks(cloudData.stocks);
+          setStocks(mergedStocks);
+          try { localStorage.setItem(keys.STOCKS, JSON.stringify(mergedStocks)); } catch {}
+        }
+        if (Array.isArray(cloudData.employees) && cloudData.employees.length > 0) {
+          const mergedEmployees = deduplicateEmployees(cloudData.employees);
+          setEmployees(mergedEmployees);
+          try { localStorage.setItem(keys.EMPLOYEES, JSON.stringify(mergedEmployees)); } catch {}
+        }
+        if (Array.isArray(cloudData.registeredAccounts) && cloudData.registeredAccounts.length > 0) {
+          setRegisteredAccounts((prev) => {
+            const updated = deduplicateRegisteredAccounts([...cloudData.registeredAccounts, ...prev]);
+            try { localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updated)); } catch {}
+            return updated;
+          });
+        }
+      });
+    }
   };
 
-  // Verify Password & Login
-  const verifyPasswordAndLogin = (
+  // Verify Password & Login with Cloud Lookup
+  const verifyPasswordAndLogin = async (
     identifier: string,
     passwordInput: string
-  ): { success: boolean; error?: string; account?: RegisteredAccount } => {
+  ): Promise<{ success: boolean; error?: string; account?: RegisteredAccount }> => {
     const cleanId = identifier.trim().toLowerCase();
     const cleanPhone = identifier.replace(/\D/g, '').slice(-10);
 
-    const foundAccount = registeredAccounts.find(
+    let foundAccount = registeredAccounts.find(
       (a) =>
         (cleanPhone && a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone) ||
         (a.email && a.email.trim().toLowerCase() === cleanId)
     );
+
+    // If account not found in local cache (e.g. Logging in on a new device), check Firestore
+    if (!foundAccount && cleanPhone && cleanPhone.length === 10) {
+      const cloudAccount = await fetchUserAccountByPhone(cleanPhone);
+      if (cloudAccount) {
+        foundAccount = cloudAccount;
+        setRegisteredAccounts((prev) => {
+          const updated = deduplicateRegisteredAccounts([...prev, cloudAccount]);
+          try { localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
+    }
 
     if (!foundAccount) {
       return {
@@ -1540,7 +1701,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     }
 
-    // Switch account immediately
+    // Switch account immediately and pull user's entire cloud dataset
     switchUserAccount(foundAccount.phoneNumber);
     return { success: true, account: foundAccount };
   };
@@ -1652,7 +1813,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (/[0-9]/.test(accountData.fullName)) {
       return {
         success: false,
-        error: language === 'te' ? 'పేర్లలో అంకెలు ఉండకూడదు' : 'Name cannot contain numbers',
+        error: language === 'hi' ? 'नाम में संख्याएं नहीं हो सकतीं' : 'Name cannot contain numbers',
       };
     }
 
@@ -1660,7 +1821,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!/^\d{10}$/.test(cleanPhone)) {
       return {
         success: false,
-        error: language === 'te' ? 'ఫోన్ నంబర్‌లో 10 అంకెలు మాత్రమే ఉండాలి' : 'Phone number must contain exactly 10 digits',
+        error: language === 'hi' ? 'फ़ोन नंबर में ठीक 10 अंक होने चाहिए' : 'Phone number must contain exactly 10 digits',
       };
     }
 
@@ -1675,9 +1836,12 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return { success: false, error: uniqueness.message };
     }
 
+    const assignedMerchantId = getOrCreateSequentialMerchantId(cleanPhone, registeredAccounts);
+
     const newAccount: RegisteredAccount = {
       ...accountData,
       id: `USR-${Date.now()}-${cleanPhone.slice(-4)}`,
+      merchantId: assignedMerchantId,
       phoneNumber: cleanPhone,
       selectedCommodities: (accountData.selectedCommodities && accountData.selectedCommodities.length > 0)
         ? accountData.selectedCommodities
@@ -1687,12 +1851,93 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const updatedAccounts = [...registeredAccounts, newAccount];
     setRegisteredAccounts(updatedAccounts);
-    localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    try {
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    } catch {}
+
+    // Initialize Merchant Profile with assigned Merchant ID
+    if (accountData.role === 'merchant') {
+      const newProf: MerchantProfile = {
+        shopName: accountData.shopOrVillage,
+        ownerName: accountData.fullName,
+        photoUrl: accountData.photoUrl || '',
+        shopNumber: accountData.shopNumber || 'Shop No. 1',
+        apmcMarketName: accountData.marketName || DEFAULT_MARKET_YARD_NAME,
+        merchantId: assignedMerchantId,
+        phoneNumber: `+91 ${cleanPhone}`,
+        licenseNumber: accountData.licenseOrCrop || 'Verified Adathiya',
+        defaultCommissionRate: 4,
+        defaultExpenditureRate: 6,
+        address: accountData.shopAddress || '',
+        selectedCommodities: newAccount.selectedCommodities,
+      };
+      setMerchantProfile(newProf);
+      const keys = getUserStorageKeys(cleanPhone);
+      try {
+        localStorage.setItem(keys.MERCHANT, JSON.stringify(newProf));
+      } catch {}
+
+      // Persist new account and merchant profile to Firestore immediately
+      syncToFirestore({ registeredAccounts: [newAccount], profile: newProf }, cleanPhone);
+    } else {
+      syncToFirestore({ registeredAccounts: [newAccount] }, cleanPhone);
+    }
 
     // Switch to this user immediately
     switchUserAccount(cleanPhone);
     return { success: true };
   };
+
+  // Continuous Cloud Auto-Sync to Firestore by User Mobile Phone
+  useEffect(() => {
+    if (!currentUserPhone || currentUserPhone.length !== 10) return;
+    const timer = setTimeout(() => {
+      syncToFirestore(
+        {
+          profile: merchantProfile,
+          farmers,
+          lots,
+          shipments,
+          payments,
+          settlements,
+          stocks,
+          employees,
+          registeredAccounts,
+        },
+        currentUserPhone
+      );
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [
+    currentUserPhone,
+    merchantProfile,
+    farmers,
+    lots,
+    shipments,
+    payments,
+    settlements,
+    stocks,
+    employees,
+    registeredAccounts,
+  ]);
+
+  // Real-time Firestore Listener for active user phone
+  useEffect(() => {
+    if (!currentUserPhone || currentUserPhone.length !== 10) return;
+    const unsub = subscribeToFirestore(currentUserPhone, (updated) => {
+      if (updated.profile) setMerchantProfile(updated.profile);
+      if (updated.farmers) setFarmers(deduplicateFarmers(updated.farmers));
+      if (updated.lots) setLots(deduplicateLots(sanitizeLotsCommission(updated.lots)));
+      if (updated.shipments) setShipments(deduplicateShipments(updated.shipments));
+      if (updated.payments) setPayments(deduplicatePayments(updated.payments));
+      if (updated.settlements) setSettlements(deduplicateSettlements(updated.settlements));
+      if (updated.stocks) setStocks(deduplicateStocks(updated.stocks));
+      if (updated.employees) setEmployees(deduplicateEmployees(updated.employees));
+    });
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [currentUserPhone]);
 
   // Logout Current User
   const logoutCurrentUser = () => {
@@ -1908,7 +2153,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return () => {
       isMounted = false;
     };
-  }, [firebaseUser]);
+  }, [currentUserPhone, loadDataFromCloud]);
 
   // 2. Automatic Debounced Sync to Firestore whenever state updates
   useEffect(() => {
@@ -1936,7 +2181,13 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   ]);
 
   const setLanguage = (lang: Language) => {
-    setLanguageState(lang);
+    const selected: Language = lang === 'hi' ? 'hi' : 'en';
+    setLanguageState(selected);
+    try {
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.LANG, selected);
+    } catch {
+      // ignore
+    }
   };
 
   const setPortalMode = (mode: PortalMode) => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   PlusCircle,
@@ -13,6 +13,18 @@ export const MobileBottomNav: React.FC = () => {
     setMerchantTab,
     t,
   } = useMandi();
+
+  const [hasUnreadSupportUpdate, setHasUnreadSupportUpdate] = useState<boolean>(() => {
+    return localStorage.getItem('bharatmandi_unread_ticket_update') === 'true';
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setHasUnreadSupportUpdate(localStorage.getItem('bharatmandi_unread_ticket_update') === 'true');
+    };
+    window.addEventListener('ticket_update', handleUpdate);
+    return () => window.removeEventListener('ticket_update', handleUpdate);
+  }, []);
 
   return (
     <nav
@@ -76,16 +88,25 @@ export const MobileBottomNav: React.FC = () => {
         <button
           type="button"
           id="mobile-tab-support"
-          onClick={() => setMerchantTab('support')}
-          className={`flex flex-col items-center justify-center w-full h-full py-1 transition min-touch-target cursor-pointer ${
+          onClick={() => {
+            setMerchantTab('support');
+            localStorage.removeItem('bharatmandi_unread_ticket_update');
+            setHasUnreadSupportUpdate(false);
+          }}
+          className={`flex flex-col items-center justify-center w-full h-full py-1 transition min-touch-target cursor-pointer relative ${
             merchantTab === 'support'
               ? 'text-[#1a3a52] font-black'
               : 'text-slate-500 hover:text-[#1e293b]'
           }`}
         >
-          <Headphones className={`w-5 h-5 ${merchantTab === 'support' ? 'stroke-[2.5] text-[#1a3a52]' : ''}`} />
+          <div className="relative">
+            <Headphones className={`w-5 h-5 ${merchantTab === 'support' ? 'stroke-[2.5] text-[#1a3a52]' : ''}`} />
+            {hasUnreadSupportUpdate && (
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse absolute -top-1 -right-1 border border-white" />
+            )}
+          </div>
           <span className="text-[10px] mt-0.5 leading-none font-bold truncate">
-            Help Desk
+            {t('helpDesk')}
           </span>
         </button>
       </div>

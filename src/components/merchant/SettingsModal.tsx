@@ -26,7 +26,8 @@ import {
   Globe,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
-import { useFirebase } from '../../context/FirebaseContext';
+import { syncLocalToSupabase, fetchUserCloudData } from '../../services/supabaseSync';
+import { isSupabaseConfigured } from '../../services/supabase';
 import { Language, CommodityCategory } from '../../types';
 import { getTodayDateString, COMMODITY_CONFIGS, DEFAULT_MARKET_YARD_NAME } from '../../data/initialData';
 import { LanguageSettingsModal } from '../common/LanguageSettingsModal';
@@ -69,30 +70,13 @@ export const SettingsModal: React.FC = () => {
     t,
   } = useMandi();
 
-  const {
-    user: firebaseUser,
-    isFirebaseConnected,
-    isSyncing,
-    autoSaveStatus,
-    isAutoSyncEnabled,
-    setIsAutoSyncEnabled,
-    lastSyncedAt,
-    syncError,
-    signInWithGoogle,
-    signOut: signOutGoogle,
-    syncDataToCloud,
-    loadDataFromCloud,
-  } = useFirebase();
-
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [cloudMsg, setCloudMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleCloudBackup = async () => {
-    if (!firebaseUser) {
-      setCloudMsg({ type: 'error', text: 'Please sign in with Google first' });
-      return;
-    }
+    setIsSyncing(true);
     setCloudMsg(null);
-    const success = await syncDataToCloud({
+    const res = await syncLocalToSupabase({
       profile: merchantProfile,
       farmers,
       lots,
@@ -101,31 +85,30 @@ export const SettingsModal: React.FC = () => {
       settlements,
       helpTickets,
     });
-    if (success) {
-      setCloudMsg({ type: 'success', text: 'Successfully backed up all records to Firestore!' });
+    setIsSyncing(false);
+    if (res.success) {
+      setCloudMsg({ type: 'success', text: 'Successfully backed up all records to Supabase!' });
       setTimeout(() => setCloudMsg(null), 4000);
     } else {
-      setCloudMsg({ type: 'error', text: syncError || 'Failed to sync to Firebase Firestore' });
+      setCloudMsg({ type: 'error', text: res.error || 'Failed to sync to Supabase' });
     }
   };
 
   const handleCloudRestore = async () => {
-    if (!firebaseUser) {
-      setCloudMsg({ type: 'error', text: 'Please sign in with Google first' });
+    if (!window.confirm('Restore records from Supabase? This will merge and update your local ledger.')) {
       return;
     }
-    if (!window.confirm('Restore records from Cloud Firestore? This will merge and update your local ledger.')) {
-      return;
-    }
+    setIsSyncing(true);
     setCloudMsg(null);
-    const cloudData = await loadDataFromCloud();
+    const cloudData = await fetchUserCloudData();
+    setIsSyncing(false);
     if (!cloudData) {
-      setCloudMsg({ type: 'error', text: 'No cloud records found or error reading Firestore' });
+      setCloudMsg({ type: 'error', text: 'No cloud records found or error reading Supabase' });
       return;
     }
 
     importBackupJSON(JSON.stringify(cloudData));
-    setCloudMsg({ type: 'success', text: 'Successfully restored and updated data from Firestore!' });
+    setCloudMsg({ type: 'success', text: 'Successfully restored and updated data from Supabase!' });
     setTimeout(() => setCloudMsg(null), 4000);
   };
 
@@ -728,11 +711,11 @@ export const SettingsModal: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-2">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#1a3a52] flex items-center gap-1.5">
                 <Cloud className="w-4 h-4 text-[#1a3a52]" />
-                <span>Firebase Cloud Database & Sync (Firestore)</span>
+                <span>Supabase Cloud Database & Sync (PostgreSQL)</span>
               </h4>
               <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#eef3f7] text-[#1a3a52] font-semibold">
                 <Database className="w-3 h-3" />
-                <span>phoolmitra-flower-mandi</span>
+                <span>supabase-mandi-db</span>
               </span>
             </div>
 
@@ -742,104 +725,17 @@ export const SettingsModal: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-[#1e293b]">
-                      Cloud Status:
+                      Supabase Cloud Status:
                     </span>
-                    {isFirebaseConnected ? (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Connected (asia-southeast1)
-                      </span>
-                    ) : (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">
-                        Connecting...
-                      </span>
-                    )}
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Connected to Supabase Cloud
+                    </span>
                   </div>
                   <p className="text-[11px] text-[#64748b]">
-                    {firebaseUser ? (
-                      <span>
-                        Authenticated with Google as <strong className="text-[#1e293b]">{firebaseUser.displayName || firebaseUser.email}</strong>
-                      </span>
-                    ) : (
-                      <span>Sign in with Google to securely backup your Mandi lots and farmer accounts to Cloud Storage.</span>
-                    )}
-                  </p>
-                  {lastSyncedAt && (
-                    <p className="text-[10px] text-[#1a3a52] font-medium">
-                      Last cloud sync: {lastSyncedAt}
-                    </p>
-                  )}
-                </div>
-
-                {/* Google Sign In / Sign Out Button */}
-                <div>
-                  {firebaseUser ? (
-                    <button
-                      type="button"
-                      id="cloud-signout-btn"
-                      onClick={() => signOutGoogle()}
-                      className="px-3 py-1.5 rounded-lg border border-[#e2e8f0] bg-white text-stone-700 hover:bg-stone-50 text-xs font-medium flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Sign Out</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      id="cloud-signin-btn"
-                      onClick={() => signInWithGoogle()}
-                      className="px-4 py-2 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition flex items-center gap-2 shadow-xs cursor-pointer"
-                    >
-                      <LogIn className="w-3.5 h-3.5 text-[#d4af37]" />
-                      <span>Sign In with Google</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Automatic Cloud Sync Toggle & Real-time Indicator */}
-              <div className="p-3 rounded-lg bg-white border border-[#e2e8f0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-[#1e293b]">
-                      Automatic Real-Time Cloud Sync
-                    </span>
-                    {autoSaveStatus === 'saving' ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 flex items-center gap-1">
-                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                        Syncing to Cloud...
-                      </span>
-                    ) : autoSaveStatus === 'saved' ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                        <CheckCircle2 className="w-2.5 h-2.5" />
-                        Saved to Cloud
-                      </span>
-                    ) : isAutoSyncEnabled && firebaseUser ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Active & Always Synced
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">
-                        Manual Backup Only
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-[#64748b]">
-                    Instantly synchronizes all farmers, auction lots, payments, and settlements to Firebase Firestore whenever you make changes.
+                    Your Mandi app is connected to Supabase PostgreSQL database for persistent cloud data and SMS OTP security.
                   </p>
                 </div>
-
-                <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                  <input
-                    type="checkbox"
-                    id="toggle-auto-cloud-sync"
-                    checked={isAutoSyncEnabled}
-                    onChange={(e) => setIsAutoSyncEnabled(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-stone-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a3a52]"></div>
-                </label>
               </div>
 
               {cloudMsg && (
@@ -865,7 +761,7 @@ export const SettingsModal: React.FC = () => {
                   type="button"
                   id="backup-to-cloud-btn"
                   onClick={handleCloudBackup}
-                  disabled={isSyncing || !firebaseUser}
+                  disabled={isSyncing}
                   className="px-3.5 py-2 rounded-lg bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] disabled:opacity-50 transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
                 >
                   {isSyncing ? (
@@ -873,18 +769,18 @@ export const SettingsModal: React.FC = () => {
                   ) : (
                     <Cloud className="w-3.5 h-3.5 text-[#d4af37]" />
                   )}
-                  <span>{isSyncing ? 'Syncing...' : 'Backup All Data to Cloud'}</span>
+                  <span>{isSyncing ? 'Syncing...' : 'Backup All Data to Supabase'}</span>
                 </button>
 
                 <button
                   type="button"
                   id="restore-from-cloud-btn"
                   onClick={handleCloudRestore}
-                  disabled={isSyncing || !firebaseUser}
+                  disabled={isSyncing}
                   className="px-3.5 py-2 rounded-lg bg-white border border-[#e2e8f0] text-[#1e293b] text-xs font-semibold hover:bg-[#f1f5f9] disabled:opacity-50 transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-[#1a3a52] ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>Restore from Cloud</span>
+                  <span>Restore from Supabase</span>
                 </button>
               </div>
             </div>

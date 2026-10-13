@@ -348,7 +348,7 @@ export const FarmerPortalView: React.FC = () => {
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-[#64748b] tracking-wider block">
-                {language === 'te' ? 'రైతు డిజిటల్ పాస్‌బుక్' : 'Farmer Digital Passbook'}
+                {language === 'hi' ? 'किसान डिजिटल पासबुक' : 'Farmer Digital Passbook'}
               </span>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg sm:text-xl font-black text-[#1e293b]">

@@ -1045,7 +1045,7 @@ export const NewSaleView: React.FC = () => {
                   {/* Custom Variety Input with typed suggestions dropdown */}
                   <div>
                     <label className="block text-[11px] font-semibold text-[#1e293b] mb-1">
-                      {language === 'te' ? 'రకం / వెరైటీ పేరు (టైప్ చేయండి)' : 'Variety / Item Name *'}
+                      {language === 'hi' ? 'किस्म / वस्तु का नाम *' : 'Variety / Item Name *'}
                     </label>
                     <CustomVarietyInput
                       category={row.commodityCategory || 'flowers'}
@@ -1055,7 +1055,7 @@ export const NewSaleView: React.FC = () => {
                           prev.map((r) => (r.id === row.id ? { ...r, customVariety: val, flowerVariety: val } : r))
                         );
                       }}
-                      placeholder={`Type custom ${getSafeCommodityConfig(row.commodityCategory || 'flowers').name} name (e.g. Dutch Rose, Red Marigold...)`}
+                      placeholder={language === 'hi' ? 'किस्म या नाम दर्ज करें (उदा. गुलाब, गेंदा, गेहूं...)' : `Type custom ${getSafeCommodityConfig(row.commodityCategory || 'flowers').name} name...`}
                     />
                   </div>
 
@@ -1064,7 +1064,7 @@ export const NewSaleView: React.FC = () => {
                     {/* 1. Bags / Boxes / Crates (Packaging Count & Type) */}
                     <div>
                       <label className="block text-[11px] font-semibold text-[#1e293b] mb-1">
-                        {language === 'te' ? 'ప్యాకేజింగ్ సంఖ్య & రకం' : 'Packaging Count & Type'}
+                        {language === 'hi' ? 'पैकिंग संख्या एवं प्रकार' : 'Packaging Count & Type'}
                       </label>
                       <div className="flex items-center gap-1.5">
                         <input

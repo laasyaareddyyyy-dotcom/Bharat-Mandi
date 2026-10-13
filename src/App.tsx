@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { MandiProvider, useMandi } from './context/MandiContext';
 import { FirebaseProvider } from './context/FirebaseContext';
 import { Navbar } from './components/common/Navbar';
@@ -91,28 +91,13 @@ const MainLayout: React.FC = () => {
     );
   }
 
-  const merchantTabsList: { id: MerchantTab; label: string; icon: React.ReactNode }[] = [
-    {
-      id: 'dashboard',
-      label: t('tabDashboard'),
-      icon: <TrendingUp className="w-4 h-4" />,
-    },
-    {
-      id: 'new-sale',
-      label: t('tabNewSale'),
-      icon: <PlusCircle className="w-4 h-4" />,
-    },
-    {
-      id: 'farmers',
-      label: t('tabFarmers'),
-      icon: <Users className="w-4 h-4" />,
-    },
-    {
-      id: 'support',
-      label: t('helpDesk'),
-      icon: <Headphones className="w-4 h-4" />,
-    },
-  ];
+  if (portalMode === 'admin') {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] text-[#1e293b] flex flex-col font-sans p-2 sm:p-6">
+        <AdminPortalView />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#1e293b] flex flex-col font-sans">
@@ -129,8 +114,6 @@ const MainLayout: React.FC = () => {
         >
           {portalMode === 'farmer' ? (
             <FarmerPortalView />
-          ) : portalMode === 'admin' ? (
-            <AdminPortalView />
           ) : portalMode === 'flowchart' ? (
             <FlowchartView />
           ) : (
@@ -167,7 +150,7 @@ const MainLayout: React.FC = () => {
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1 font-mono text-[11px] text-[#1a3a52] bg-[#eef3f7] px-2 py-0.5 rounded-full">
               <Wifi className="w-3 h-3" />
-              <span>Offline-First (Browser Stored)</span>
+              <span>Cloud Realtime Sync Active</span>
             </span>
           </div>
         </div>
