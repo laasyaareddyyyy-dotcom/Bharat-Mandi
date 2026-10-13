@@ -290,7 +290,7 @@ export const FarmerPortalView: React.FC = () => {
     });
 
     setNotificationMsg(
-      `✓ Connection request sent to ${m.shopName}! When the merchant accepts, your consignments and settlements will automatically sync here.`
+      `✓ Connection request sent to ${m.shopName}! When the merchant accepts, your parchi records and settlements will automatically sync here.`
     );
     setTimeout(() => setNotificationMsg(null), 5000);
   };
@@ -298,7 +298,7 @@ export const FarmerPortalView: React.FC = () => {
   const handleAcceptMerchantRequest = (reqId: string, shopName: string) => {
     acceptConnectionRequest(reqId);
     setNotificationMsg(
-      `✓ Connection accepted with ${shopName}! Only your specific flower consignments and settlements are shared.`
+      `✓ Connection accepted with ${shopName}! Only your specific flower parchi records and settlements are shared.`
     );
     setTimeout(() => setNotificationMsg(null), 5000);
   };
@@ -419,7 +419,7 @@ export const FarmerPortalView: React.FC = () => {
             }`}
           >
             <Receipt className="w-4 h-4" />
-            <span>{language === 'te' ? 'కన్సైన్‌మెంట్ రసీదులు' : 'Consignment Parchi'}</span>
+            <span>{language === 'te' ? 'పర్చీ రసీదులు' : 'Parchi Receipts'}</span>
             <span className="px-2 py-0.5 rounded-full bg-[#1a3a52] text-white text-[10px] font-mono font-bold">
               {farmerLots.length}
             </span>
@@ -502,7 +502,7 @@ export const FarmerPortalView: React.FC = () => {
         <div className="p-3 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] text-xs text-[#64748b] flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-[#1a3a52] shrink-0" />
           <span>
-            <strong>Secure Data Privacy:</strong> Only your flower consignment slips, auction rates, and payment settlements with your connected merchants are shared here. No other farmer&apos;s details are accessible to you, and other farmers cannot see your data.
+            <strong>Secure Data Privacy:</strong> Only your flower parchi slips, auction rates, and payment settlements with your connected merchants are shared here. No other farmer&apos;s details are accessible to you, and other farmers cannot see your data.
           </span>
         </div>
       </div>
@@ -603,7 +603,7 @@ export const FarmerPortalView: React.FC = () => {
                 {totalVolume.toLocaleString('en-IN')} <span className="text-sm font-semibold text-[#64748b]">units/kgs</span>
               </div>
               <span className="text-xs text-[#1a3a52] font-medium mt-1 block">
-                Across {categoryFarmerLots.length} consignments
+                Across {categoryFarmerLots.length} sales lots
               </span>
             </div>
 
@@ -657,7 +657,7 @@ export const FarmerPortalView: React.FC = () => {
                   <span>Digital Mandi Parchi Passbook ({categoryFarmerLots.length})</span>
                 </h3>
                 <p className="text-xs text-[#64748b]">
-                  Transparent realtime record of all consignments brought by {currentFarmer.name}.
+                  Transparent realtime record of all parchi lots brought by {currentFarmer.name}.
                 </p>
               </div>
               <span className="px-2.5 py-1 rounded-full bg-[#eef3f7] text-[#1a3a52] font-mono font-bold text-xs">
@@ -670,7 +670,7 @@ export const FarmerPortalView: React.FC = () => {
                 <div className="w-14 h-14 rounded-full bg-[#eef3f7] text-[#1a3a52] flex items-center justify-center mx-auto text-2xl">
                   🌸
                 </div>
-                <h4 className="font-bold text-sm text-[#1e293b]">No Consignments Logged Yet for {currentFarmer.name}</h4>
+                <h4 className="font-bold text-sm text-[#1e293b]">No Parchi Records Logged Yet for {currentFarmer.name}</h4>
                 <p className="max-w-md mx-auto">
                   When your connected merchant records an arrival lot in the Mandi, your official slip and payment status will appear here in real-time.
                 </p>
@@ -961,10 +961,10 @@ export const FarmerPortalView: React.FC = () => {
               <div>
                 <h3 className="font-bold text-sm sm:text-base text-[#1e293b] flex items-center gap-2">
                   <Clock className="w-4 h-4 text-[#1a3a52]" />
-                  <span>Incoming Connection Requests from Merchants ({incomingRequestsFromMerchants.length})</span>
+                  <span>Connected Merchants &amp; Requests ({incomingRequestsFromMerchants.length})</span>
                 </h3>
                 <p className="text-xs text-[#64748b]">
-                  Merchants who want to link your passbook. When accepted, only your specific consignments and payments will be shared with them.
+                  Merchants who want to link your passbook. When accepted, only your specific parchi records and payments will be shared with them.
                 </p>
               </div>
             </div>
@@ -1287,7 +1287,7 @@ export const FarmerPortalView: React.FC = () => {
                     Total Lots Handled
                   </span>
                   <span className="font-bold text-[#1e293b]">
-                    {farmerLots.length} Consignment Parchi Slips
+                    {farmerLots.length} Parchi Slips
                   </span>
                 </div>
 
@@ -1439,7 +1439,7 @@ export const FarmerPortalView: React.FC = () => {
         message={
           language === 'te'
             ? 'ఈ రైతు ప్రొఫైల్ మరియు అన్ని అనుబంధ రికార్డులను ఈ పరికరం నుండి శాశ్వతంగా తొలగించాలనుకుంటున్నారా? తప్పుడు సమాచారం ఉంటే మీరు మళ్లీ సరిగ్గా నమోదు చేసుకోవచ్చు.'
-            : 'Are you sure you want to permanently delete your Farmer Profile? All linked consignment links and passbook session will be wiped from this device.'
+            : 'Are you sure you want to permanently delete your Farmer Profile? All linked parchi links and passbook session will be wiped from this device.'
         }
         confirmText={language === 'te' ? 'అవును, ప్రొఫైల్ తొలగించు' : 'YES, DELETE PROFILE'}
         cancelText={language === 'te' ? 'రద్దు చేయి' : 'CANCEL'}

@@ -295,9 +295,9 @@ export const PaymentsView: React.FC = () => {
           farmerName: selectedFarmerForPayment.name,
           amount: numericAmount,
           paymentMode: payMode,
-          referenceNumber: payRef.trim() || undefined,
-          notes: payNotes.trim() || undefined,
-          lotId: selectedLotIdForPayment || undefined,
+          referenceNumber: payRef.trim() || '',
+          notes: payNotes.trim() || '',
+          lotId: selectedLotIdForPayment || '',
         },
         duplicateInfo: `A payment of ₹${numericAmount.toLocaleString('en-IN')} for ${selectedFarmerForPayment.name} on ${payDate} via ${payMode} is already recorded in the database.`,
       });
@@ -310,9 +310,9 @@ export const PaymentsView: React.FC = () => {
       farmerName: selectedFarmerForPayment.name,
       amount: numericAmount,
       paymentMode: payMode,
-      referenceNumber: payRef.trim() || undefined,
-      notes: payNotes.trim() || undefined,
-      lotId: selectedLotIdForPayment || undefined,
+      referenceNumber: payRef.trim() || '',
+      notes: payNotes.trim() || '',
+      lotId: selectedLotIdForPayment || '',
     });
   };
 
@@ -672,7 +672,7 @@ export const PaymentsView: React.FC = () => {
               <Receipt className="w-6 h-6" />
             </div>
             <h4 className="font-bold text-sm sm:text-base text-[#1e293b]">
-              No Consignment Bills Found
+              No Settlement Bills Found
             </h4>
             <p className="text-xs text-[#64748b] max-w-md mx-auto">
               No flower sales match your search or filter. All sales recorded from New Sale (whether Paid, Partial, or Unpaid Pay Later) appear directly here in real-time.
@@ -1216,10 +1216,10 @@ export const PaymentsView: React.FC = () => {
       {/* Unified Delete Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={deleteModalConfig.isOpen}
-        title={deleteModalConfig.type === 'lot' ? 'Delete Consignment Lot' : 'Delete Payment Transaction'}
+        title={deleteModalConfig.type === 'lot' ? 'Delete Parchi Lot' : 'Delete Payment Transaction'}
         itemName={
           deleteModalConfig.type === 'lot' && deleteModalConfig.lot
-            ? `Consignment Lot: ${deleteModalConfig.lot.parchiNumber}`
+            ? `Parchi Lot: ${deleteModalConfig.lot.parchiNumber}`
             : deleteModalConfig.payment
             ? `Payment Receipt: ₹${deleteModalConfig.payment.amount?.toLocaleString('en-IN')}`
             : undefined
@@ -1233,7 +1233,7 @@ export const PaymentsView: React.FC = () => {
         }
         message={
           deleteModalConfig.type === 'lot'
-            ? 'Are you sure you want to delete this consignment record? This will permanently remove the lot and update the farmer balance.'
+            ? 'Are you sure you want to delete this parchi record? This will permanently remove the lot and update the farmer balance.'
             : 'Are you sure you want to delete this payment record? The farmer dues balance will be recalculated accordingly.'
         }
         confirmText="CONFIRM DELETE"

@@ -374,7 +374,7 @@ export const NewSaleView: React.FC = () => {
         village: newFarmerVillage.trim() || 'Local Mandi Belt',
         primaryCrops: [flowerVariety],
         connectedMerchantIds: [merchantProfile.merchantId],
-        photoUrl: newFarmerPhotoUrl.trim() || undefined,
+        photoUrl: newFarmerPhotoUrl.trim() || '',
       });
       setSelectedFarmerId(created.id);
     }
@@ -1444,13 +1444,13 @@ export const NewSaleView: React.FC = () => {
           <div>
             <h3 className="text-sm sm:text-base font-bold text-[#1e293b] flex items-center gap-2">
               <Calendar className="w-4 h-4 text-[#1a3a52]" />
-              <span>Consignments Recorded on {formatDisplayDate(saleDate)}</span>
+              <span>Sales &amp; Parchi Records Recorded on {formatDisplayDate(saleDate)}</span>
               <span className="px-2 py-0.5 rounded-full bg-[#eef3f7] text-[#1a3a52] font-mono text-xs font-bold">
                 {dateLots.length}
               </span>
             </h3>
             <p className="text-xs text-[#64748b]">
-              Live consignment records for the active date. Every day starts fresh & empty for new morning sales.
+              Live parchi records for the active date. Every day starts fresh &amp; empty for new morning sales.
             </p>
           </div>
 
@@ -1474,10 +1474,10 @@ export const NewSaleView: React.FC = () => {
               <Clock className="w-5 h-5" />
             </div>
             <h4 className="text-sm font-bold text-[#1e293b]">
-              No consignments recorded for {formatDisplayDate(saleDate)} yet
+              No sales or parchi recorded for {formatDisplayDate(saleDate)} yet
             </h4>
             <p className="text-xs text-[#64748b] max-w-md mx-auto">
-              New sales is refreshed and stays empty at the start of each morning. Use the form above to record your first consignment. All previous dates remain accessible in Hisab &amp; Settlements.
+              New sales is refreshed and stays empty at the start of each morning. Use the form above to record your first sale. All previous dates remain accessible in Hisab &amp; Settlements.
             </p>
             <div className="pt-2">
               <button
@@ -1503,17 +1503,6 @@ export const NewSaleView: React.FC = () => {
                       {lot.parchiNumber}
                     </span>
                     <span className="text-[#64748b]">{lot.time}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        lot.paymentStatus === 'Paid'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : lot.paymentStatus === 'Partial'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {lot.paymentStatus}
-                    </span>
                   </div>
                   <div className="font-bold text-[#1e293b] text-sm flex items-center gap-2">
                     <span>{lot.farmerName}</span>
@@ -1589,12 +1578,12 @@ export const NewSaleView: React.FC = () => {
       {/* Unified Delete Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={deleteModalConfig.isOpen}
-        title={deleteModalConfig.type === 'varietyRow' ? 'Remove Flower Variety' : 'Delete Consignment Lot'}
+        title={deleteModalConfig.type === 'varietyRow' ? 'Remove Flower Variety' : 'Delete Parchi Lot'}
         itemName={
           deleteModalConfig.type === 'varietyRow'
             ? `Variety: ${deleteModalConfig.varietyName}`
             : deleteModalConfig.lot
-            ? `Consignment Lot: ${deleteModalConfig.lot.parchiNumber}`
+            ? `Parchi Lot: ${deleteModalConfig.lot.parchiNumber}`
             : undefined
         }
         itemDetails={
@@ -1606,8 +1595,8 @@ export const NewSaleView: React.FC = () => {
         }
         message={
           deleteModalConfig.type === 'varietyRow'
-            ? 'Are you sure you want to remove this flower variety item from the current consignment entry?'
-            : 'Are you sure you want to delete this consignment record? This will permanently remove the lot from all reports, ledgers, and transactions.'
+            ? 'Are you sure you want to remove this flower variety item from the current entry?'
+            : 'Are you sure you want to delete this parchi record? This will permanently remove the lot from all reports, ledgers, and transactions.'
         }
         confirmText="CONFIRM DELETE"
         cancelText="CANCEL"

@@ -168,7 +168,7 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
                   {id}
                 </h2>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#d4af37] text-[#1e293b] font-black">
-                  {isShipment ? 'Shipment Consignment' : 'Single Lot'}
+                  {isShipment ? 'Shipment Record' : 'Single Lot'}
                 </span>
               </div>
               <p className="text-xs text-slate-200/80 leading-none mt-0.5">
@@ -222,7 +222,7 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-[#f8fafc] p-3.5 rounded-xl border border-[#e2e8f0] space-y-2">
                   <span className="text-[10px] uppercase font-bold text-[#64748b] block">
-                    Consignment Identification
+                    Parchi Identification
                   </span>
                   <div className="space-y-1 text-[#1e293b]">
                     <div className="flex justify-between">
@@ -297,34 +297,9 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Payment Status Pill */}
-              <div className="flex items-center justify-between p-3 rounded-xl border border-[#e2e8f0] bg-white">
-                <div className="flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-[#1a3a52]" />
-                  <span className="font-bold text-[#1e293b]">Payment Status:</span>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      paymentStatus === 'Paid'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : paymentStatus === 'Partial'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
-                  >
-                    {paymentStatus}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-[#64748b] block">Balance Due</span>
-                  <span className="font-black text-xs sm:text-sm text-red-700">
-                    ₹{balanceDue.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-
               {notes && (
                 <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/60 text-amber-900">
-                  <strong className="block text-[10px] uppercase font-bold">Consignment Notes:</strong>
+                  <strong className="block text-[10px] uppercase font-bold">Parchi Notes:</strong>
                   <p className="mt-0.5">{notes}</p>
                 </div>
               )}
@@ -345,7 +320,6 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="bg-[#f1f5f9] text-[#1e293b] font-bold">
                     <tr>
-                      <th className="p-2.5">#</th>
                       <th className="p-2.5">Commodity &amp; Variety</th>
                       <th className="p-2.5 text-center">Bags / Pkgs</th>
                       <th className="p-2.5 text-center">Grade</th>
@@ -357,7 +331,6 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
                   <tbody className="divide-y divide-[#e2e8f0] bg-white">
                     {items.map((item, idx) => (
                       <tr key={idx} className="hover:bg-[#f8fafc]">
-                        <td className="p-2.5 text-[#64748b] font-mono">{idx + 1}</td>
                         <td className="p-2.5 font-bold text-[#1e293b]">
                           <div className="flex items-center gap-1.5">
                             <span>
@@ -392,7 +365,7 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
                   </tbody>
                   <tfoot className="bg-[#f1f5f9] font-bold border-t border-[#e2e8f0]">
                     <tr>
-                      <td colSpan={4} className="p-2.5 text-right uppercase text-[10px] text-[#64748b]">
+                      <td colSpan={3} className="p-2.5 text-right uppercase text-[10px] text-[#64748b]">
                         Total Gross Sum:
                       </td>
                       <td className="p-2.5 text-right font-mono font-black text-[#1a3a52]">
@@ -415,7 +388,7 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
               <div className="bg-white rounded-xl border border-[#e2e8f0] divide-y divide-[#e2e8f0]">
                 <div className="p-3.5 flex justify-between items-center">
                   <div>
-                    <span className="font-bold text-sm text-[#1e293b] block">Gross Consignment Sales</span>
+                    <span className="font-bold text-sm text-[#1e293b] block">Gross Sales Total</span>
                     <span className="text-[#64748b] text-[11px]">Total sales proceeds before any Mandi deductions</span>
                   </div>
                   <span className="font-mono font-black text-base text-[#1e293b]">

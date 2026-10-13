@@ -265,7 +265,7 @@ export const FarmerParchiView: React.FC<FarmerParchiViewProps> = ({
               <span>{language === 'te' ? 'రైతు మండి రసీదులు' : 'Farmer Mandi Parchi Slips'}</span>
             </h3>
             <p className="text-xs text-[#64748b] mt-0.5">
-              Transparent digital receipts of flower consignments, weighing rates, and payment settlements.
+              Transparent digital receipts of flower sales, weighing rates, and payment settlements.
             </p>
           </div>
 

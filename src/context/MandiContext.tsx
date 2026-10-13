@@ -1768,7 +1768,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           return {
             valid: false,
             field: 'phoneNumber',
-            message: `An account with mobile number +91 ${cleanReqPhone} already exists. Please log in with this number.`,
+            message: 'This mobile number is already registered. Please log in.',
           };
         }
       }
@@ -2329,6 +2329,13 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const cleanPhone = targetFarmer?.phone ? targetFarmer.phone.replace(/\D/g, '').slice(-10) : '';
 
     setFarmers((prev) => prev.filter((f) => f.id !== id));
+    setRegisteredAccounts((prev) =>
+      prev.filter((a) => {
+        if (a.id === id) return false;
+        if (cleanPhone && a.phoneNumber?.replace(/\D/g, '').slice(-10) === cleanPhone) return false;
+        return true;
+      })
+    );
     setLots((prev) => prev.filter((l) => {
       const lotPhone = l.farmerPhone ? l.farmerPhone.replace(/\D/g, '').slice(-10) : '';
       if (l.farmerId === id) return false;

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { BharatMandiLogo } from './BharatMandiLogo';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+import { useMandi } from '../../context/MandiContext';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -10,9 +10,17 @@ interface SplashScreenProps {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onFinish,
-  holdDurationMs = 2600,
+  holdDurationMs = 1800,
 }) => {
   const [progress, setProgress] = useState(0);
+  const { language } = useMandi();
+
+  const onFinishRef = useRef(onFinish);
+  const hasFinishedRef = useRef(false);
+
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
 
   useEffect(() => {
     const startTime = Date.now();
@@ -20,14 +28,20 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       const elapsed = Date.now() - startTime;
       const pct = Math.min(100, Math.round((elapsed / holdDurationMs) * 100));
       setProgress(pct);
+
       if (elapsed >= holdDurationMs) {
         clearInterval(interval);
-        onFinish();
+        if (!hasFinishedRef.current) {
+          hasFinishedRef.current = true;
+          onFinishRef.current();
+        }
       }
-    }, 40);
+    }, 30);
 
-    return () => clearInterval(interval);
-  }, [holdDurationMs, onFinish]);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [holdDurationMs]);
 
   return (
     <AnimatePresence>
@@ -35,83 +49,85 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         key="splash-screen"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0, scale: 1.04 }}
-        transition={{ duration: 0.4, ease: 'easeInOut' }}
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#FAF8F5] via-[#F4EFE6] to-[#E9DFCF] text-slate-800 p-6 select-none"
+        exit={{ opacity: 0, scale: 0.98 }}
+        transition={{ duration: 0.45, ease: 'easeInOut' }}
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#DCEAF0] text-[#18364A] p-6 select-none overflow-hidden"
       >
-        {/* Soft Background Radial Glow */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.15)_0%,rgba(27,77,62,0.06)_60%,transparent_100%)] pointer-events-none" />
-
         {/* Central Content Box */}
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 15 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: 'easeOut' }}
-          className="relative z-10 flex flex-col items-center max-w-sm w-full text-center"
-        >
-          {/* Logo */}
-          <div className="relative mb-6 flex justify-center bg-transparent">
+        <div className="relative z-10 flex flex-col items-center max-w-sm w-full text-center">
+          {/* Deep Heritage Blue Logo Container with Popup Animation */}
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0, y: 12 }}
+            animate={{ scale: [0.5, 1.04, 1], opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.65,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            className="relative mb-6 flex justify-center items-center p-3 rounded-2xl bg-[#18364A] border border-[#18364A] shadow-md"
+          >
             <img
               src="/bharat_mandi_logo.png"
-              alt="भारत मंडी Logo"
+              alt="PhoolMitra Logo"
               referrerPolicy="no-referrer"
-              className="w-56 h-56 sm:w-64 sm:h-64 object-contain drop-shadow-xl bg-transparent"
+              className="w-32 h-32 sm:w-40 sm:h-40 object-contain relative z-10"
             />
-          </div>
+          </motion.div>
 
-          {/* App Name & Tagline */}
+          {/* App Name & Subtitle Fade-In */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.4 }}
-            className="space-y-1 mb-4"
+            transition={{ delay: 0.2, duration: 0.45 }}
+            className="space-y-2 mb-8"
           >
-            <p className="text-xs sm:text-sm font-bold text-[#134631] tracking-wide">
-              कृषि मंडी व्यापार एवं खाता प्रबंधन
-            </p>
-            <p className="text-[11px] text-slate-500 uppercase tracking-wider font-mono">
-              APMC Wholesale Commission &amp; Farmer Khata Ledger
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#18364A]">
+              {language === 'hi' ? 'फूलमित्र फ्लावर मंडी लेजर' : 'PhoolMitra Flower Mandi Ledger'}
+            </h1>
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#B69A5A]" />
+              <p className="text-xs sm:text-sm text-[#24485E] font-semibold tracking-wide">
+                {language === 'hi'
+                  ? 'आपका व्यापार, सुव्यवस्थित।'
+                  : 'Your business, organised.'}
+              </p>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#B69A5A]" />
+            </div>
           </motion.div>
 
-          {/* Progress Bar & Status */}
+          {/* Calm Loading Progress Bar */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.3 }}
-            className="w-full max-w-xs space-y-2 mt-4"
+            transition={{ delay: 0.35, duration: 0.35 }}
+            className="w-full max-w-xs space-y-2"
           >
-            <div className="h-1.5 w-full bg-slate-200/80 rounded-full overflow-hidden p-[1px]">
+            <div className="h-2 w-full bg-[#B3C8D2] rounded-full overflow-hidden p-[1px]">
               <motion.div
-                className="h-full bg-gradient-to-r from-emerald-600 via-amber-500 to-emerald-700 rounded-full"
+                className="h-full bg-[#18364A] rounded-full"
                 style={{ width: `${progress}%` }}
                 transition={{ ease: 'linear' }}
               />
             </div>
-            <div className="flex justify-between items-center text-[11px] text-slate-500 font-medium px-1">
-              <span>Loading ledger & records...</span>
-              <span className="font-mono font-bold text-emerald-800">{progress}%</span>
+            <div className="flex justify-between items-center text-[11px] text-[#24485E] font-medium font-mono px-1">
+              <span>{language === 'hi' ? 'प्रारंभ हो रहा है...' : 'Loading...'}</span>
+              <span className="font-semibold text-[#B69A5A]">{progress}%</span>
             </div>
           </motion.div>
-
-          {/* Skip / Enter Button for Instant Access */}
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            onClick={onFinish}
-            className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold bg-[#1B4D3E] text-white hover:bg-[#134631] active:scale-95 transition-all shadow-md min-h-[44px]"
-          >
-            <span>Enter Mandi Dashboard</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </motion.button>
-        </motion.div>
-
-        {/* Subtle Footer Note */}
-        <div className="absolute bottom-4 text-[10px] text-slate-600 font-medium tracking-wide">
-          Designed for Mandi Commission Agents, Farmers & Traders
         </div>
+
+        {/* Footer Security Badge */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.85 }}
+          transition={{ delay: 0.45 }}
+          className="absolute bottom-6 flex items-center gap-1.5 text-[11px] text-[#24485E] font-medium"
+        >
+          <ShieldCheck className="w-3.5 h-3.5 text-[#B69A5A]" />
+          <span>{language === 'hi' ? 'सुरक्षित मंडी डिजिटल खाता' : 'Secure Mandi Digital Ledger'}</span>
+        </motion.div>
       </motion.div>
     </AnimatePresence>
   );
 };
+
+

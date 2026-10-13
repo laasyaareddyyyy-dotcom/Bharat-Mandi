@@ -188,7 +188,7 @@ export function generateVectorSettlementPdf(
 
   // Financial Breakdown
   const tableData = [
-    ['Total Consignment Gross Volume', `₹${settlement.totalGross.toLocaleString('en-IN')}`],
+    ['Total Gross Sales Volume', `₹${settlement.totalGross.toLocaleString('en-IN')}`],
     ['Less: Total Transport Charges', `- ₹${settlement.totalTransport.toLocaleString('en-IN')}`],
     ['Less: Total Hamali / Loading Charges', `- ₹${settlement.totalHamali.toLocaleString('en-IN')}`],
     ['Subtotal After Daily Charges', `₹${settlement.subtotalAfterCharges.toLocaleString('en-IN')}`],

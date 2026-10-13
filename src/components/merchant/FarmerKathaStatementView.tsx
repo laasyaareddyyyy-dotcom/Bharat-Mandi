@@ -241,7 +241,7 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
       phone: cleanPhone,
       village: editFarmerVillage.trim() || 'Local Grower Belt',
       primaryCrops: editFarmerCrops.length > 0 ? editFarmerCrops : ['Marigold (Banthi)'],
-      photoUrl: editFarmerPhotoUrl.trim() || undefined,
+      photoUrl: editFarmerPhotoUrl.trim() || '',
     });
 
     sounds.success?.();
@@ -947,7 +947,7 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
               <User className="w-5 h-5 text-[#d4af37]" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                 {language === 'te' ? 'రైతు & తేదీ ఎంపిక' : 'Find Farmer & Date'}
               </h2>
               <p className="text-xs text-slate-500">
@@ -993,10 +993,10 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-[#1a3a52] text-[#d4af37] text-xs font-black flex items-center justify-center">
+                <span className="w-6 h-6 rounded-full bg-[#1a3a52] text-[#d4af37] text-xs font-bold flex items-center justify-center">
                   1
                 </span>
-                <span className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wide">
+                <span className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">
                   {language === 'te' ? 'రైతును ఎంచుకోండి' : 'Step 1: Pick a Farmer'}
                 </span>
               </div>
@@ -1204,10 +1204,10 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
           <div className="space-y-3 pt-4 border-t border-slate-200">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-[#1a3a52] text-[#d4af37] text-xs font-black flex items-center justify-center">
+                <span className="w-6 h-6 rounded-full bg-[#1a3a52] text-[#d4af37] text-xs font-bold flex items-center justify-center">
                   2
                 </span>
-                <span className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wide">
+                <span className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">
                   {language === 'te' ? 'తేదీని ఎంచుకోండి' : 'Step 2: Pick Date Range'}
                 </span>
               </div>
@@ -1320,11 +1320,11 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#1a3a52] text-white flex items-center justify-center font-black shadow-sm">
+            <div className="w-10 h-10 rounded-2xl bg-[#1a3a52] text-white flex items-center justify-center font-bold shadow-sm">
               <Share2 className="w-5 h-5 text-[#d4af37]" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                 {language === 'te' ? 'స్టేట్‌మెంట్ పంపండి లేదా డౌన్‌లోడ్ చేయండి' : 'Send or Save Statement'}
               </h2>
               <p className="text-xs text-slate-500">
@@ -1504,7 +1504,7 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
               <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">
-                  Consignment Lots
+                  Parchi Lots
                 </span>
                 <span className="text-lg font-black text-slate-900">
                   {statementMetrics.lotsCount} {statementMetrics.lotsCount === 1 ? 'Lot' : 'Lots'}
@@ -1557,7 +1557,7 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
                 <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-[#1a3a52]" />
                   <span>
-                    Consignment Particulars ({dateFilteredLots.length}{' '}
+                    Parchi Particulars ({dateFilteredLots.length}{' '}
                     {!startDate && !endDate ? 'All Time Lots' : isSingleDay ? `Lots for ${startDate}` : `Lots in Period`})
                   </span>
                 </h4>
@@ -1781,7 +1781,7 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
                                     id={`delete-katha-lot-btn-${lot.id}`}
                                     onClick={() => handleDeleteLotClick(lot)}
                                     className="p-1.5 rounded-xl bg-slate-100 border border-slate-200 text-red-700 hover:bg-red-50 hover:border-red-200 cursor-pointer"
-                                    title="Delete this consignment record"
+                                    title="Delete this parchi record"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1830,14 +1830,14 @@ export const FarmerKathaStatementView: React.FC<FarmerKathaStatementViewProps> =
       {/* Unified Delete Lot Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={deleteModalConfig.isOpen}
-        title="Delete Consignment Lot"
-        itemName={deleteModalConfig.lot ? `Consignment Lot: ${deleteModalConfig.lot.parchiNumber}` : undefined}
+        title="Delete Parchi Lot"
+        itemName={deleteModalConfig.lot ? `Parchi Lot: ${deleteModalConfig.lot.parchiNumber}` : undefined}
         itemDetails={
           deleteModalConfig.lot
             ? `Farmer: ${deleteModalConfig.lot.farmerName} • Variety: ${deleteModalConfig.lot.flowerVariety} • Amount: ₹${(deleteModalConfig.lot.grossTotal ?? deleteModalConfig.lot.farmerNetPayable ?? 0).toFixed(2)}`
             : undefined
         }
-        message="Are you sure you want to delete this consignment record from the farmer's account statement?"
+        message="Are you sure you want to delete this parchi record from the farmer's account statement?"
         confirmText="CONFIRM DELETE"
         cancelText="CANCEL"
         onConfirm={handleConfirmDeleteLot}

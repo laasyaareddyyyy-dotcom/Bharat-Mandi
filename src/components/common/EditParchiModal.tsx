@@ -559,24 +559,10 @@ export const EditParchiModal: React.FC = () => {
           <div className="bg-[#f8fafc] p-4 rounded-xl border border-[#e2e8f0] space-y-3">
             <h3 className="font-bold text-xs uppercase tracking-wider text-[#1a3a52] flex items-center gap-1.5">
               <Coins className="w-4 h-4 text-[#d4af37]" />
-              <span>4. Payment Settlement &amp; Notes</span>
+              <span>4. Additional Notes</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-[#64748b] mb-1">
-                  Payment Status
-                </label>
-                <select
-                  value={paymentStatus}
-                  onChange={(e) => setPaymentStatus(e.target.value as PaymentStatus)}
-                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#e2e8f0] font-bold text-xs focus:outline-hidden focus:border-[#1a3a52]"
-                >
-                  <option value="Paid">Fully Paid (Settled)</option>
-                  <option value="Partial">Partially Paid</option>
-                  <option value="Unpaid">Unpaid / Outstanding</option>
-                </select>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
               <div>
                 <label className="block text-[11px] font-bold text-[#64748b] mb-1">
@@ -618,7 +604,7 @@ export const EditParchiModal: React.FC = () => {
 
             <div>
               <label className="block text-[11px] font-bold text-[#64748b] mb-1">
-                Consignment Notes / Remarks
+                Parchi Notes / Remarks
               </label>
               <textarea
                 rows={2}

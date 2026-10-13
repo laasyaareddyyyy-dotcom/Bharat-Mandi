@@ -201,7 +201,7 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
                     >
                       <div className="col-span-2 font-mono text-[11px]">
                         <span className="font-bold text-[#1a3a52] block break-all">
-                          {item.parchiNumber || data.parchiNumber || `#${idx + 1}`}
+                          {item.parchiNumber || data.parchiNumber || '—'}
                         </span>
                         <span className="text-slate-500 text-[10px] block">{item.date || data.date}</span>
                       </div>

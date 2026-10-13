@@ -175,16 +175,16 @@ export const Navbar: React.FC = () => {
 
             <div className="flex flex-col text-left min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-black text-sm sm:text-base md:text-lg tracking-tight text-white leading-tight">
+                <h1 className="font-bold text-sm sm:text-base md:text-lg tracking-tight text-white leading-tight">
                   {t('appHeaderTitle')}
                 </h1>
                 {portalMode === 'admin' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-2xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-semibold uppercase tracking-wider shadow-2xs">
                     Admin Portal
                   </span>
                 )}
               </div>
-              <p className="text-[10px] sm:text-xs text-slate-200 font-medium leading-snug truncate sm:whitespace-normal">
+              <p className="text-[10px] sm:text-xs text-slate-200 font-normal leading-snug truncate sm:whitespace-normal">
                 {t('appHeaderSubtitle')}
               </p>
             </div>
@@ -201,9 +201,9 @@ export const Navbar: React.FC = () => {
                   sounds.playBidTick?.();
                   setLanguage('en');
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer select-none ${
                   language === 'en'
-                    ? 'bg-white text-[#1a3a52] shadow-2xs'
+                    ? 'bg-white text-[#1a3a52] shadow-2xs font-semibold'
                     : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
                 title="Switch to English"
@@ -217,9 +217,9 @@ export const Navbar: React.FC = () => {
                   sounds.playBidTick?.();
                   setLanguage('hi');
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer select-none ${
                   language === 'hi'
-                    ? 'bg-white text-[#1a3a52] shadow-2xs'
+                    ? 'bg-white text-[#1a3a52] shadow-2xs font-semibold'
                     : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
                 title="हिंदी में बदलें"
@@ -246,7 +246,7 @@ export const Navbar: React.FC = () => {
               id="navbar-header-online-status-btn"
               onClick={handleQuickCloudSync}
               disabled={isSyncing}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-medium transition cursor-pointer ${
                 firebaseUser
                   ? 'bg-emerald-500/20 text-emerald-100 border-emerald-400/40 hover:bg-emerald-500/30'
                   : 'bg-white/10 text-slate-100 border-white/20 hover:bg-white/20'
@@ -264,7 +264,7 @@ export const Navbar: React.FC = () => {
               ) : (
                 <Wifi className="w-3.5 h-3.5 text-emerald-400" />
               )}
-              <span className="text-[11px] font-extrabold">
+              <span className="text-[11px] font-semibold">
                 {syncFeedback ? syncFeedback : firebaseUser ? 'Online' : 'Offline'}
               </span>
             </button>

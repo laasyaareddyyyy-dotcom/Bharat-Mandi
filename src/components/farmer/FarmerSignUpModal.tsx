@@ -122,7 +122,7 @@ export const FarmerSignUpModal: React.FC<FarmerSignUpModalProps> = ({
       village: trimmedVillage,
       primaryCrops: crops,
       connectedMerchantIds: [merchantProfile.merchantId],
-      photoUrl: photoUrl.trim() || undefined,
+      photoUrl: photoUrl.trim() || '',
     });
 
     setSavedSuccess(true);

@@ -593,7 +593,7 @@ MERCHANT'S DEDUCTIONS SUMMARY (from Farmer's Total)
             <Sparkles className="w-8 h-8 text-[#d4af37] mx-auto" />
             <h4 className="font-bold text-[#1e293b]">No shipments found for this period</h4>
             <p className="text-xs text-[#64748b]">
-              No consignments or sales recorded for this selected date range. Try selecting a different date range or create a new sale.
+              No parchi records or sales recorded for this selected date range. Try selecting a different date range or create a new sale.
             </p>
           </div>
         ) : (

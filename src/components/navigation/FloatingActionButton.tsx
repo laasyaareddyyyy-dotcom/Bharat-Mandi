@@ -64,7 +64,7 @@ export const FloatingActionButton: React.FC = () => {
                 className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-full bg-white text-[#1a3a52] font-bold text-xs shadow-lg border border-slate-200 hover:bg-slate-50 transition min-touch-target cursor-pointer group"
               >
                 <span className="text-[#1e293b] font-semibold text-xs">
-                  {language === 'te' ? '+ నూతన లాట్ వేలం' : language === 'hi' ? '+ नया लॉट / बिक्री' : '+ New Consignment / Sale'}
+                  {language === 'te' ? '+ నూతన లాట్ వేలం' : language === 'hi' ? '+ नया लॉट / बिक्री' : '+ New Sale / Parchi'}
                 </span>
                 <div className="w-8 h-8 rounded-full bg-[#1a3a52] text-white flex items-center justify-center group-hover:scale-105 transition">
                   <PlusCircle className="w-4 h-4 text-[#d4af37]" />

@@ -46,6 +46,7 @@ import { MerchantTab } from './types';
 
 const MainLayout: React.FC = () => {
   const {
+    currentUserPhone,
     portalMode,
     merchantTab,
     setMerchantTab,
@@ -68,7 +69,7 @@ const MainLayout: React.FC = () => {
 
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = React.useState<boolean>(() => {
     try {
-      const activePhone = localStorage.getItem('bharatmandi_active_user_phone') || localStorage.getItem('phoolmitra_active_phone_v1');
+      const activePhone = localStorage.getItem('bharatmandi_active_user_phone') || localStorage.getItem('phoolmitra_active_phone_v1') || localStorage.getItem('bharatmandi_active_phone_v1');
       const onboardingCompleted = localStorage.getItem('bharatmandi_onboarding_completed');
       if (onboardingCompleted === 'false' || !activePhone) {
         return false;
@@ -79,11 +80,32 @@ const MainLayout: React.FC = () => {
     }
   });
 
+  // Keep onboarding/logged-in status in sync if user logs in, switches accounts, or logs out
+  React.useEffect(() => {
+    if (currentUserPhone) {
+      setHasCompletedOnboarding(true);
+    } else {
+      try {
+        const activePhone = localStorage.getItem('bharatmandi_active_user_phone') || localStorage.getItem('phoolmitra_active_phone_v1') || localStorage.getItem('bharatmandi_active_phone_v1');
+        const onboardingCompleted = localStorage.getItem('bharatmandi_onboarding_completed');
+        if (!activePhone || onboardingCompleted === 'false') {
+          setHasCompletedOnboarding(false);
+        }
+      } catch {
+        setHasCompletedOnboarding(false);
+      }
+    }
+  }, [currentUserPhone]);
+
+  const handleSplashFinish = React.useCallback(() => {
+    setShowSplash(false);
+  }, []);
+
   if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} holdDurationMs={500} />;
+    return <SplashScreen onFinish={handleSplashFinish} holdDurationMs={1800} />;
   }
 
-  if (!hasCompletedOnboarding) {
+  if (!hasCompletedOnboarding && !currentUserPhone) {
     return (
       <OnboardingAuthScreen
         onComplete={() => setHasCompletedOnboarding(true)}

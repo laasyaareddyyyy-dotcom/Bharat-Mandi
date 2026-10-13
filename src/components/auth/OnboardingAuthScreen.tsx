@@ -123,7 +123,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     heading: 'Create Your Mandi Merchant Account',
     subtitle: 'Register your wholesale mandi shop in easy step-by-step process',
     step1Title: 'Personal Details',
-    step1Desc: 'Enter your full name, mobile number, and email address',
+    step1Desc: 'Enter your full name and 10-digit mobile number',
     step2Title: 'Password',
     step2Desc: 'Set a secure login password for your merchant account',
     step3Title: 'Shop Details',
@@ -180,7 +180,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     heading: 'మీ మండి వ్యాపారి ఖాతాను సృష్టించండి',
     subtitle: 'సులభమైన దశలవారీ ప్రక్రియలో మీ టోకు మండి దుకాణాన్ని నమోదు చేయండి',
     step1Title: 'వ్యక్తిగత వివరాలు',
-    step1Desc: 'మీ పూర్తి పేరు, మొబైల్ సంఖ్య మరియు ఇమెయిల్ నమోదు చేయండి',
+    step1Desc: 'మీ పూర్తి పేరు మరియు మొబైల్ సంఖ్యను నమోదు చేయండి',
     step2Title: 'పాస్‌వర్డ్',
     step2Desc: 'మీ ఖాతా కోసం సురక్షితమైన లాగిన్ పాస్‌వర్డ్‌ను సెట్ చేయండి',
     step3Title: 'దుకాణం వివరాలు',
@@ -237,7 +237,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     heading: 'अपना मंडी आढ़तिया खाता बनाएं',
     subtitle: 'आसान चरण-दर-चरण प्रक्रिया में अपनी थोक मंडी दुकान पंजीकृत करें',
     step1Title: 'व्यक्तिगत विवरण',
-    step1Desc: 'अपना पूरा नाम, मोबाइल नंबर और ईमेल दर्ज करें',
+    step1Desc: 'अपना पूरा नाम और 10-अंकीय मोबाइल नंबर दर्ज करें',
     step2Title: 'पासवर्ड',
     step2Desc: 'अपने खाते में लॉगिन करने के लिए एक सुरक्षित पासवर्ड बनाएं',
     step3Title: 'दुकान का विवरण',
@@ -294,7 +294,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     heading: 'ನಿಮ್ಮ ಮಂಡಿ ವರ್ತಕರ ಖಾತೆಯನ್ನು ರಚಿಸಿ',
     subtitle: 'ಸುಲಭ ಹಂತ-ಹಂತದ ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿ ನಿಮ್ಮ ಮಂಡಿ ಅಂಗಡಿಯನ್ನು ನೋಂದಾಯಿಸಿ',
     step1Title: 'ವೈಯಕ್ತಿಕ ವಿವರಗಳು',
-    step1Desc: 'ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರು, ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಮತ್ತು ಇಮೇಲ್ ನಮೂದಿಸಿ',
+    step1Desc: 'ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರು ಮತ್ತು ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ',
     step2Title: 'ಪಾಸ್‌ವರ್ಡ್',
     step2Desc: 'ನಿಮ್ಮ ಖಾತೆಗೆ ಸುರಕ್ಷಿತ ಲಾಗಿನ್ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಸಿ',
     step3Title: 'ಅಂಗಡಿ ವಿವರಗಳು',
@@ -351,7 +351,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     heading: 'உங்கள் மண்டி வியாபாரி கணக்கை உருவாக்கவும்',
     subtitle: 'எளிய படிப்படியான முறையில் உங்கள் மண்டி கடையைப் பதிவு செய்யவும்',
     step1Title: 'தனிப்பட்ட விவரங்கள்',
-    step1Desc: 'உங்கள் முழு பெயர், மொபைல் எண் மற்றும் மின்னஞ்சலை உள்ளிடவும்',
+    step1Desc: 'உங்கள் முழு பெயர் மற்றும் மொபைல் எண்ணை உள்ளிடவும்',
     step2Title: 'கடவுச்சொல்',
     step2Desc: 'உங்கள் கணக்கிற்கு பாதுகாப்பான கடவுச்சொல்லை அமைக்கவும்',
     step3Title: 'கடை விவரங்கள்',
@@ -408,7 +408,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     heading: 'तुमचे मंडी व्यापारी खाते तयार करा',
     subtitle: 'सोप्या टप्प्याटप्प्याने तुमचे मंडी दुकान नोंदणीकृत करा',
     step1Title: 'वैयक्तिक तपशील',
-    step1Desc: 'तुमचे पूर्ण नाव, मोबाईल नंबर आणि ईमेल प्रविष्ट करा',
+    step1Desc: 'तुमचे पूर्ण नाव आणि मोबाईल नंबर प्रविष्ट करा',
     step2Title: 'पासवर्ड',
     step2Desc: 'तुमच्या खात्यासाठी सुरक्षित पासवर्ड सेट करा',
     step3Title: 'दुकानाचा तपशील',
@@ -465,7 +465,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     heading: 'તમારું મંડી વેપારી ખાતું બનાવો',
     subtitle: 'સરળ પગલાં દ્વારા તમારી મંડી દુકાનની નોંધણી કરો',
     step1Title: 'અંગત વિગતો',
-    step1Desc: 'તમારું પૂરૂં નામ, મોબાઇલ નંબર અને ઇમેઇલ દાખલ કરો',
+    step1Desc: 'તમારું પૂરૂં નામ અને મોબાઇલ નંબર લખો',
     step2Title: 'પાસવર્ડ',
     step2Desc: 'તમારા ખાતા માટે સુરક્ષિત પાસવર્ડ સેટ કરો',
     step3Title: 'દુકાનની વિગતો',
@@ -522,7 +522,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     heading: 'আপনার মান্ডি ব্যবসায়ী অ্যাকাউন্ট তৈরি করুন',
     subtitle: 'সহজ ধাপে ধাপে আপনার পাইকারি মান্ডি দোকান নিবন্ধন করুন',
     step1Title: 'ব্যক্তিগত বিবরণ',
-    step1Desc: 'আপনার পুরো নাম, মোবাইল নম্বর এবং ইমেল দিন',
+    step1Desc: 'আপনার পুরো নাম এবং মোবাইল নম্বর লিখুন',
     step2Title: 'পাসওয়ার্ড',
     step2Desc: 'আপনার অ্যাকাউন্টের জন্য একটি সুরক্ষিত পাসওয়ার্ড সেট করুন',
     step3Title: 'দোকানের বিবরণ',
@@ -579,7 +579,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     heading: 'ਆਪਣਾ ਮੰਡੀ ਵਪਾਰੀ ਖਾਤਾ ਬਣਾਓ',
     subtitle: 'ਆਪਣੀ ਮੰਡੀ ਦੀ ਦੁਕਾਨ ਰਜਿਸਟਰ ਕਰੋ',
     step1Title: 'ਨਿੱਜੀ ਵੇਰਵੇ',
-    step1Desc: 'ਆਪਣਾ ਪੂਰਾ ਨਾਮ, ਮੋਬਾਈਲ ਨੰਬਰ ਅਤੇ ਈਮੇਲ ਦਰਜ ਕਰੋ',
+    step1Desc: 'ਆਪਣਾ ਪੂਰਾ ਨਾਮ ਅਤੇ ਮੋਬਾਈਲ ਨੰਬਰ ਦਰਜ ਕਰੋ',
     step2Title: 'ਪਾਸਵਰਡ',
     step2Desc: 'ਲਾਗਇਨ ਪਾਸਵਰਡ ਸੈੱਟ ਕਰੋ',
     step3Title: 'ਦੁਕਾਨ ਦੇ ਵੇਰਵੇ',
@@ -1544,8 +1544,9 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!loginIdentifier.trim()) {
-      setErrorMsg('Please enter your mobile number or email address');
+    const cleanLoginPhone = loginIdentifier.replace(/\D/g, "").slice(-10);
+    if (!cleanLoginPhone || cleanLoginPhone.length !== 10) {
+      setErrorMsg("Please enter a valid 10-digit registered mobile number");
       return;
     }
     if (!loginPassword) {
@@ -1591,8 +1592,9 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
   // Forgot Password Flow
   const handleForgotRequestOtp = async () => {
     setErrorMsg('');
-    if (!forgotIdentifier.trim()) {
-      setErrorMsg('Please enter your registered mobile number or email');
+    const cleanForgotPhone = forgotIdentifier.replace(/\D/g, "").slice(-10);
+    if (!cleanForgotPhone || cleanForgotPhone.length !== 10) {
+      setErrorMsg("Please enter a valid 10-digit registered mobile number");
       return;
     }
 
@@ -1887,7 +1889,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       role: 'merchant',
       fullName,
       phoneNumber: cleanPhone,
-      email: signupEmail,
+      email: "",
       password: signupPassword,
       shopOrVillage: shopName,
       shopAddress,
@@ -2005,9 +2007,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                     setSignupStep('details');
                     if (loginIdentifier.replace(/\D/g, '').length === 10) {
                       setSignupPhone(loginIdentifier.replace(/\D/g, ''));
-                    } else if (loginIdentifier.includes('@')) {
-                      setSignupEmail(loginIdentifier);
-                    }
+                    } 
                     setErrorMsg('');
                     setSuccessMsg('');
                   }}
@@ -2041,7 +2041,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                 Log In to Your Mandi Ledger
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                Enter your mobile number or email and password to log in directly
+                Enter your 10-digit registered mobile number and password to log in
               </p>
             </div>
 
@@ -2131,19 +2131,24 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
             <form onSubmit={handlePasswordLogin} className="space-y-4">
               <div>
                 <label htmlFor="login-identifier-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                  Mobile Number or Email Address *
+                  Mobile Number (10 Digits) *
                 </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-3.5 text-slate-400">
-                    <Phone className="w-5 h-5" />
-                  </span>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 font-bold text-slate-500 text-sm">🇮🇳 +91</span>
                   <input
                     id="login-identifier-input"
-                    type="text"
+                    type="tel"
+                    maxLength={10}
                     value={loginIdentifier}
-                    onChange={(e) => setLoginIdentifier(e.target.value)}
-                    placeholder="e.g. 9849012345 or merchant@mandi.com"
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
+                    onChange={(e) => {
+                      let val = e.target.value.replace(/\D/g, "");
+                      if (val.length > 0 && !/[6-9]/.test(val[0])) {
+                        val = "";
+                      }
+                      setLoginIdentifier(val.slice(0, 10));
+                    }}
+                    placeholder="9849012345"
+                    className="w-full pl-20 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-sm text-[#1e293b] outline-none"
                     required
                   />
                 </div>
@@ -2251,21 +2256,31 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
             {forgotStep === 'request' && (
               <div className="space-y-4">
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  Enter your registered mobile number or email address. We will send a 6-digit OTP code to verify your identity.
+                  Enter your registered 10-digit mobile number. We will send a 6-digit OTP code to verify your identity.
                 </p>
 
                 <div>
                   <label htmlFor="forgot-identifier-input" className="block text-xs font-black uppercase text-[#1a3a52] mb-1">
-                    Registered Mobile Number or Email *
+                    Registered Mobile Number (10 Digits) *
                   </label>
-                  <input
-                    id="forgot-identifier-input"
-                    type="text"
-                    value={forgotIdentifier}
-                    onChange={(e) => setForgotIdentifier(e.target.value)}
-                    placeholder="9849012345 or email@domain.com"
-                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
-                  />
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 font-bold text-slate-500 text-sm">🇮🇳 +91</span>
+                    <input
+                      id="forgot-identifier-input"
+                      type="tel"
+                      maxLength={10}
+                      value={forgotIdentifier}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/\D/g, "");
+                        if (val.length > 0 && !/[6-9]/.test(val[0])) {
+                          val = "";
+                        }
+                        setForgotIdentifier(val.slice(0, 10));
+                      }}
+                      placeholder="9849012345"
+                      className="w-full pl-20 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-sm text-[#1e293b] outline-none"
+                    />
+                  </div>
                 </div>
 
                 <button
@@ -2471,19 +2486,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                       )}
                     </div>
 
-                    <div>
-                      <label htmlFor="signup-email-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.emailLabel}
-                      </label>
-                      <input
-                        id="signup-email-input"
-                        type="email"
-                        value={signupEmail}
-                        onChange={(e) => setSignupEmail(e.target.value)}
-                        placeholder={signupTrans.emailPlaceholder}
-                        className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none bg-white"
-                      />
-                    </div>
+                    
 
                     <div className="pt-1">
                       <button

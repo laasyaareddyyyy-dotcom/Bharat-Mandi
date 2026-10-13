@@ -252,7 +252,7 @@ export const translations: Record<string, Record<string, string>> = {
     myTodaySales: "Today's Mandi Sales",
     myAmountReceived: "Amount Received",
     myAmountPending: "Amount Pending Dues",
-    myRecentLots: "My Recent Consignments",
+    myRecentLots: "My Recent Parchi Records",
     findNewMerchant: "Find & Connect Mandi Merchant",
     enterMerchantId: "Enter 11-digit Merchant ID (e.g. MANDI-HYD-014)",
     connectMerchantBtn: "Send Connection Request",

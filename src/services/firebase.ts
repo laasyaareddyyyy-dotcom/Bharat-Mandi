@@ -6,20 +6,41 @@ import {
   getDocFromServer,
   initializeFirestore,
   persistentLocalCache,
-  persistentMultipleTabManager,
+  persistentSingleTabManager,
+  memoryLocalCache,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase App
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore with Offline Persistence Support
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-  }),
-}, firebaseConfig.firestoreDatabaseId);
+// Safely initialize Firestore with robust local cache fallback to prevent IndexedDB batch collisions
+let firestoreDb;
+try {
+  firestoreDb = initializeFirestore(
+    app,
+    {
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager({}),
+      }),
+    },
+    firebaseConfig.firestoreDatabaseId
+  );
+} catch {
+  try {
+    firestoreDb = initializeFirestore(
+      app,
+      {
+        localCache: memoryLocalCache(),
+      },
+      firebaseConfig.firestoreDatabaseId
+    );
+  } catch {
+    firestoreDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  }
+}
 
+export const db = firestoreDb;
 export const auth = getAuth(app);
 
 // Error Handling Function as required by skill

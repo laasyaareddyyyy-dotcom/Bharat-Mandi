@@ -37,6 +37,31 @@ export function getMerchantDocId(phone?: string): string {
 }
 
 /**
+ * Recursively strips keys with undefined values from objects/arrays for Firestore compatibility
+ */
+export function cleanUndefinedValues<T>(obj: T): T {
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (obj instanceof Date) {
+    return obj.toISOString() as unknown as T;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefinedValues) as unknown as T;
+  }
+
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = typeof value === 'object' && value !== null ? cleanUndefinedValues(value) : value;
+    }
+  }
+  return cleaned as T;
+}
+
+/**
  * Saves or updates all Mandi data into Firebase Firestore keyed by user's mobile number
  */
 export async function syncToFirestore(
@@ -65,11 +90,11 @@ export async function syncToFirestore(
       const merchantRef = doc(db, 'merchants', merchantId);
       await setDoc(
         merchantRef,
-        {
+        cleanUndefinedValues({
           ...data.profile,
           userPhone: cleanPhone,
           updatedAt: new Date().toISOString(),
-        },
+        }),
         { merge: true }
       );
     }
@@ -79,7 +104,7 @@ export async function syncToFirestore(
       for (const farmer of data.farmers) {
         if (!farmer.id) continue;
         const farmerRef = doc(db, 'merchants', merchantId, 'farmers', String(farmer.id));
-        await setDoc(farmerRef, farmer, { merge: true });
+        await setDoc(farmerRef, cleanUndefinedValues(farmer), { merge: true });
       }
     }
 
@@ -88,7 +113,7 @@ export async function syncToFirestore(
       for (const lot of data.lots) {
         if (!lot.id) continue;
         const lotRef = doc(db, 'merchants', merchantId, 'lots', String(lot.id));
-        await setDoc(lotRef, lot, { merge: true });
+        await setDoc(lotRef, cleanUndefinedValues(lot), { merge: true });
       }
     }
 
@@ -97,7 +122,7 @@ export async function syncToFirestore(
       for (const shipment of data.shipments) {
         if (!shipment.id) continue;
         const shipmentRef = doc(db, 'merchants', merchantId, 'shipments', String(shipment.id));
-        await setDoc(shipmentRef, shipment, { merge: true });
+        await setDoc(shipmentRef, cleanUndefinedValues(shipment), { merge: true });
       }
     }
 
@@ -106,7 +131,7 @@ export async function syncToFirestore(
       for (const payment of data.payments) {
         if (!payment.id) continue;
         const paymentRef = doc(db, 'merchants', merchantId, 'payments', String(payment.id));
-        await setDoc(paymentRef, payment, { merge: true });
+        await setDoc(paymentRef, cleanUndefinedValues(payment), { merge: true });
       }
     }
 
@@ -115,7 +140,7 @@ export async function syncToFirestore(
       for (const settlement of data.settlements) {
         if (!settlement.id) continue;
         const settlementRef = doc(db, 'merchants', merchantId, 'settlements', String(settlement.id));
-        await setDoc(settlementRef, settlement, { merge: true });
+        await setDoc(settlementRef, cleanUndefinedValues(settlement), { merge: true });
       }
     }
 
@@ -124,7 +149,7 @@ export async function syncToFirestore(
       for (const stock of data.stocks) {
         if (!stock.id) continue;
         const stockRef = doc(db, 'merchants', merchantId, 'stocks', String(stock.id));
-        await setDoc(stockRef, stock, { merge: true });
+        await setDoc(stockRef, cleanUndefinedValues(stock), { merge: true });
       }
     }
 
@@ -133,7 +158,7 @@ export async function syncToFirestore(
       for (const emp of data.employees) {
         if (!emp.id) continue;
         const empRef = doc(db, 'merchants', merchantId, 'employees', String(emp.id));
-        await setDoc(empRef, emp, { merge: true });
+        await setDoc(empRef, cleanUndefinedValues(emp), { merge: true });
       }
     }
 
@@ -144,7 +169,7 @@ export async function syncToFirestore(
         const phoneKey = account.phoneNumber.replace(/\D/g, '').slice(-10);
         if (phoneKey) {
           const accRef = doc(db, 'registeredAccounts', phoneKey);
-          await setDoc(accRef, account, { merge: true });
+          await setDoc(accRef, cleanUndefinedValues(account), { merge: true });
         }
       }
     }
@@ -275,7 +300,7 @@ export function subscribeToFirestore(
   const unsubMerchant = onSnapshot(
     doc(db, 'merchants', merchantId),
     (snap) => {
-      if (snap.exists()) {
+      if (snap.exists() && !snap.metadata.hasPendingWrites) {
         onUpdate({ profile: snap.data() as MerchantProfile });
       }
     },
@@ -285,6 +310,7 @@ export function subscribeToFirestore(
   const unsubFarmers = onSnapshot(
     collection(db, 'merchants', merchantId, 'farmers'),
     (snap) => {
+      if (snap.metadata.hasPendingWrites) return;
       const farmers = snap.docs.map((d) => d.data() as Farmer);
       onUpdate({ farmers });
     },
@@ -294,6 +320,7 @@ export function subscribeToFirestore(
   const unsubLots = onSnapshot(
     collection(db, 'merchants', merchantId, 'lots'),
     (snap) => {
+      if (snap.metadata.hasPendingWrites) return;
       const lots = snap.docs.map((d) => d.data() as SaleLot);
       onUpdate({ lots });
     },
@@ -303,6 +330,7 @@ export function subscribeToFirestore(
   const unsubShipments = onSnapshot(
     collection(db, 'merchants', merchantId, 'shipments'),
     (snap) => {
+      if (snap.metadata.hasPendingWrites) return;
       const shipments = snap.docs.map((d) => d.data() as Shipment);
       onUpdate({ shipments });
     },

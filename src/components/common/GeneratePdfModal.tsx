@@ -561,7 +561,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
       balanceDue,
       paymentStatus,
       paymentMode,
-      paymentReference: customPaymentRef.trim() || undefined,
+      paymentReference: customPaymentRef.trim() || '',
     };
 
     if (lot && lot.id) {

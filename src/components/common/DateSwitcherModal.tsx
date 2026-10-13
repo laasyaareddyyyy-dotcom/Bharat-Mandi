@@ -332,9 +332,9 @@ export const DateSwitcherModal: React.FC = () => {
 
       <DeleteConfirmModal
         isOpen={isClearConfirmOpen}
-        title="Clear Trading Session Consignments"
+        title="Clear Trading Session Parchi Lots"
         itemName={`Session Date: ${formatDisplayDate(activeSessionDate)}`}
-        itemDetails={`${activeDateLotCount} consignment lots currently recorded for this day will be cleared.`}
+        itemDetails={`${activeDateLotCount} parchi lots currently recorded for this day will be cleared.`}
         message={`Are you sure you want to clear all ${activeDateLotCount} recorded lots for ${formatDisplayDate(activeSessionDate)}? All farmer accounts, previous reports, and payment logs remain safe.`}
         confirmText="CONFIRM CLEAR"
         cancelText="CANCEL"

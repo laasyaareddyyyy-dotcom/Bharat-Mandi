@@ -93,7 +93,7 @@ export const FarmerStatementsView: React.FC<FarmerStatementsViewProps> = ({
 
     const items = selectedStatement.items.map((it, idx) => ({
       id: `it-${idx}`,
-      flowerVariety: it.flowerVariety || it.cropVariety || 'Consignment Item',
+      flowerVariety: it.flowerVariety || it.cropVariety || 'Parchi Item',
       flowerQuality: it.quality || 'Good',
       quantity: it.quantity,
       unit: it.unit || 'Kgs',
@@ -113,7 +113,7 @@ export const FarmerStatementsView: React.FC<FarmerStatementsViewProps> = ({
       items: items.length > 0 ? items : [
         {
           id: 'placeholder',
-          flowerVariety: 'Consignment Item',
+          flowerVariety: 'Parchi Item',
           flowerQuality: 'Standard',
           quantity: 1,
           unit: 'Kgs',
@@ -355,7 +355,7 @@ export const FarmerStatementsView: React.FC<FarmerStatementsViewProps> = ({
                 {/* Quick Waterfall Summary Row */}
                 <div className="px-4 sm:px-5 py-3 bg-white grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs border-b border-slate-100">
                   <div>
-                    <span className="text-slate-400 block text-[11px]">Gross Consignment Value:</span>
+                    <span className="text-slate-400 block text-[11px]">Gross Sales Value:</span>
                     <span className="font-bold text-slate-800 font-mono">₹{stmt.grossTotal.toLocaleString('en-IN')}</span>
                   </div>
                   <div>
@@ -383,7 +383,7 @@ export const FarmerStatementsView: React.FC<FarmerStatementsViewProps> = ({
                   <div className="p-4 sm:p-5 bg-slate-50 space-y-3 animate-in fade-in text-xs">
                     <div className="flex items-center justify-between">
                       <h5 className="font-black text-slate-800 uppercase tracking-wider text-[11px]">
-                        Consignment Items Breakdown ({stmt.items.length} lots)
+                        Sales Items Breakdown ({stmt.items.length} lots)
                       </h5>
                       <span className="text-[10px] text-slate-500">Generated: {stmt.generatedAt}</span>
                     </div>
@@ -402,7 +402,7 @@ export const FarmerStatementsView: React.FC<FarmerStatementsViewProps> = ({
                         <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                           {stmt.items.map((it, idx) => (
                             <tr key={idx} className="hover:bg-slate-50">
-                              <td className="p-2.5 font-bold text-slate-900">{it.flowerVariety || it.cropVariety || 'Consignment Item'}</td>
+                              <td className="p-2.5 font-bold text-slate-900">{it.flowerVariety || it.cropVariety || 'Parchi Item'}</td>
                               <td className="p-2.5 text-slate-500">{it.quality || 'Good'}</td>
                               <td className="p-2.5 text-right font-mono">
                                 {it.quantity} {it.unit}

@@ -162,11 +162,6 @@ export const DashboardView: React.FC = () => {
         if (!matches) return false;
       }
 
-      // Status filter
-      if (filterStatus !== 'all') {
-        if (shipment.paymentStatus !== filterStatus) return false;
-      }
-
       // Location filter
       if (filterLocation !== 'all') {
         if (shipment.farmerVillage !== filterLocation) return false;
@@ -209,9 +204,6 @@ export const DashboardView: React.FC = () => {
         }
         if (filterCommodity !== 'all') {
           if ((lot.commodityCategory || 'flowers') !== filterCommodity) return false;
-        }
-        if (filterStatus !== 'all') {
-          if (lot.paymentStatus !== filterStatus) return false;
         }
         if (filterLocation !== 'all') {
           if (lot.farmerVillage !== filterLocation) return false;
@@ -286,14 +278,14 @@ export const DashboardView: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-extrabold text-[#1a3a52] tracking-tight">
-                1. Net Farmer Total
+              <h2 className="text-sm sm:text-base font-bold text-[#1a3a52] tracking-tight">
+                Net Farmer Total
               </h2>
-              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                 Net Pay
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-[#64748b] font-medium">
+            <p className="text-[10px] sm:text-[11px] text-[#64748b] font-normal">
               {language === 'te'
                 ? 'రైతు నికర నగదు • రవాణా & హమాలీ మినహాయింపుల తర్వాత రైతుకు చెల్లించాల్సిన మొత్తం'
                 : 'Total net payable to farmers after freight & hamali'}
@@ -303,13 +295,13 @@ export const DashboardView: React.FC = () => {
 
         <div className="bg-[#eef3f7] rounded-xl p-4 sm:p-5 border border-[#1a3a52]/30 shadow-xs flex items-center justify-between gap-4">
           <div className="space-y-0.5">
-            <span className="text-[11px] uppercase font-bold text-[#1a3a52] tracking-wider block">
+            <span className="text-[11px] uppercase font-semibold text-[#1a3a52] tracking-wider block">
               {language === 'te' ? 'Net Farmer Payable (నేటి రైతు నగదు)' : 'Net Farmer Payable'}
             </span>
-            <span className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#1a3a52] font-mono block tracking-tight">
+            <span className="text-xl sm:text-2xl md:text-3xl font-bold text-[#1a3a52] font-mono block tracking-tight">
               ₹{todayFarmerNetTotal.toLocaleString('en-IN')}
             </span>
-            <span className="text-[11px] text-[#1a3a52]/80 font-medium block">
+            <span className="text-[11px] text-[#1a3a52]/80 font-normal block">
               Calculated automatically after Mandi deductions
             </span>
           </div>
@@ -324,14 +316,14 @@ export const DashboardView: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-extrabold text-[#1e293b] tracking-tight">
-                2. Money Today
+              <h2 className="text-sm sm:text-base font-bold text-[#1e293b] tracking-tight">
+                Money Today
               </h2>
-              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
                 Turnover &amp; Cuts
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-[#64748b] font-medium">
+            <p className="text-[10px] sm:text-[11px] text-[#64748b] font-normal">
               {language === 'te'
                 ? 'నేటి లావాదేవీలు • స్థూల విక్రయాలు, రవాణా ఛార్జీలు మరియు హమాలీ ఖర్చులు'
                 : 'Gross sales, vehicle freight, and hamali charges'}
@@ -343,7 +335,7 @@ export const DashboardView: React.FC = () => {
           {/* Gross Sales */}
           <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-[#e2e8f0] shadow-2xs space-y-1.5 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase text-[#64748b]">Gross Sales</span>
+              <span className="text-[11px] font-medium uppercase text-[#64748b]">Gross Sales</span>
               <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-[#1e293b]">
                 <TrendingUp className="w-4 h-4 text-[#1a3a52]" />
               </div>
@@ -352,7 +344,7 @@ export const DashboardView: React.FC = () => {
               <span className="text-lg sm:text-xl font-bold text-[#1e293b] font-mono block">
                 ₹{todayTurnover.toLocaleString('en-IN')}
               </span>
-              <span className="text-[11px] text-[#64748b] font-medium block mt-0.5">
+              <span className="text-[11px] text-[#64748b] font-normal block mt-0.5">
                 {language === 'te' ? 'మొత్తం అమ్మకాలు • తగ్గింపులకు ముందు' : 'Gross turnover before deductions'}
               </span>
             </div>
@@ -361,7 +353,7 @@ export const DashboardView: React.FC = () => {
           {/* Vehicle Freight */}
           <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-[#e2e8f0] shadow-2xs space-y-1.5 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase text-[#64748b]">Vehicle Freight</span>
+              <span className="text-[11px] font-medium uppercase text-[#64748b]">Vehicle Freight</span>
               <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-700">
                 <Truck className="w-4 h-4" />
               </div>
@@ -370,7 +362,7 @@ export const DashboardView: React.FC = () => {
               <span className="text-lg sm:text-xl font-bold text-blue-700 font-mono block">
                 ₹{todayTransportTotal.toLocaleString('en-IN')}
               </span>
-              <span className="text-[11px] text-[#64748b] font-medium block mt-0.5">
+              <span className="text-[11px] text-[#64748b] font-normal block mt-0.5">
                 {language === 'te' ? 'లారీ రవాణా • రవాణా మినహాయింపులు' : 'Direct transport cuts'}
               </span>
             </div>
@@ -379,7 +371,7 @@ export const DashboardView: React.FC = () => {
           {/* Hamali / Loading */}
           <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-[#e2e8f0] shadow-2xs space-y-1.5 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase text-[#64748b]">Hamali / Loading</span>
+              <span className="text-[11px] font-medium uppercase text-[#64748b]">Hamali / Loading</span>
               <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-[#d4af37]">
                 <Package className="w-4 h-4" />
               </div>
@@ -388,7 +380,7 @@ export const DashboardView: React.FC = () => {
               <span className="text-lg sm:text-xl font-bold text-[#d4af37] font-mono block">
                 ₹{todayHamaliTotal.toLocaleString('en-IN')}
               </span>
-              <span className="text-[11px] text-[#64748b] font-medium block mt-0.5">
+              <span className="text-[11px] text-[#64748b] font-normal block mt-0.5">
                 {language === 'te' ? 'హమాలీ కూలి • లోడింగ్ ఛార్జీలు' : 'Loading coolie charges'}
               </span>
             </div>
@@ -404,14 +396,14 @@ export const DashboardView: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-extrabold text-[#1e293b] tracking-tight">
-                3. Trading Today
+              <h2 className="text-sm sm:text-base font-bold text-[#1e293b] tracking-tight">
+                Trading Today
               </h2>
-              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
                 Volume &amp; Lots
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-[#64748b] font-medium">
+            <p className="text-[10px] sm:text-[11px] text-[#64748b] font-normal">
               {language === 'te'
                 ? 'నేటి వ్యాపార పరిమాణం • వర్తకం చేసిన లాట్లు, బరువు మరియు రైతుల సంఖ్య'
                 : 'Lots traded, volume weight, and farmers served'}
@@ -423,7 +415,7 @@ export const DashboardView: React.FC = () => {
           {/* Total Lots Traded */}
           <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-[#e2e8f0] shadow-2xs space-y-1.5 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase text-[#64748b]">Total Lots Traded</span>
+              <span className="text-[11px] font-medium uppercase text-[#64748b]">Total Lots Traded</span>
               <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-800">
                 <Layers className="w-4 h-4" />
               </div>
@@ -432,8 +424,8 @@ export const DashboardView: React.FC = () => {
               <span className="text-lg sm:text-xl font-bold text-emerald-800 font-mono block">
                 {todayLotsCount} Lots
               </span>
-              <span className="text-[11px] text-[#64748b] font-medium block mt-0.5">
-                {language === 'te' ? `మొత్తం లాట్లు • ${todayShipments.length} సరుకులు` : `Total Lots • ${todayShipments.length} consignments`}
+              <span className="text-[11px] text-[#64748b] font-normal block mt-0.5">
+                {language === 'te' ? 'మొత్తం లాట్లు' : 'Total Lots Traded Today'}
               </span>
             </div>
           </div>
@@ -441,7 +433,7 @@ export const DashboardView: React.FC = () => {
           {/* Total Volume Traded */}
           <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-[#e2e8f0] shadow-2xs space-y-1.5 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase text-[#64748b]">Total Volume Traded</span>
+              <span className="text-[11px] font-medium uppercase text-[#64748b]">Total Volume Traded</span>
               <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-[#1e293b]">
                 <Package className="w-4 h-4 text-[#1a3a52]" />
               </div>
@@ -450,7 +442,7 @@ export const DashboardView: React.FC = () => {
               <span className="text-lg sm:text-xl font-bold text-[#1e293b] font-mono block">
                 {todayTotalVolume} Kgs
               </span>
-              <span className="text-[11px] text-[#64748b] font-medium block mt-0.5">
+              <span className="text-[11px] text-[#64748b] font-normal block mt-0.5">
                 {language === 'te' ? 'మొత్తం బరువు (Kgs) • మొత్తం దిగుబడి' : 'Total produce volume in Kgs'}
               </span>
             </div>
@@ -459,7 +451,7 @@ export const DashboardView: React.FC = () => {
           {/* Farmers / Growers Served */}
           <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-[#e2e8f0] shadow-2xs space-y-1.5 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase text-[#64748b]">Farmers / Growers Served</span>
+              <span className="text-[11px] font-medium uppercase text-[#64748b]">Farmers / Growers Served</span>
               <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-[#1a3a52]">
                 <Users className="w-4 h-4 text-[#1a3a52]" />
               </div>
@@ -468,7 +460,7 @@ export const DashboardView: React.FC = () => {
               <span className="text-lg sm:text-xl font-bold text-[#1a3a52] font-mono block">
                 {todayFarmersServed} Farmers
               </span>
-              <span className="text-[11px] text-[#64748b] font-medium block mt-0.5">
+              <span className="text-[11px] text-[#64748b] font-normal block mt-0.5">
                 {language === 'te' ? 'వచ్చిన రైతులు • క్రియాశీల సాగుదారులు' : 'Active growers served today'}
               </span>
             </div>
@@ -476,7 +468,7 @@ export const DashboardView: React.FC = () => {
         </div>
       </section>
 
-      {/* SECTION 4: CONSIGNMENTS */}
+      {/* SECTION 4: PARCHI RECORDS */}
       <section className="space-y-3">
         <div className="flex items-center gap-2 border-b-2 border-[#1a3a52]/20 pb-2">
           <div className="w-8 h-8 rounded-xl bg-[#1a3a52] text-white flex items-center justify-center shrink-0 shadow-xs">
@@ -484,17 +476,17 @@ export const DashboardView: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-extrabold text-[#1e293b] tracking-tight">
-                5. Consignments
+              <h2 className="text-sm sm:text-base font-bold text-[#1e293b] tracking-tight">
+                Parchi Records
               </h2>
-              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-100 text-[#1a3a52] border border-slate-300">
+              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-[#1a3a52] border border-slate-300">
                 Parchi Records
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-[#64748b] font-medium">
+            <p className="text-[10px] sm:text-[11px] text-[#64748b] font-normal">
               {language === 'te'
-                ? 'రసీదులు & పర్చీలు • సరుకుల వివరాలను వెతకండి మరియు చూడండి'
-                : 'Search, filter, and view all consignment records'}
+                ? 'రసీదులు & పర్చీలు • వివరాలను వెతకండి మరియు చూడండి'
+                : 'Search, filter, and view all parchi records'}
             </p>
           </div>
         </div>
@@ -511,7 +503,7 @@ export const DashboardView: React.FC = () => {
                 id="ledger-search-input"
                 value={consignmentSearchQuery}
                 onChange={(e) => setConsignmentSearchQuery(e.target.value)}
-                placeholder="Find consignments, farmer name, village, variety, ID..."
+                placeholder="Find parchi, farmer name, village, variety, ID..."
                 className="w-full pl-9 pr-8 py-2.5 text-xs font-medium rounded-xl bg-[#f1f5f9] border border-[#e2e8f0] focus:bg-white focus:border-[#1a3a52] focus:outline-none focus:ring-2 focus:ring-[#1a3a52]/20 transition text-[#1e293b]"
               />
               {consignmentSearchQuery && (
@@ -580,7 +572,7 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Filter Buttons (All, Unpaid Dues, Paid) inside the card */}
+          {/* Quick Filter Buttons inside the card */}
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#f1f5f9]">
             <span className="text-xs font-extrabold uppercase text-[#64748b] mr-1">
               Quick Filter:
@@ -596,30 +588,6 @@ export const DashboardView: React.FC = () => {
             >
               All ({todayShipments.length + todayLots.length})
             </button>
-
-            <button
-              type="button"
-              onClick={() => setFilterStatus('Unpaid')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                filterStatus === 'Unpaid'
-                  ? 'bg-red-700 text-white shadow-2xs'
-                  : 'bg-red-50 text-red-800 border border-red-200 hover:bg-red-100'
-              }`}
-            >
-              Unpaid Dues
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFilterStatus('Paid')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                filterStatus === 'Paid'
-                  ? 'bg-emerald-700 text-white shadow-2xs'
-                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-              }`}
-            >
-              Paid
-            </button>
           </div>
 
           {/* Collapsible Filter Panel */}
@@ -631,7 +599,7 @@ export const DashboardView: React.FC = () => {
               <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-2">
                 <span className="font-bold text-[#1e293b] flex items-center gap-1.5">
                   <Filter className="w-3.5 h-3.5 text-[#1a3a52]" />
-                  Filter Consignment Records
+                  Filter Parchi Records
                 </span>
                 {hasActiveFilters && (
                   <button
@@ -672,23 +640,7 @@ export const DashboardView: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Payment Status */}
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-[#64748b] block mb-1">
-                    Payment Status
-                  </label>
-                  <select
-                    id="filter-status-select"
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-white border border-[#e2e8f0] text-xs font-medium focus:outline-none focus:border-[#1a3a52]"
-                  >
-                    <option value="all">All Payment Statuses</option>
-                    <option value="Unpaid">Unpaid / Dues Pending</option>
-                    <option value="Partial">Partial Payment</option>
-                    <option value="Paid">Fully Paid</option>
-                  </select>
-                </div>
+
 
                 {/* Location / Village */}
                 <div>
@@ -741,7 +693,7 @@ export const DashboardView: React.FC = () => {
         {/* Results Summary Counter */}
         <div className="flex items-center justify-between text-xs text-[#64748b] px-1 font-medium">
           <span>
-            Showing <strong className="text-[#1e293b]">{totalEntriesCount}</strong> consignment entries for{' '}
+            Showing <strong className="text-[#1e293b]">{totalEntriesCount}</strong> parchi entries for{' '}
             <strong className="text-[#1e293b]">{formatDisplayDate(activeSessionDate)}</strong>
           </span>
           {hasActiveFilters && (
@@ -774,18 +726,6 @@ export const DashboardView: React.FC = () => {
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono font-black text-[#1a3a52] bg-white border border-[#e2e8f0] px-2.5 py-0.5 rounded-lg text-xs shadow-2xs">
                           {shipment.shipmentNumber}
-                        </span>
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                            shipment.paymentStatus === 'Paid'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : shipment.paymentStatus === 'Partial'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {shipment.paymentStatus}
-                          {shipment.balanceDue > 0 && ` (₹${shipment.balanceDue.toLocaleString('en-IN')})`}
                         </span>
                       </div>
 
@@ -841,7 +781,7 @@ export const DashboardView: React.FC = () => {
                       {/* CARD SECTION 3: CHARGES & DEDUCTIONS */}
                       <div className="p-3 bg-[#F9F6F0] rounded-xl border border-[#e2e8f0] space-y-1.5 text-xs mt-3">
                         <div className="flex justify-between items-center text-[#64748b]">
-                          <span>Gross Consignment:</span>
+                          <span>Gross Total:</span>
                           <strong className="font-mono text-[#1e293b]">
                             ₹{shipment.grossTotal.toLocaleString('en-IN')}
                           </strong>
@@ -923,10 +863,11 @@ export const DashboardView: React.FC = () => {
                             sounds.playBidTick();
                             openPdfModalForShipment(shipment);
                           }}
-                          className="p-1.5 rounded-lg bg-blue-50 border border-blue-200 text-[#1a3a52] hover:bg-blue-100 transition cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-[#1a3a52] hover:bg-blue-100 transition cursor-pointer flex items-center gap-1 font-bold text-xs"
                           title="Generate Form C PDF Invoice"
                         >
                           <FileText className="w-3.5 h-3.5 text-[#1a3a52]" />
+                          <span>Form C PDF</span>
                         </button>
 
                         {/* Parchi Slip */}
@@ -1000,7 +941,7 @@ export const DashboardView: React.FC = () => {
                           onClick={() => {
                             setDeleteModalConfig({
                               isOpen: true,
-                              title: 'Delete Consignment Record',
+                              title: 'Delete Parchi Record',
                               itemName: `Shipment: ${shipment.shipmentNumber}`,
                               itemDetails: `Farmer: ${shipment.farmerName} • Gross: ₹${shipment.grossTotal.toLocaleString('en-IN')}`,
                               message: `Are you sure you want to delete shipment ${shipment.shipmentNumber}?`,
@@ -1034,17 +975,6 @@ export const DashboardView: React.FC = () => {
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-mono font-black text-[#1a3a52] bg-white border border-[#e2e8f0] px-2.5 py-0.5 rounded-lg text-xs shadow-2xs">
                         {lot.parchiNumber}
-                      </span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                          lot.paymentStatus === 'Paid'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : lot.paymentStatus === 'Partial'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {lot.paymentStatus}
                       </span>
                     </div>
 
@@ -1113,6 +1043,16 @@ export const DashboardView: React.FC = () => {
                     </button>
 
                     <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        id={`lot-card-formc-pdf-btn-${lot.id}`}
+                        onClick={() => openPdfModalForLot(lot)}
+                        className="px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-[#1a3a52] hover:bg-blue-100 transition cursor-pointer flex items-center gap-1 font-bold text-xs"
+                        title="Generate Form C PDF Invoice"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-[#1a3a52]" />
+                        <span>Form C PDF</span>
+                      </button>
 
                       <button
                         type="button"
@@ -1137,9 +1077,9 @@ export const DashboardView: React.FC = () => {
                         onClick={() => {
                           setDeleteModalConfig({
                             isOpen: true,
-                            title: 'Delete Consignment Lot',
+                            title: 'Delete Parchi Lot',
                             itemName: `Lot: ${lot.parchiNumber}`,
-                            message: `Delete consignment lot ${lot.parchiNumber}?`,
+                            message: `Delete parchi lot ${lot.parchiNumber}?`,
                             onConfirm: () => {
                               deleteSaleLot(lot.id);
                               setActionFeedbackMsg(`✓ Lot ${lot.parchiNumber} deleted.`);
@@ -1172,7 +1112,7 @@ export const DashboardView: React.FC = () => {
                   <thead className="bg-[#f1f5f9] text-[#1e293b] font-bold border-b border-[#e2e8f0]">
                     <tr>
                       {/* Desktop Only */}
-                      <th className="p-3 hidden lg:table-cell">Consignment ID</th>
+                      <th className="p-3 hidden lg:table-cell">Parchi ID</th>
                       <th className="p-3 hidden sm:table-cell">Farmer</th>
 
                       {/* Mobile + Tablet + Desktop */}
@@ -1191,7 +1131,6 @@ export const DashboardView: React.FC = () => {
                       <th className="p-3 text-right hidden lg:table-cell">Freight</th>
                       <th className="p-3 text-right hidden lg:table-cell">Hamali</th>
                       <th className="p-3 text-right hidden lg:table-cell">Net Amount</th>
-                      <th className="p-3 text-center hidden sm:table-cell">Status</th>
                       <th className="p-3 text-center">Actions</th>
                     </tr>
                   </thead>
@@ -1217,7 +1156,7 @@ export const DashboardView: React.FC = () => {
                           {/* Commodity */}
                           <td className="p-3 font-bold text-[#1e293b]">
                             <div className="flex items-center gap-1">
-                              <span>{firstItem?.flowerVariety || 'Consignment'}</span>
+                              <span>{firstItem?.flowerVariety || 'Parchi Item'}</span>
                               {shipment.items.length > 1 && (
                                 <span className="text-[10px] px-1 py-0.2 rounded bg-stone-100 text-stone-700">
                                   +{shipment.items.length - 1}
@@ -1269,21 +1208,6 @@ export const DashboardView: React.FC = () => {
                           {/* Net Amount (Desktop) */}
                           <td className="p-3 text-right font-mono font-black text-[#1a3a52] hidden lg:table-cell">
                             ₹{(shipment.netAmountAfterDailyCuts || shipment.grossTotal - shipment.transportCharge - shipment.hamaliCharge).toLocaleString('en-IN')}
-                          </td>
-
-                          {/* Status (Tablet + Desktop) */}
-                          <td className="p-3 text-center hidden sm:table-cell">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                shipment.paymentStatus === 'Paid'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : shipment.paymentStatus === 'Partial'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}
-                            >
-                              {shipment.paymentStatus}
-                            </span>
                           </td>
 
                           {/* Actions */}
@@ -1355,17 +1279,6 @@ export const DashboardView: React.FC = () => {
                         <td className="p-3 text-right font-mono font-black text-[#1a3a52] hidden lg:table-cell">
                           ₹{(lot.farmerNetPayable || lot.grossTotal).toLocaleString('en-IN')}
                         </td>
-                        <td className="p-3 text-center hidden sm:table-cell">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              lot.paymentStatus === 'Paid'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {lot.paymentStatus}
-                          </span>
-                        </td>
                         <td className="p-3 text-center">
                           <button
                             type="button"
@@ -1386,11 +1299,11 @@ export const DashboardView: React.FC = () => {
           {totalEntriesCount === 0 && (
             <div className="bg-white rounded-2xl p-8 text-center border border-[#e2e8f0] space-y-3">
               <Package className="w-10 h-10 mx-auto text-[#64748b]/40" />
-              <h3 className="text-sm font-bold text-[#1e293b]">No Consignments Found</h3>
+              <h3 className="text-sm font-bold text-[#1e293b]">No Parchi Records Found</h3>
               <p className="text-xs text-[#64748b]">
                 {hasActiveFilters
-                  ? 'No consignment matches the active filters. Try clearing your search or filters.'
-                  : 'No consignment records have been added for today yet.'}
+                  ? 'No parchi record matches the active filters. Try clearing your search or filters.'
+                  : 'No parchi records have been added for today yet.'}
               </p>
               {hasActiveFilters && (
                 <button

@@ -142,7 +142,7 @@ export const SupportView: React.FC = () => {
                 <Clock className="w-6 h-6 text-[#1a3a52] group-hover:text-white transition-colors" />
               </div>
               <div className="flex items-center justify-center gap-1.5 w-full">
-                <div className="support-title">Incoming Requests</div>
+                <div className="support-title">Connected Farmers</div>
                 {incomingRequestsCount > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold animate-pulse">
                     {incomingRequestsCount} New
@@ -254,7 +254,7 @@ export const SupportView: React.FC = () => {
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 sticky top-0 bg-[#f8fafc] z-10">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  {farmersModalTab === 'incoming' ? 'Incoming Connection Requests' : 'Connected Farmers Directory'}
+                  Connected Farmers Directory
                 </h3>
                 <p className="text-xs text-slate-500">
                   {farmersModalTab === 'incoming'

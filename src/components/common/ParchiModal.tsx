@@ -186,7 +186,7 @@ export const ParchiModal: React.FC = () => {
     if (!lot) return;
     sounds.playCashChime();
     removeParchiWithAudit(lot.id, {
-      printedAt: printCompletedTime || undefined,
+      printedAt: printCompletedTime || '',
       reason: 'Printed and removed by merchant',
     });
     setShowRemovePrompt(false);
@@ -217,10 +217,6 @@ Phone: ${merchantProfile.phoneNumber}
 *Recorded Mandi Charges:*
 - Vehicle / Freight: ₹${transportVal.toLocaleString('en-IN')}
 - Hamali / Loading: ₹${ammaliVal.toLocaleString('en-IN')}
---------------------------------
-*Payment Status:* ${lot.paymentStatus.toUpperCase()}
-*Paid:* ₹${lot.amountPaid.toLocaleString('en-IN')}
-*Balance Due:* ₹${lot.balanceDue.toLocaleString('en-IN')}
 --------------------------------
 _Generated via भारत MANDI Ledger_`;
 
@@ -584,7 +580,7 @@ _Generated via भारत MANDI Ledger_`;
               )}
             </div>
 
-            {/* Consignment / Lot Particulars */}
+            {/* Parchi / Lot Particulars */}
             <div className="py-2 space-y-2 border-b border-slate-200/60">
               <div className="flex justify-between text-[10px] font-bold text-slate-400 pb-1.5 border-b border-slate-200/50 uppercase tracking-wider">
                 <span>Variety & Particulars</span>
@@ -682,7 +678,7 @@ _Generated via भारत MANDI Ledger_`;
               {/* Box count and Quality summary strip */}
               <div className="grid grid-cols-2 gap-2 text-[10px] bg-slate-50/80 p-2 rounded-xl border border-slate-200/60 mt-1.5">
                 <div>
-                  <span className="text-slate-400 font-medium block">Consignment Type</span>
+                  <span className="text-slate-400 font-medium block">Lot Type</span>
                   <span className="font-bold text-slate-800">
                     {linkedShipment ? `One Truck (${linkedShipment.items.length} varieties)` : (lot.boxesCount ? `${lot.boxesCount} ${lotPackaging}` : 'Direct arrival')}
                   </span>
@@ -737,9 +733,9 @@ _Generated via भारत MANDI Ledger_`;
                 </span>
               </div>
               <div className="flex justify-between items-center text-slate-400 text-[9px]">
-                <span>Settlement Status</span>
+                <span>Mandi Verification</span>
                 <span className="font-semibold text-slate-600">
-                  {lot.paymentStatus === 'Paid' ? '✓ Paid in Full' : lot.paymentStatus === 'Partial' ? `Partial (Due ₹${lot.balanceDue})` : `Unpaid (Due ₹${lot.balanceDue})`}
+                  Official Mandi Entry Recorded
                 </span>
               </div>
             </div>

@@ -334,7 +334,7 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
         phone: cleanPhone,
         village: trimmedVillage,
         primaryCrops: formCrops,
-        photoUrl: formPhotoUrl.trim() || undefined,
+        photoUrl: formPhotoUrl.trim() || '',
       });
     } else {
       addFarmer({
@@ -343,7 +343,7 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
         village: trimmedVillage,
         primaryCrops: formCrops,
         connectedMerchantIds: [merchantProfile.merchantId],
-        photoUrl: formPhotoUrl.trim() || undefined,
+        photoUrl: formPhotoUrl.trim() || '',
       });
     }
 
@@ -362,7 +362,7 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
   const handleAcceptRequest = (reqId: string, farmerName: string) => {
     acceptConnectionRequest(reqId);
     setNotificationMsg(
-      `✓ Connection accepted with ${farmerName}! Data sharing activated. Only this specific farmer's consignment lots and ledger are now shared.`
+      `✓ Connection accepted with ${farmerName}! Data sharing activated. Only this specific farmer's parchi lots and ledger are now shared.`
     );
     setTimeout(() => setNotificationMsg(null), 5000);
   };
@@ -439,28 +439,28 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
                 : 'border-transparent text-[#64748b] hover:text-[#1e293b]'
             }`}
           >
-            <Users className="w-4 h-4" />
-            <span>Connected Farmers ({farmers.length})</span>
+            <Users className="w-4 h-4 text-[#1a3a52]" />
+            <span>Connected Farmers ({filteredFarmers.length})</span>
           </button>
 
-          <button
-            type="button"
-            id="tab-incoming-requests"
-            onClick={() => setActiveTab('incoming')}
-            className={`px-4 py-2 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-              activeTab === 'incoming'
-                ? 'border-[#1a3a52] text-[#1a3a52] bg-[#eef3f7]/50 rounded-t-xl'
-                : 'border-transparent text-[#64748b] hover:text-[#1e293b]'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span>Incoming Requests</span>
-            {incomingFarmerRequests.length > 0 && (
+          {incomingFarmerRequests.length > 0 && (
+            <button
+              type="button"
+              id="tab-incoming-requests"
+              onClick={() => setActiveTab('incoming')}
+              className={`px-4 py-2 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeTab === 'incoming'
+                  ? 'border-[#1a3a52] text-[#1a3a52] bg-[#eef3f7]/50 rounded-t-xl'
+                  : 'border-transparent text-[#64748b] hover:text-[#1e293b]'
+              }`}
+            >
+              <Clock className="w-4 h-4 text-amber-600" />
+              <span>Pending Approvals</span>
               <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-mono font-bold animate-pulse">
                 {incomingFarmerRequests.length} new
               </span>
-            )}
-          </button>
+            </button>
+          )}
         </div>
 
         {/* Data Privacy & Isolation Assurance Banner */}
@@ -498,7 +498,7 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
               <div className="max-w-md mx-auto space-y-1">
                 <h4 className="font-black text-base text-[#1e293b]">No Farmers in Khata Yet</h4>
                 <p className="text-xs text-[#64748b]">
-                  Register farmers in your yard to view their connected ledger and consignments.
+                  Register farmers in your yard to view their connected ledger and parchi records.
                 </p>
               </div>
               <div className="flex justify-center gap-2">
@@ -562,21 +562,22 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             id={`edit-farmer-btn-${farmer.id}`}
                             onClick={() => openEditModal(farmer)}
-                            className="text-[11px] text-[#1a3a52] font-semibold hover:underline"
+                            className="px-2.5 py-1 rounded-lg bg-[#f1f5f9] hover:bg-slate-200 text-[#1a3a52] text-[11px] font-bold transition cursor-pointer"
                           >
                             {t('editFarmer')}
                           </button>
                           <button
                             id={`delete-farmer-card-btn-${farmer.id}`}
                             onClick={() => handleDeleteFarmerClick(farmer)}
-                            className="p-1 rounded-md text-[#9E3A24] hover:bg-red-50 hover:text-red-800 transition cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
                             title="Delete this farmer record"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </div>
@@ -668,10 +669,10 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
             <div>
               <h3 className="font-bold text-sm sm:text-base text-[#1e293b] flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[#1a3a52]" />
-                <span>Pending Incoming Requests from Farmers ({incomingFarmerRequests.length})</span>
+                <span>Connected Farmers &amp; Pending Requests ({incomingFarmerRequests.length})</span>
               </h3>
               <p className="text-xs text-[#64748b]">
-                Farmers requesting to link their digital passbook with your shop. When accepted, only their specific consignments and payments will be shared with them.
+                Farmers requesting to link their digital passbook with your shop. When accepted, only their specific parchi records and payments will be shared with them.
               </p>
             </div>
           </div>
