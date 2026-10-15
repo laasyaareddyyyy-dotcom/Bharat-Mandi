@@ -961,7 +961,7 @@ export const FarmerPortalView: React.FC = () => {
               <div>
                 <h3 className="font-bold text-sm sm:text-base text-[#1e293b] flex items-center gap-2">
                   <Clock className="w-4 h-4 text-[#1a3a52]" />
-                  <span>Connected Merchants &amp; Requests ({incomingRequestsFromMerchants.length})</span>
+                  <span>Connected Merchants ({acceptedMerchants.length})</span>
                 </h3>
                 <p className="text-xs text-[#64748b]">
                   Merchants who want to link your passbook. When accepted, only your specific parchi records and payments will be shared with them.

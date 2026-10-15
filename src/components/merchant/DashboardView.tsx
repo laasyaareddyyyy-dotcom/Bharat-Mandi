@@ -278,8 +278,8 @@ export const DashboardView: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-[#1a3a52] tracking-tight">
-                Net Farmer Total
+              <h2 className="text-sm sm:text-base font-bold text-[#1a3a52] tracking-tight uppercase">
+                NET FARMER TOTAL
               </h2>
               <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                 Net Pay
@@ -316,8 +316,8 @@ export const DashboardView: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-[#1e293b] tracking-tight">
-                Money Today
+              <h2 className="text-sm sm:text-base font-bold text-[#1e293b] tracking-tight uppercase">
+                MONEY TODAY
               </h2>
               <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
                 Turnover &amp; Cuts
@@ -396,8 +396,8 @@ export const DashboardView: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-[#1e293b] tracking-tight">
-                Trading Today
+              <h2 className="text-sm sm:text-base font-bold text-[#1e293b] tracking-tight uppercase">
+                TRADING TODAY
               </h2>
               <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
                 Volume &amp; Lots
@@ -476,11 +476,11 @@ export const DashboardView: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-[#1e293b] tracking-tight">
-                Parchi Records
+              <h2 className="text-sm sm:text-base font-bold text-[#1e293b] tracking-tight uppercase">
+                PARCHI RECORDS
               </h2>
               <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-[#1a3a52] border border-slate-300">
-                Parchi Records
+                PARCHI RECORDS
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-[#64748b] font-normal">

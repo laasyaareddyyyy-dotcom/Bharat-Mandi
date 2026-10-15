@@ -131,31 +131,6 @@ export const SupportView: React.FC = () => {
               <div className="support-desc">Add grower profile &amp; passbook</div>
             </button>
 
-            {/* Incoming Requests */}
-            <button
-              type="button"
-              id="support-incoming-requests-btn"
-              onClick={() => setFarmersModalTab('incoming')}
-              className="support-card group text-center flex flex-col items-center justify-center cursor-pointer relative"
-            >
-              <div className="w-12 h-12 rounded-xl bg-[#eef3f7] text-[#1a3a52] group-hover:bg-[#1a3a52] group-hover:text-white transition-colors flex items-center justify-center mb-1 mx-auto">
-                <Clock className="w-6 h-6 text-[#1a3a52] group-hover:text-white transition-colors" />
-              </div>
-              <div className="flex items-center justify-center gap-1.5 w-full">
-                <div className="support-title">Connected Farmers</div>
-                {incomingRequestsCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold animate-pulse">
-                    {incomingRequestsCount} New
-                  </span>
-                )}
-              </div>
-              <div className="support-desc">
-                {incomingRequestsCount > 0
-                  ? `${incomingRequestsCount} farmer connection requests pending`
-                  : 'Approve incoming grower connection requests'}
-              </div>
-            </button>
-
             {/* Connected Farmers */}
             <button
               type="button"
@@ -179,7 +154,7 @@ export const SupportView: React.FC = () => {
               <div className="w-12 h-12 rounded-xl bg-[#eef3f7] text-[#1a3a52] group-hover:bg-[#1a3a52] group-hover:text-white transition-colors flex items-center justify-center mb-1 mx-auto">
                 <Headphones className="w-6 h-6 text-[#1a3a52] group-hover:text-white transition-colors" />
               </div>
-              <div className="support-title">AI Support Help Desk</div>
+              <div className="support-title">Help Desk</div>
               <div className="support-desc">Instant mandi assistant &amp; tickets</div>
             </button>
 

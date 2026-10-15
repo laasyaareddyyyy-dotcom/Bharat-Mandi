@@ -429,109 +429,8 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
     );
   };
 
-  // Direct High-Resolution PDF Download Handler
-  const handleDownloadPDF = async (format: 'a4' | 'thermal-80mm' = pdfLayoutFormat) => {
-    if (!pdfPrintAreaRef.current) return;
-    setIsGeneratingPdf(true);
-    setPdfStatusMessage('Rendering high-resolution Form C PDF...');
-    try {
-      const cleanFarmer = sourceFarmerName.replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `BharatMandi-FormC-Invoice-${sourceParchiNumber}-${cleanFarmer}.pdf`;
-      const result = await exportElementToPdf(pdfPrintAreaRef.current, {
-        filename,
-        format,
-        orientation: 'portrait',
-        marginMm: format === 'thermal-80mm' ? 4 : 6,
-        scale: 2,
-        fitToPage: false,
-        autoDownload: true,
-      });
-
-      if (result.success) {
-        setPdfStatusMessage('✓ Form C PDF downloaded successfully!');
-      } else {
-        setPdfStatusMessage(`Failed: ${result.error || 'Could not generate PDF'}`);
-      }
-    } catch (err: any) {
-      console.error('[PDF Download Error in GeneratePdfModal]', err);
-      setPdfStatusMessage('Download error. Please check browser permissions.');
-    } finally {
-      setTimeout(() => {
-        setIsGeneratingPdf(false);
-        setPdfStatusMessage('');
-      }, 3000);
-    }
-  };
-
-  const [isSharingPdf, setIsSharingPdf] = useState<boolean>(false);
-
-  // WhatsApp / Native Share with PDF file attachment via Web Share API
-  const handleShareWhatsApp = async (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (!pdfPrintAreaRef.current || isSharingPdf) return;
-
-    // Acquire global share lock synchronously BEFORE PDF rendering starts
-    if (!acquireGlobalShareLock()) {
-      return;
-    }
-
-    setIsSharingPdf(true);
-    setPdfStatusMessage('Rendering Form C PDF for file sharing...');
-
-    try {
-      const filename = `FormC-Invoice-${sourceParchiNumber}.pdf`;
-
-      // 1. Generate PDF blob from the invoice canvas element using the EXACT SAME format as download
-      const result = await exportElementToPdf(pdfPrintAreaRef.current, {
-        filename,
-        title: `APMC Form C Invoice #${sourceParchiNumber}`,
-        format: pdfLayoutFormat,
-        orientation: 'portrait',
-        marginMm: pdfLayoutFormat === 'thermal-80mm' ? 4 : 6,
-        scale: 2,
-        autoDownload: false,
-      });
-
-      if (!result.success || !result.blob) {
-        throw new Error(result.error || 'Failed to render PDF');
-      }
-
-      // 2. Share PDF file via centralized helper
-      const shareRes = await sharePdfFile({
-        blob: result.blob,
-        filename,
-        title: `Form C Invoice - ${sourceParchiNumber}`,
-        fallbackToDownload: true,
-      });
-
-      if (shareRes.shared) {
-        setPdfStatusMessage('✓ Form C PDF shared successfully!');
-      } else if (shareRes.downloaded) {
-        setPdfStatusMessage(
-          "Your browser doesn't support direct file sharing — the PDF has been downloaded so you can attach it in WhatsApp."
-        );
-      }
-    } catch (err: any) {
-      console.error('[Form C Share Fatal Error]', err);
-      setPdfStatusMessage('Could not share PDF. Please use the Download PDF button.');
-    } finally {
-      setIsSharingPdf(false);
-      releaseGlobalShareLock(2500);
-      setTimeout(() => setPdfStatusMessage(''), 6000);
-    }
-  };
-
-  const handleCopyText = () => {
-    const text = `FORM C INVOICE ${sourceParchiNumber} | ${sourceFarmerName} | Items: ${resolvedItems.length} | Gross: ₹${sourceGross} | Freight: ₹${sourceTransport} | Hamali: ₹${sourceHamali} | Mandi Comm (${commissionPercent}%): ₹${calculatedCommissionAmount} | Misc Charges: ₹${calculatedMiscCommissionAmount} | Net To Farmer: ₹${finalFarmerNet}`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleSaveAndFinalize = async () => {
+  // Helper function to auto-save source record to database (MandiContext & Firestore)
+  const performAutoSaveRecord = (): Partial<SaleLot> => {
     const expendituresData: Expenditures = {
       transport: sourceTransport,
       hamali: sourceHamali,
@@ -567,7 +466,6 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
     if (lot && lot.id) {
       updateSaleLot(lot.id, finalPayload);
     } else if (draftData && resolvedItems.length > 0) {
-      // Auto-save consignment entry to MandiContext if PDF was generated from draft
       const targetPhone = (sourceFarmerPhone || '').replace(/\D/g, '').slice(-10);
       let targetFarmerObj = matchedFarmer;
 
@@ -616,7 +514,117 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
       onFinalize(finalPayload);
     }
 
-    // Also trigger the PDF download so the user receives the file immediately
+    return finalPayload;
+  };
+
+  // Direct High-Resolution PDF Download Handler
+  const handleDownloadPDF = async (format: 'a4' | 'thermal-80mm' = pdfLayoutFormat) => {
+    if (!pdfPrintAreaRef.current) return;
+    setIsGeneratingPdf(true);
+    setPdfStatusMessage('Saving record & rendering Form C PDF...');
+    try {
+      // 1. Automatically persist source record data in app state & Firestore
+      performAutoSaveRecord();
+
+      const cleanFarmer = sourceFarmerName.replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `BharatMandi-FormC-Invoice-${sourceParchiNumber}-${cleanFarmer}.pdf`;
+      const result = await exportElementToPdf(pdfPrintAreaRef.current, {
+        filename,
+        format,
+        orientation: 'portrait',
+        marginMm: format === 'thermal-80mm' ? 4 : 6,
+        scale: 2,
+        fitToPage: false,
+        autoDownload: true,
+      });
+
+      if (result.success) {
+        setPdfStatusMessage('✓ Record saved & Form C PDF downloaded successfully!');
+      } else {
+        setPdfStatusMessage('✓ Record saved to app, but PDF download failed. Please retry.');
+      }
+    } catch (err: any) {
+      console.error('[PDF Download Error in GeneratePdfModal]', err);
+      setPdfStatusMessage('✓ Record saved in app. (Browser blocked automatic PDF download)');
+    } finally {
+      setTimeout(() => {
+        setIsGeneratingPdf(false);
+        setPdfStatusMessage('');
+      }, 3000);
+    }
+  };
+
+  const [isSharingPdf, setIsSharingPdf] = useState<boolean>(false);
+
+  // WhatsApp / Native Share with PDF file attachment via Web Share API
+  const handleShareWhatsApp = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!pdfPrintAreaRef.current || isSharingPdf) return;
+
+    if (!acquireGlobalShareLock()) {
+      return;
+    }
+
+    setIsSharingPdf(true);
+    setPdfStatusMessage('Saving record & rendering PDF for sharing...');
+
+    try {
+      // Automatically save record to database
+      performAutoSaveRecord();
+
+      const filename = `FormC-Invoice-${sourceParchiNumber}.pdf`;
+
+      const result = await exportElementToPdf(pdfPrintAreaRef.current, {
+        filename,
+        title: `APMC Form C Invoice #${sourceParchiNumber}`,
+        format: pdfLayoutFormat,
+        orientation: 'portrait',
+        marginMm: pdfLayoutFormat === 'thermal-80mm' ? 4 : 6,
+        scale: 2,
+        autoDownload: false,
+      });
+
+      if (!result.success || !result.blob) {
+        throw new Error(result.error || 'Failed to render PDF');
+      }
+
+      const shareRes = await sharePdfFile({
+        blob: result.blob,
+        filename,
+        title: `Form C Invoice - ${sourceParchiNumber}`,
+        fallbackToDownload: true,
+      });
+
+      if (shareRes.shared) {
+        setPdfStatusMessage('✓ Record saved & Form C PDF shared successfully!');
+      } else if (shareRes.downloaded) {
+        setPdfStatusMessage(
+          '✓ Record saved in app! The PDF has been downloaded so you can attach it in WhatsApp.'
+        );
+      }
+    } catch (err: any) {
+      console.error('[Form C Share Fatal Error]', err);
+      setPdfStatusMessage('✓ Record saved in app! Use Download PDF button to save file.');
+    } finally {
+      setIsSharingPdf(false);
+      releaseGlobalShareLock(2500);
+      setTimeout(() => setPdfStatusMessage(''), 6000);
+    }
+  };
+
+  const handleCopyText = () => {
+    const text = `FORM C INVOICE ${sourceParchiNumber} | ${sourceFarmerName} | Items: ${resolvedItems.length} | Gross: ₹${sourceGross} | Freight: ₹${sourceTransport} | Hamali: ₹${sourceHamali} | Mandi Comm (${commissionPercent}%): ₹${calculatedCommissionAmount} | Misc Charges: ₹${calculatedMiscCommissionAmount} | Net To Farmer: ₹${finalFarmerNet}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSaveAndFinalize = async () => {
+    performAutoSaveRecord();
+
     if (pdfPrintAreaRef.current) {
       try {
         const cleanFarmer = sourceFarmerName.replace(/[^a-zA-Z0-9]/g, '_');

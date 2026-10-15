@@ -28,8 +28,6 @@ import { useMandi } from '../../context/MandiContext';
 import { CommodityCategory, WeightUnit } from '../../types';
 import { sounds } from '../../utils/audio';
 import { COMMODITY_CONFIGS, DEFAULT_MARKET_YARD_NAME, ALL_COMMODITIES } from '../../data/initialData';
-import { LanguageSettingsModal } from '../common/LanguageSettingsModal';
-import { getLanguageInfo } from '../../data/indianLanguages';
 import { validateIndianMobile, cleanIndianMobile } from '../../utils/phoneValidation';
 import { sendPhoneOtp, verifyPhoneOtp, isSupabaseConfigured } from '../../services/supabase';
 
@@ -1492,7 +1490,6 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
   const [selectedCommodities, setSelectedCommodities] = useState<CommodityCategory[]>(['flowers']);
 
   // UI status
-  const [isLangModalOpen, setIsLangModalOpen] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
@@ -1509,7 +1506,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     return () => clearInterval(timer);
   }, [signupStep, otpResendTimer]);
 
-  const currentLangInfo = getLanguageInfo(language);
+
 
   // Quick 1-Click Login for Saved Accounts
   const handleQuickAccountLogin = (acct: (typeof registeredAccounts)[0]) => {
@@ -1627,7 +1624,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     sounds.playCashChime();
   };
 
-  const handleForgotResetSubmit = () => {
+  const handleForgotResetSubmit = async () => {
     setErrorMsg('');
     if (!newPassword || newPassword.length < 4) {
       setErrorMsg('Password must be at least 4 characters');
@@ -1638,7 +1635,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       return;
     }
 
-    const res = resetUserPassword(forgotIdentifier, newPassword);
+    const res = await resetUserPassword(forgotIdentifier, newPassword);
     if (!res.success) {
       setErrorMsg(res.error || 'Failed to reset password');
       return;
@@ -1877,7 +1874,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
   };
 
   // Sign Up Flow - Step 3: Complete Sign Up & Select Commodities
-  const handleSignupComplete = () => {
+  const handleSignupComplete = async () => {
     if (selectedCommodities.length === 0) {
       setErrorMsg('Please select at least one commodity category (e.g. Flowers, Vegetables, Grains)');
       return;
@@ -1885,7 +1882,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
     const cleanPhone = cleanIndianMobile(signupPhone);
 
-    const regResult = registerNewAccount({
+    const regResult = await registerNewAccount({
       role: 'merchant',
       fullName,
       phoneNumber: cleanPhone,
@@ -1966,25 +1963,6 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsLangModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-[#1a3a52] text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition cursor-pointer"
-        >
-          <Globe className="w-4 h-4 text-[#1a3a52]" />
-          <span className="font-black text-slate-800">{currentLangInfo.nativeName}</span>
-          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold border border-slate-200">
-            Language
-          </span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-        </button>
-
-        <LanguageSettingsModal
-          isOpen={isLangModalOpen}
-          onClose={() => setIsLangModalOpen(false)}
-          currentLanguage={language}
-          onSelectLanguage={(lang) => setLanguage(lang)}
-        />
       </header>
 
       {/* Main Container */}

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, signInAnonymously, onAuthStateChanged, ConfirmationResult } from 'firebase/auth';
 import {
   getFirestore,
   doc,
@@ -42,6 +42,50 @@ try {
 
 export const db = firestoreDb;
 export const auth = getAuth(app);
+
+let authInitPromise: Promise<any> | null = null;
+
+export async function ensureFirebaseAuth() {
+  if (auth.currentUser) return auth.currentUser;
+  if (authInitPromise) return authInitPromise;
+
+  authInitPromise = new Promise((resolve) => {
+    let resolved = false;
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(auth.currentUser);
+      }
+    }, 2500);
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (resolved) return;
+      unsubscribe();
+      if (user) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve(user);
+      } else {
+        try {
+          const userCred = await signInAnonymously(auth);
+          resolved = true;
+          clearTimeout(timer);
+          resolve(userCred.user);
+        } catch (err) {
+          console.warn('Firebase Auth auto-session initialization note:', err);
+          resolved = true;
+          clearTimeout(timer);
+          resolve(auth.currentUser);
+        }
+      }
+    });
+  });
+
+  return authInitPromise;
+}
+
+// Kickoff initialization on module load
+ensureFirebaseAuth();
 
 // Error Handling Function as required by skill
 export enum OperationType {

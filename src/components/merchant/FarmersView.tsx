@@ -433,34 +433,11 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
             type="button"
             id="tab-connected-farmers"
             onClick={() => setActiveTab('connected')}
-            className={`px-4 py-2 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-              activeTab === 'connected'
-                ? 'border-[#1a3a52] text-[#1a3a52] bg-[#eef3f7]/50 rounded-t-xl'
-                : 'border-transparent text-[#64748b] hover:text-[#1e293b]'
-            }`}
+            className="px-4 py-2 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer border-[#1a3a52] text-[#1a3a52] bg-[#eef3f7]/50 rounded-t-xl"
           >
             <Users className="w-4 h-4 text-[#1a3a52]" />
             <span>Connected Farmers ({filteredFarmers.length})</span>
           </button>
-
-          {incomingFarmerRequests.length > 0 && (
-            <button
-              type="button"
-              id="tab-incoming-requests"
-              onClick={() => setActiveTab('incoming')}
-              className={`px-4 py-2 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                activeTab === 'incoming'
-                  ? 'border-[#1a3a52] text-[#1a3a52] bg-[#eef3f7]/50 rounded-t-xl'
-                  : 'border-transparent text-[#64748b] hover:text-[#1e293b]'
-              }`}
-            >
-              <Clock className="w-4 h-4 text-amber-600" />
-              <span>Pending Approvals</span>
-              <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-mono font-bold animate-pulse">
-                {incomingFarmerRequests.length} new
-              </span>
-            </button>
-          )}
         </div>
 
         {/* Data Privacy & Isolation Assurance Banner */}
@@ -663,76 +640,7 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
         </div>
       )}
 
-      {activeTab === 'incoming' && (
-        <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-2xs space-y-4">
-          <div className="flex items-center justify-between border-b border-[#f1f5f9] pb-3">
-            <div>
-              <h3 className="font-bold text-sm sm:text-base text-[#1e293b] flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#1a3a52]" />
-                <span>Connected Farmers &amp; Pending Requests ({incomingFarmerRequests.length})</span>
-              </h3>
-              <p className="text-xs text-[#64748b]">
-                Farmers requesting to link their digital passbook with your shop. When accepted, only their specific parchi records and payments will be shared with them.
-              </p>
-            </div>
-          </div>
 
-          {incomingFarmerRequests.length === 0 ? (
-            <div className="p-8 text-center text-xs text-[#64748b] space-y-2">
-              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <p className="font-bold text-sm text-[#1e293b]">No Pending Incoming Requests</p>
-              <p className="max-w-md mx-auto">
-                When a farmer searches your shop and clicks &quot;Send Connection Request&quot;, their request will appear here for you to approve with one click.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {incomingFarmerRequests.map((req) => (
-                <div
-                  key={req.id}
-                  id={`incoming-req-${req.id}`}
-                  className="p-4 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] hover:border-[#1a3a52]/40 transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-[#1e293b]">{req.farmerName}</span>
-                      <span className="text-xs text-[#64748b]">📍 {req.farmerVillage}</span>
-                    </div>
-                    <span className="font-mono text-xs text-[#1a3a52] block font-semibold">
-                      Mobile: +91 {req.farmerPhone}
-                    </span>
-                    <span className="text-[10px] text-[#64748b] block">
-                      Requested on: {req.requestDate}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    <button
-                      type="button"
-                      id={`accept-request-${req.id}`}
-                      onClick={() => handleAcceptRequest(req.id, req.farmerName)}
-                      className="px-4 py-2 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition flex items-center gap-1.5 shadow-2xs"
-                    >
-                      <Check className="w-3.5 h-3.5 text-[#d4af37]" />
-                      <span>{language === 'te' ? 'అంగీకరించండి' : 'Accept Connection'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      id={`decline-request-${req.id}`}
-                      onClick={() => handleDeclineRequest(req.id)}
-                      className="px-3 py-2 rounded-xl bg-white border border-[#e2e8f0] text-[#64748b] text-xs font-semibold hover:bg-gray-100 transition"
-                    >
-                      Decline
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Add / Edit Farmer Modal */}
       {isAddModalOpen && (

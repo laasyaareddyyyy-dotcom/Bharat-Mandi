@@ -17,14 +17,11 @@ import {
   Sprout,
   Store,
   UserPlus,
-  Globe,
 } from 'lucide-react';
+import { MerchantTab } from '../../types';
+import { getTodayDateString, COMMODITY_CONFIGS } from '../../data/initialData';
 import { useMandi } from '../../context/MandiContext';
 import { useFirebase } from '../../context/FirebaseContext';
-import { MerchantTab, Language } from '../../types';
-import { getTodayDateString, COMMODITY_CONFIGS } from '../../data/initialData';
-import { LanguageSettingsModal } from '../common/LanguageSettingsModal';
-import { getLanguageInfo } from '../../data/indianLanguages';
 
 /* =========================================================================
    MOBILE DRAWER: UNIFIED NAVIGATION & EXECUTIVE NAVY REFACTOR
@@ -70,8 +67,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
     t,
   } = useMandi();
 
-  const [isLangModalOpen, setIsLangModalOpen] = useState(false);
-  const currentLangInfo = getLanguageInfo(language);
+
 
   const {
     user: firebaseUser,
@@ -364,7 +360,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
               >
                 <div className="flex items-center gap-2.5">
                   <LogOut className="w-4 h-4 text-red-600" />
-                  <span>{language === 'te' ? 'లాగ్ అవుట్ & ఖాతా మార్చండి' : language === 'hi' ? 'लॉग आउट करें / खाता बदलें' : 'Log Out & Switch User'}</span>
+                  <span>Log Out &amp; Switch User</span>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-red-400" />
               </button>
@@ -417,41 +413,6 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 )}
               </button>
             </div>
-          </div>
-
-          {/* Indian Language Settings Selector */}
-          <div>
-            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block mb-2 px-1">
-              {language === 'te' ? 'భాష అమరికలు' : language === 'hi' ? 'भाषा सेटिंग्स' : 'Language Settings'}
-            </span>
-            <button
-              type="button"
-              id="drawer-language-settings-btn"
-              onClick={() => setIsLangModalOpen(true)}
-              className="w-full py-2.5 px-3 bg-slate-50 hover:bg-slate-100 text-[#1a3a52] text-xs font-bold rounded-xl border border-slate-200 transition flex items-center justify-between cursor-pointer min-touch-target"
-            >
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-[#1a3a52]" />
-                <div className="text-left">
-                  <span className="font-bold text-[#1a3a52] block">
-                    {currentLangInfo.nativeName} ({currentLangInfo.englishName})
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-normal block">
-                    {currentLangInfo.region}
-                  </span>
-                </div>
-              </div>
-              <span className="text-[10px] bg-[#1a3a52] text-white font-bold px-2 py-1 rounded-md">
-                Change
-              </span>
-            </button>
-
-            <LanguageSettingsModal
-              isOpen={isLangModalOpen}
-              onClose={() => setIsLangModalOpen(false)}
-              currentLanguage={language}
-              onSelectLanguage={(lang) => setLanguage(lang)}
-            />
           </div>
         </div>
 

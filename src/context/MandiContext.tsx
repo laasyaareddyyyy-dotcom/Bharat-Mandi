@@ -30,6 +30,7 @@ import {
   SyncedFarmerStatementItem,
 } from '../types';
 import { translations } from '../translations';
+import { hashPassword, verifyPasswordHash } from '../utils/cryptoUtils';
 import {
   syncFarmerToCloud,
   deleteFarmerFromCloud,
@@ -49,6 +50,11 @@ import {
   fetchFromFirestore,
   fetchUserAccountByPhone,
   subscribeToFirestore,
+  deleteFarmerFromFirestore,
+  deleteLotFromFirestore,
+  deleteShipmentFromFirestore,
+  deletePaymentFromFirestore,
+  deleteSettlementFromFirestore,
 } from '../services/firestoreSync';
 import { createTicketInSupabase } from '../services/supabaseTickets';
 import { isSupabaseConfigured } from '../services/supabase';
@@ -128,8 +134,8 @@ interface MandiContextType {
   registeredAccounts: RegisteredAccount[];
   switchUserAccount: (phone: string) => void;
   verifyPasswordAndLogin: (identifier: string, passwordInput: string) => Promise<{ success: boolean; error?: string; account?: RegisteredAccount }>;
-  resetUserPassword: (identifier: string, newPasswordInput: string) => { success: boolean; error?: string };
-  registerNewAccount: (account: Omit<RegisteredAccount, 'id' | 'createdAt'>) => { success: boolean; error?: string };
+  resetUserPassword: (identifier: string, newPasswordInput: string) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
+  registerNewAccount: (account: Omit<RegisteredAccount, 'id' | 'createdAt'>) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
   checkUniqueness: (params: { shopName?: string; shopAddress?: string; phoneNumber?: string; excludePhone?: string }) => UniquenessCheckResult;
   logoutCurrentUser: () => void;
   deleteRegisteredAccount: (phone: string) => void;
@@ -449,14 +455,22 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsAutoSyncEnabledState(enabled);
   };
 
+  const [currentUserPhone, setCurrentUserPhone] = useState<string>(() => {
+    const saved = localStorage.getItem(GLOBAL_STORAGE_KEYS.ACTIVE_USER_PHONE);
+    return saved ? saved.replace(/\D/g, '').slice(-10) : '';
+  });
+
   const loadDataFromCloud = useCallback(async () => {
-    return await fetchUserCloudData();
-  }, []);
+    if (currentUserPhone && currentUserPhone.length === 10) {
+      return await fetchFromFirestore(currentUserPhone);
+    }
+    return await fetchFromFirestore();
+  }, [currentUserPhone]);
 
   const syncDataToCloud = useCallback(async (payload: any) => {
     setAutoSaveStatus('saving');
     try {
-      const res = await syncLocalToSupabase(payload);
+      const res = await syncToFirestore(payload, currentUserPhone);
       if (res.success) {
         setAutoSaveStatus('saved');
         setLastSyncedAt(new Date().toLocaleTimeString());
@@ -470,7 +484,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setAutoSaveStatus('error');
       return false;
     }
-  }, []);
+  }, [currentUserPhone]);
 
   const scheduleAutoSync = useCallback((payload: any) => {
     if (!isAutoSyncEnabled) return;
@@ -481,15 +495,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }, 1500);
   }, [isAutoSyncEnabled, syncDataToCloud]);
 
-  const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem(GLOBAL_STORAGE_KEYS.LANG) as Language | null;
-    return saved === 'hi' ? 'hi' : 'en';
-  });
-
-  const [currentUserPhone, setCurrentUserPhone] = useState<string>(() => {
-    const saved = localStorage.getItem(GLOBAL_STORAGE_KEYS.ACTIVE_USER_PHONE);
-    return saved ? saved.replace(/\D/g, '').slice(-10) : '';
-  });
+  const [language, setLanguageState] = useState<Language>('en');
 
   const [registeredAccounts, setRegisteredAccounts] = useState<RegisteredAccount[]>(() => {
     const saved = localStorage.getItem(GLOBAL_STORAGE_KEYS.ACCOUNTS);
@@ -1692,8 +1698,9 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       };
     }
 
-    if (foundAccount.password) {
-      if (foundAccount.password !== passwordInput) {
+    if (foundAccount.pinHash || foundAccount.password) {
+      const isMatch = await verifyPasswordHash(passwordInput, foundAccount.pinHash, foundAccount.password);
+      if (!isMatch) {
         return {
           success: false,
           error: 'Incorrect password. Please try again or click Forgot Password.',
@@ -1804,9 +1811,9 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   // Register a new account
-  const registerNewAccount = (
+  const registerNewAccount = async (
     accountData: Omit<RegisteredAccount, 'id' | 'createdAt'>
-  ): { success: boolean; error?: string } => {
+  ): Promise<{ success: boolean; error?: string }> => {
     const cleanPhone = accountData.phoneNumber.replace(/\D/g, '').slice(-10);
     
     // Validate Name: cannot contain numbers
@@ -1837,9 +1844,13 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     const assignedMerchantId = getOrCreateSequentialMerchantId(cleanPhone, registeredAccounts);
+    const hashedPassword = accountData.password ? await hashPassword(accountData.password) : (accountData.pinHash || '');
+
+    const { password: rawPassword, ...cleanAccountData } = accountData as any;
 
     const newAccount: RegisteredAccount = {
-      ...accountData,
+      ...cleanAccountData,
+      pinHash: hashedPassword,
       id: `USR-${Date.now()}-${cleanPhone.slice(-4)}`,
       merchantId: assignedMerchantId,
       phoneNumber: cleanPhone,
@@ -2136,6 +2147,15 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           }));
         setSettlements(deduplicateSettlements(cleanSettlements));
       }
+      if (Array.isArray(cloudData.stocks) && cloudData.stocks.length > 0) {
+        setStocks(deduplicateStocks(cloudData.stocks));
+      }
+      if (Array.isArray(cloudData.employees) && cloudData.employees.length > 0) {
+        setEmployees(deduplicateEmployees(cloudData.employees));
+      }
+      if (Array.isArray(cloudData.registeredAccounts) && cloudData.registeredAccounts.length > 0) {
+        setRegisteredAccounts((prev) => deduplicateRegisteredAccounts([...cloudData.registeredAccounts, ...prev]));
+      }
       if (Array.isArray(cloudData.helpTickets) && cloudData.helpTickets.length > 0) {
         const cleanTickets = cloudData.helpTickets
           .filter((t) => t && typeof t === 'object')
@@ -2167,6 +2187,9 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       shipments,
       payments,
       settlements,
+      stocks,
+      employees,
+      registeredAccounts,
       helpTickets,
     });
   }, [
@@ -2176,15 +2199,17 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     shipments,
     payments,
     settlements,
+    stocks,
+    employees,
+    registeredAccounts,
     helpTickets,
     isAutoSyncEnabled,
   ]);
 
-  const setLanguage = (lang: Language) => {
-    const selected: Language = lang === 'hi' ? 'hi' : 'en';
-    setLanguageState(selected);
+  const setLanguage = (_lang?: Language) => {
+    setLanguageState('en');
     try {
-      localStorage.setItem(GLOBAL_STORAGE_KEYS.LANG, selected);
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.LANG, 'en');
     } catch {
       // ignore
     }
@@ -2359,6 +2384,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (activeFarmerId === id) {
       setActiveFarmerId('');
     }
+    deleteFarmerFromFirestore(id, currentUserPhone).catch(() => {});
     deleteFarmerFromCloud(id).catch(() => {});
   };
 
@@ -2425,6 +2451,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (selectedParchiLot?.id === id) {
       setSelectedParchiLot(null);
     }
+    deleteLotFromFirestore(id, currentUserPhone).catch(() => {});
     deleteLotFromCloud(id).catch(() => {});
   };
 
@@ -2539,6 +2566,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (selectedParchiLot?.id === id || selectedParchiLot?.shipmentId === id) {
       setSelectedParchiLot(null);
     }
+    deleteShipmentFromFirestore(id, currentUserPhone).catch(() => {});
     deleteShipmentFromCloud(id).catch(() => {});
   };
 

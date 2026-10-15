@@ -22,9 +22,7 @@ import { useMandi } from '../../context/MandiContext';
 import { useFirebase } from '../../context/FirebaseContext';
 import { getTodayDateString, formatDisplayDate, COMMODITY_CONFIGS } from '../../data/initialData';
 import { sounds } from '../../utils/audio';
-import { Language, CommodityCategory } from '../../types';
-import { LanguageSettingsModal } from './LanguageSettingsModal';
-import { getLanguageInfo } from '../../data/indianLanguages';
+import { CommodityCategory } from '../../types';
 
 /* =========================================================================
    NAVBAR COMPONENT: AGRICULTURAL MARKETPLACE SETTLEMENT TRACKER HEADER
@@ -70,7 +68,6 @@ export const Navbar: React.FC = () => {
   } = useFirebase();
 
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
-  const [isLangModalOpen, setIsLangModalOpen] = useState(false);
   const [hasUnreadSupportUpdate, setHasUnreadSupportUpdate] = useState<boolean>(() => {
     return localStorage.getItem('bharatmandi_unread_ticket_update') === 'true';
   });
@@ -83,8 +80,6 @@ export const Navbar: React.FC = () => {
     window.addEventListener('ticket_update', handleUpdate);
     return () => window.removeEventListener('ticket_update', handleUpdate);
   }, []);
-
-  const currentLangInfo = getLanguageInfo(language);
 
   const scrollCommodityLeft = () => {
     sounds.playBidTick?.();
@@ -190,56 +185,8 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Side: Language Selector & Online Status */}
+          {/* Right Side: Online Status */}
           <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
-            {/* Language Selector */}
-            <div className="flex items-center bg-white/10 rounded-xl p-0.5 border border-white/20">
-              <button
-                type="button"
-                id="navbar-lang-en-btn"
-                onClick={() => {
-                  sounds.playBidTick?.();
-                  setLanguage('en');
-                }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer select-none ${
-                  language === 'en'
-                    ? 'bg-white text-[#1a3a52] shadow-2xs font-semibold'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
-                title="Switch to English"
-              >
-                English
-              </button>
-              <button
-                type="button"
-                id="navbar-lang-hi-btn"
-                onClick={() => {
-                  sounds.playBidTick?.();
-                  setLanguage('hi');
-                }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer select-none ${
-                  language === 'hi'
-                    ? 'bg-white text-[#1a3a52] shadow-2xs font-semibold'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
-                title="हिंदी में बदलें"
-              >
-                हिंदी
-              </button>
-              <button
-                type="button"
-                id="navbar-language-settings-btn"
-                onClick={() => {
-                  sounds.playBidTick?.();
-                  setIsLangModalOpen(true);
-                }}
-                className="p-1 text-white/70 hover:text-white transition cursor-pointer"
-                title="Language Settings"
-              >
-                <Globe className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
             {/* Online Status Indicator */}
             <button
               type="button"
@@ -270,13 +217,6 @@ export const Navbar: React.FC = () => {
             </button>
           </div>
         </div>
-
-        <LanguageSettingsModal
-          isOpen={isLangModalOpen}
-          onClose={() => setIsLangModalOpen(false)}
-          currentLanguage={language}
-          onSelectLanguage={(lang) => setLanguage(lang)}
-        />
       </div>
 
       {/* 2. OPERATIONAL TOOLBAR SECTION: Commodity Switcher, Global Search, Session Date, Online Status, Menu (Sticky at Top) */}
@@ -472,5 +412,5 @@ export const Navbar: React.FC = () => {
       </div>
     </div>
   </header>
-);
+  );
 };

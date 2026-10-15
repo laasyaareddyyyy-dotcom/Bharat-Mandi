@@ -4,9 +4,10 @@ import {
   setDoc,
   getDoc,
   getDocs,
+  deleteDoc,
   onSnapshot,
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { db, auth, handleFirestoreError, OperationType, ensureFirebaseAuth } from './firebase';
 import {
   MerchantProfile,
   Farmer,
@@ -22,18 +23,18 @@ import {
   ConnectionRequest,
 } from '../types';
 
-export function getMerchantDocId(phone?: string): string {
+export function getMerchantDocId(phone?: string): string | null {
   try {
     const target =
       phone ||
-      localStorage.getItem('bharatmandi_active_phone_v1') ||
-      localStorage.getItem('phoolmitra_current_user_phone');
+      localStorage.getItem('phoolmitra_current_user_phone') ||
+      localStorage.getItem('bharatmandi_active_phone_v1');
     if (target) {
       const clean = target.replace(/\D/g, '').slice(-10);
       if (clean && clean.length === 10) return `merchant-${clean}`;
     }
   } catch {}
-  return 'merchant-main';
+  return null;
 }
 
 /**
@@ -81,23 +82,28 @@ export async function syncToFirestore(
   },
   overridePhone?: string
 ): Promise<{ success: boolean; error?: string }> {
+  await ensureFirebaseAuth();
   const merchantId = getMerchantDocId(overridePhone);
+  if (!merchantId) {
+    console.warn('[Firestore Sync] Skipping syncToFirestore: no active merchant phone.');
+    return { success: false, error: 'No user phone specified' };
+  }
   const cleanPhone = (overridePhone || merchantId.replace('merchant-', '')).replace(/\D/g, '').slice(-10);
 
   try {
     // 1. Merchant Profile & Document Root
-    if (data.profile) {
-      const merchantRef = doc(db, 'merchants', merchantId);
-      await setDoc(
-        merchantRef,
-        cleanUndefinedValues({
-          ...data.profile,
-          userPhone: cleanPhone,
-          updatedAt: new Date().toISOString(),
-        }),
-        { merge: true }
-      );
-    }
+    const currentUid = auth.currentUser?.uid;
+    const merchantRef = doc(db, 'merchants', merchantId);
+    await setDoc(
+      merchantRef,
+      cleanUndefinedValues({
+        ...(data.profile || {}),
+        userPhone: cleanPhone,
+        ...(currentUid ? { ownerUid: currentUid } : {}),
+        updatedAt: new Date().toISOString(),
+      }),
+      { merge: true }
+    );
 
     // 2. Farmers
     if (Array.isArray(data.farmers)) {
@@ -169,7 +175,15 @@ export async function syncToFirestore(
         const phoneKey = account.phoneNumber.replace(/\D/g, '').slice(-10);
         if (phoneKey) {
           const accRef = doc(db, 'registeredAccounts', phoneKey);
-          await setDoc(accRef, cleanUndefinedValues(account), { merge: true });
+          const { password, ...securePayload } = account as any;
+          await setDoc(
+            accRef,
+            cleanUndefinedValues({
+              ...securePayload,
+              ...(currentUid ? { ownerUid: currentUid } : {}),
+            }),
+            { merge: true }
+          );
         }
       }
     }
@@ -197,62 +211,78 @@ export async function fetchFromFirestore(targetPhone?: string): Promise<{
   registeredAccounts: RegisteredAccount[];
   helpTickets: HelpTicket[];
 } | null> {
+  await ensureFirebaseAuth();
   const merchantId = getMerchantDocId(targetPhone);
-  const cleanPhone = (targetPhone || merchantId.replace('merchant-', '')).replace(/\D/g, '').slice(-10);
+  if (!merchantId) {
+    console.warn('[Firestore Sync] Skipping fetchFromFirestore: no active merchant phone.');
+    return null;
+  }
+  const cleanPhone = merchantId.replace('merchant-', '');
 
   try {
-    const merchantDocRef = doc(db, 'merchants', merchantId);
-    const merchantSnap = await getDoc(merchantDocRef);
+    let profile: MerchantProfile | undefined;
+    try {
+      const merchantDocRef = doc(db, 'merchants', merchantId);
+      const merchantSnap = await getDoc(merchantDocRef);
+      if (merchantSnap.exists()) {
+        profile = merchantSnap.data() as MerchantProfile;
+      }
+    } catch (e) {
+      console.warn(`Error getting merchant profile for ${merchantId}:`, e);
+    }
+
+    let userAccount: RegisteredAccount | null = null;
+    try {
+      if (cleanPhone && cleanPhone.length === 10) {
+        const accSnap = await getDoc(doc(db, 'registeredAccounts', cleanPhone));
+        if (accSnap.exists()) {
+          userAccount = accSnap.data() as RegisteredAccount;
+        }
+      }
+    } catch (e) {
+      console.warn(`Error getting registered account for ${cleanPhone}:`, e);
+    }
+
+    const safeFetchSubDocs = async (pathSegment: string) => {
+      try {
+        const snap = await getDocs(collection(db, 'merchants', merchantId, pathSegment));
+        return snap.docs.map((d) => d.data());
+      } catch (err: any) {
+        console.warn(`Firestore read warning for merchants/${merchantId}/${pathSegment}:`, err);
+        return [];
+      }
+    };
 
     const [
-      farmersSnap,
-      lotsSnap,
-      shipmentsSnap,
-      paymentsSnap,
-      settlementsSnap,
-      stocksSnap,
-      employeesSnap,
-      accountsSnap,
+      farmersRes,
+      lotsRes,
+      shipmentsRes,
+      paymentsRes,
+      settlementsRes,
+      stocksRes,
+      employeesRes,
     ] = await Promise.all([
-      getDocs(collection(db, 'merchants', merchantId, 'farmers')),
-      getDocs(collection(db, 'merchants', merchantId, 'lots')),
-      getDocs(collection(db, 'merchants', merchantId, 'shipments')),
-      getDocs(collection(db, 'merchants', merchantId, 'payments')),
-      getDocs(collection(db, 'merchants', merchantId, 'settlements')),
-      getDocs(collection(db, 'merchants', merchantId, 'stocks')),
-      getDocs(collection(db, 'merchants', merchantId, 'employees')),
-      getDocs(collection(db, 'registeredAccounts')),
+      safeFetchSubDocs('farmers'),
+      safeFetchSubDocs('lots'),
+      safeFetchSubDocs('shipments'),
+      safeFetchSubDocs('payments'),
+      safeFetchSubDocs('settlements'),
+      safeFetchSubDocs('stocks'),
+      safeFetchSubDocs('employees'),
     ]);
-
-    const profile: MerchantProfile | undefined = merchantSnap.exists()
-      ? (merchantSnap.data() as MerchantProfile)
-      : undefined;
-
-    const farmers: Farmer[] = farmersSnap.docs.map((d) => d.data() as Farmer);
-    const lots: SaleLot[] = lotsSnap.docs.map((d) => d.data() as SaleLot);
-    const shipments: Shipment[] = shipmentsSnap.docs.map((d) => d.data() as Shipment);
-    const payments: PaymentRecord[] = paymentsSnap.docs.map((d) => d.data() as PaymentRecord);
-    const settlements: FifteenDaySettlement[] = settlementsSnap.docs.map(
-      (d) => d.data() as FifteenDaySettlement
-    );
-    const stocks: StockItem[] = stocksSnap.docs.map((d) => d.data() as StockItem);
-    const employees: EmployeeRecord[] = employeesSnap.docs.map((d) => d.data() as EmployeeRecord);
-    const registeredAccounts: RegisteredAccount[] = accountsSnap.docs.map(
-      (d) => d.data() as RegisteredAccount
-    );
 
     return {
       profile,
-      farmers,
-      lots,
-      shipments,
-      payments,
-      settlements,
-      stocks,
-      employees,
+      farmers: (farmersRes || []) as Farmer[],
+      lots: (lotsRes || []) as SaleLot[],
+      shipments: (shipmentsRes || []) as Shipment[],
+      payments: (paymentsRes || []) as PaymentRecord[],
+      settlements: (settlementsRes || []) as FifteenDaySettlement[],
+      stocks: (stocksRes || []) as StockItem[],
+      employees: (employeesRes || []) as EmployeeRecord[],
       parchiAuditLogs: [],
       helpTickets: [],
-      registeredAccounts,
+      registeredAccounts: userAccount ? [userAccount] : [],
     };
   } catch (err: any) {
     handleFirestoreError(err, OperationType.GET, `merchants/${merchantId}`);
@@ -296,6 +326,7 @@ export function subscribeToFirestore(
   }) => void
 ) {
   const merchantId = getMerchantDocId(targetPhone);
+  if (!merchantId) return () => {};
 
   const unsubMerchant = onSnapshot(
     doc(db, 'merchants', merchantId),
@@ -343,5 +374,69 @@ export function subscribeToFirestore(
     unsubLots();
     unsubShipments();
   };
+}
+
+export async function deleteFarmerFromFirestore(farmerId: string, phone?: string): Promise<boolean> {
+  const merchantId = getMerchantDocId(phone);
+  if (!merchantId) return false;
+  try {
+    const farmerRef = doc(db, 'merchants', merchantId, 'farmers', String(farmerId));
+    await deleteDoc(farmerRef);
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `merchants/${merchantId}/farmers/${farmerId}`);
+    return false;
+  }
+}
+
+export async function deleteLotFromFirestore(lotId: string, phone?: string): Promise<boolean> {
+  const merchantId = getMerchantDocId(phone);
+  if (!merchantId) return false;
+  try {
+    const lotRef = doc(db, 'merchants', merchantId, 'lots', String(lotId));
+    await deleteDoc(lotRef);
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `merchants/${merchantId}/lots/${lotId}`);
+    return false;
+  }
+}
+
+export async function deleteShipmentFromFirestore(shipmentId: string, phone?: string): Promise<boolean> {
+  const merchantId = getMerchantDocId(phone);
+  if (!merchantId) return false;
+  try {
+    const shipmentRef = doc(db, 'merchants', merchantId, 'shipments', String(shipmentId));
+    await deleteDoc(shipmentRef);
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `merchants/${merchantId}/shipments/${shipmentId}`);
+    return false;
+  }
+}
+
+export async function deletePaymentFromFirestore(paymentId: string, phone?: string): Promise<boolean> {
+  const merchantId = getMerchantDocId(phone);
+  if (!merchantId) return false;
+  try {
+    const paymentRef = doc(db, 'merchants', merchantId, 'payments', String(paymentId));
+    await deleteDoc(paymentRef);
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `merchants/${merchantId}/payments/${paymentId}`);
+    return false;
+  }
+}
+
+export async function deleteSettlementFromFirestore(settlementId: string, phone?: string): Promise<boolean> {
+  const merchantId = getMerchantDocId(phone);
+  try {
+    const settlementRef = doc(db, 'merchants', merchantId, 'settlements', String(settlementId));
+    await deleteDoc(settlementRef);
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `merchants/${merchantId}/settlements/${settlementId}`);
+    return false;
+  }
 }
 
