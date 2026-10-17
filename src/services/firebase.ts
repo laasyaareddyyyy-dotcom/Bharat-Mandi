@@ -50,31 +50,18 @@ export async function ensureFirebaseAuth() {
   if (authInitPromise) return authInitPromise;
 
   authInitPromise = new Promise((resolve) => {
-    let resolved = false;
-    const timer = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        resolve(auth.currentUser);
-      }
-    }, 2500);
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (resolved) return;
-      unsubscribe();
       if (user) {
-        resolved = true;
-        clearTimeout(timer);
+        unsubscribe();
         resolve(user);
       } else {
         try {
           const userCred = await signInAnonymously(auth);
-          resolved = true;
-          clearTimeout(timer);
+          unsubscribe();
           resolve(userCred.user);
         } catch (err) {
           console.warn('Firebase Auth auto-session initialization note:', err);
-          resolved = true;
-          clearTimeout(timer);
+          unsubscribe();
           resolve(auth.currentUser);
         }
       }

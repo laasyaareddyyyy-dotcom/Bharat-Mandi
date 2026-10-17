@@ -490,7 +490,7 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch">
               {filteredFarmers.map((farmer) => {
                 const stats = getFarmerStats(farmer.id);
 
@@ -498,13 +498,13 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
                   <div
                     key={farmer.id}
                     id={`farmer-card-${farmer.id}`}
-                    className="bg-white rounded-2xl p-4 sm:p-5 border border-[#e2e8f0] shadow-2xs hover:shadow-xs transition space-y-3.5 flex flex-col justify-between"
+                    className="bg-white rounded-2xl p-4 sm:p-5 border border-[#e2e8f0] shadow-2xs hover:shadow-xs transition space-y-3.5 flex flex-col justify-between w-full h-full min-w-0"
                   >
                     {/* Farmer Info */}
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#1a3a52] bg-[#f8fafc] shrink-0 shadow-2xs">
+                    <div className="space-y-3 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 min-w-0">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-[#1a3a52] bg-[#f8fafc] shrink-0 shadow-2xs">
                             {farmer.photoUrl ? (
                               <img
                                 src={farmer.photoUrl}
@@ -519,41 +519,41 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
                             )}
                           </div>
 
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <h4 className="font-bold text-sm sm:text-base text-[#1e293b]">
+                              <h4 className="font-bold text-sm sm:text-base text-[#1e293b] truncate max-w-[180px] sm:max-w-none">
                                 {farmer.name}
                               </h4>
-                              <span className="font-mono text-[10px] bg-[#f8fafc] text-[#64748b] px-1.5 py-0.5 rounded border border-[#e2e8f0]">
+                              <span className="font-mono text-[10px] bg-[#f8fafc] text-[#64748b] px-1.5 py-0.5 rounded border border-[#e2e8f0] shrink-0">
                                 {farmer.id}
                               </span>
                             </div>
-                            <p className="text-xs text-[#64748b] flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-3 h-3 text-[#1a3a52]" />
-                              <span>{farmer.village}</span>
+                            <p className="text-xs text-[#64748b] flex items-center gap-1 mt-0.5 truncate">
+                              <MapPin className="w-3 h-3 text-[#1a3a52] shrink-0" />
+                              <span className="truncate">{farmer.village}</span>
                             </p>
-                            <div className="flex items-center gap-1.5 text-xs text-[#1e293b] font-mono mt-1">
-                              <Phone className="w-3 h-3 text-[#64748b]" />
+                            <div className="flex items-center gap-1.5 text-xs text-[#1e293b] font-mono mt-0.5">
+                              <Phone className="w-3 h-3 text-[#64748b] shrink-0" />
                               <span>+91 {farmer.phone}</span>
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0 self-start">
                           <button
                             id={`edit-farmer-btn-${farmer.id}`}
                             onClick={() => openEditModal(farmer)}
-                            className="px-2.5 py-1 rounded-lg bg-[#f1f5f9] hover:bg-slate-200 text-[#1a3a52] text-[11px] font-bold transition cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-[#f1f5f9] hover:bg-slate-200 text-[#1a3a52] text-[11px] font-bold transition cursor-pointer shrink-0 whitespace-nowrap"
                           >
                             {t('editFarmer')}
                           </button>
                           <button
                             id={`delete-farmer-card-btn-${farmer.id}`}
                             onClick={() => handleDeleteFarmerClick(farmer)}
-                            className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                            className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
                             title="Delete this farmer record"
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                            <Trash2 className="w-3.5 h-3.5 text-red-600 shrink-0" />
                             <span>Delete</span>
                           </button>
                         </div>

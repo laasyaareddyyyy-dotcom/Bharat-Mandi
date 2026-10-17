@@ -224,11 +224,11 @@ export const SupportView: React.FC = () => {
 
       {/* Farmer Management Modal */}
       {farmersModalTab && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
-          <div className="bg-[#f8fafc] w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl p-4 sm:p-6 relative border border-slate-200">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 sticky top-0 bg-[#f8fafc] z-10">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in overflow-hidden">
+          <div className="bg-[#f8fafc] w-full max-w-5xl lg:max-w-6xl max-h-[92vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 bg-white shrink-0 shadow-2xs z-10">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900">
                   Connected Farmers Directory
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -246,11 +246,13 @@ export const SupportView: React.FC = () => {
               </button>
             </div>
 
-            <FarmersView
-              initialTab={farmersModalTab}
-              isModal={true}
-              onClose={() => setFarmersModalTab(null)}
-            />
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 min-h-0">
+              <FarmersView
+                initialTab={farmersModalTab}
+                isModal={true}
+                onClose={() => setFarmersModalTab(null)}
+              />
+            </div>
           </div>
         </div>
       )}

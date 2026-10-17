@@ -1648,6 +1648,7 @@ export const NewSaleView: React.FC = () => {
           }
         />
       )}
+
     </div>
   );
 };

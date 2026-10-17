@@ -328,51 +328,58 @@ export function subscribeToFirestore(
   const merchantId = getMerchantDocId(targetPhone);
   if (!merchantId) return () => {};
 
-  const unsubMerchant = onSnapshot(
-    doc(db, 'merchants', merchantId),
-    (snap) => {
-      if (snap.exists() && !snap.metadata.hasPendingWrites) {
-        onUpdate({ profile: snap.data() as MerchantProfile });
-      }
-    },
-    (err) => handleFirestoreError(err, OperationType.GET, `merchants/${merchantId}`)
-  );
+  let unsubs: (() => void)[] = [];
+  let cancelled = false;
 
-  const unsubFarmers = onSnapshot(
-    collection(db, 'merchants', merchantId, 'farmers'),
-    (snap) => {
-      if (snap.metadata.hasPendingWrites) return;
-      const farmers = snap.docs.map((d) => d.data() as Farmer);
-      onUpdate({ farmers });
-    },
-    (err) => handleFirestoreError(err, OperationType.GET, `merchants/${merchantId}/farmers`)
-  );
+  ensureFirebaseAuth().then(() => {
+    if (cancelled) return;
 
-  const unsubLots = onSnapshot(
-    collection(db, 'merchants', merchantId, 'lots'),
-    (snap) => {
-      if (snap.metadata.hasPendingWrites) return;
-      const lots = snap.docs.map((d) => d.data() as SaleLot);
-      onUpdate({ lots });
-    },
-    (err) => handleFirestoreError(err, OperationType.GET, `merchants/${merchantId}/lots`)
-  );
+    const unsubMerchant = onSnapshot(
+      doc(db, 'merchants', merchantId),
+      (snap) => {
+        if (snap.exists() && !snap.metadata.hasPendingWrites) {
+          onUpdate({ profile: snap.data() as MerchantProfile });
+        }
+      },
+      (err) => handleFirestoreError(err, OperationType.GET, `merchants/${merchantId}`)
+    );
 
-  const unsubShipments = onSnapshot(
-    collection(db, 'merchants', merchantId, 'shipments'),
-    (snap) => {
-      if (snap.metadata.hasPendingWrites) return;
-      const shipments = snap.docs.map((d) => d.data() as Shipment);
-      onUpdate({ shipments });
-    },
-    (err) => handleFirestoreError(err, OperationType.GET, `merchants/${merchantId}/shipments`)
-  );
+    const unsubFarmers = onSnapshot(
+      collection(db, 'merchants', merchantId, 'farmers'),
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
+        const farmers = snap.docs.map((d) => d.data() as Farmer);
+        onUpdate({ farmers });
+      },
+      (err) => handleFirestoreError(err, OperationType.GET, `merchants/${merchantId}/farmers`)
+    );
+
+    const unsubLots = onSnapshot(
+      collection(db, 'merchants', merchantId, 'lots'),
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
+        const lots = snap.docs.map((d) => d.data() as SaleLot);
+        onUpdate({ lots });
+      },
+      (err) => handleFirestoreError(err, OperationType.GET, `merchants/${merchantId}/lots`)
+    );
+
+    const unsubShipments = onSnapshot(
+      collection(db, 'merchants', merchantId, 'shipments'),
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
+        const shipments = snap.docs.map((d) => d.data() as Shipment);
+        onUpdate({ shipments });
+      },
+      (err) => handleFirestoreError(err, OperationType.GET, `merchants/${merchantId}/shipments`)
+    );
+
+    unsubs = [unsubMerchant, unsubFarmers, unsubLots, unsubShipments];
+  });
 
   return () => {
-    unsubMerchant();
-    unsubFarmers();
-    unsubLots();
-    unsubShipments();
+    cancelled = true;
+    unsubs.forEach((unsub) => unsub());
   };
 }
 

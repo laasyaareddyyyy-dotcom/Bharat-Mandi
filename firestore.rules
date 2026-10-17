@@ -6,13 +6,13 @@ service cloud.firestore {
       return id != null && id is string && id.size() > 0 && id.size() <= 128;
     }
 
-    // Default deny all unhandled operations
+    // Default deny unhandled documents
     match /{document=**} {
       allow read, write: if false;
     }
 
     // Connection health check
-    match /test/connection {
+    match /test/{document=**} {
       allow read, write: if true;
     }
 
@@ -20,21 +20,16 @@ service cloud.firestore {
     match /registeredAccounts {
       allow read, write: if true;
     }
-    match /registeredAccounts/{accountId} {
-      allow read, write: if isValidId(accountId);
-      allow delete: if false;
+    match /registeredAccounts/{document=**} {
+      allow read, write: if true;
     }
 
-    // Merchant documents and nested subcollections
+    // Merchant documents and all nested subcollections
     match /merchants {
       allow read, write: if true;
     }
-    match /merchants/{merchantId} {
-      allow read, write: if isValidId(merchantId);
-
-      match /{document=**} {
-        allow read, write: if isValidId(merchantId);
-      }
+    match /merchants/{document=**} {
+      allow read, write: if true;
     }
   }
 }

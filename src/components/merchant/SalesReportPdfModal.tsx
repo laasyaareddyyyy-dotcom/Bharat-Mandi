@@ -53,6 +53,7 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
     currentUserPhone,
     lots,
     shipments,
+    farmers,
     userCommodities,
     activeCommodityFilter,
     t,
@@ -66,7 +67,13 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
 
   const [startDate, setStartDate] = useState<string>(initialStartDate || fifteenDaysAgoStr);
   const [endDate, setEndDate] = useState<string>(initialEndDate || todayStr);
+  const [selectedFarmerId, setSelectedFarmerId] = useState<string>('all');
   const [selectedCommodity, setSelectedCommodity] = useState<CommodityCategory | 'all'>('all');
+
+  const selectedFarmer = useMemo(() => {
+    if (selectedFarmerId === 'all') return null;
+    return farmers.find((f) => f.id === selectedFarmerId) || null;
+  }, [farmers, selectedFarmerId]);
 
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [statusMsg, setStatusMsg] = useState<string>('');
@@ -113,6 +120,32 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
     setEndDate(todayStr);
   };
 
+  // Helper dates for preset dynamic active state checking
+  const last7DaysStart = getPastDateString(6);
+  const last15DaysStart = getPastDateString(14);
+  const last30DaysStart = getPastDateString(29);
+  const currentMonthStart = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  }, []);
+
+  const activePreset = useMemo(() => {
+    if (endDate === todayStr) {
+      if (startDate === last7DaysStart) return '7';
+      if (startDate === last15DaysStart) return '15';
+      if (startDate === last30DaysStart) return '30';
+      if (startDate === currentMonthStart) return 'month';
+    }
+    return 'custom';
+  }, [startDate, endDate, todayStr, last7DaysStart, last15DaysStart, last30DaysStart, currentMonthStart]);
+
+  const getPresetBtnClass = (presetKey: '7' | '15' | '30' | 'month') => {
+    const isActive = activePreset === presetKey;
+    return isActive
+      ? 'px-2.5 py-1 text-xs font-bold rounded-lg bg-[#1a3a52] text-white border border-[#1a3a52] transition cursor-pointer shadow-2xs'
+      : 'px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-slate-200 hover:border-[#1a3a52] hover:bg-slate-50 text-slate-700 transition cursor-pointer shadow-2xs';
+  };
+
   // Generate continuous list of dates from startDate to endDate
   const dateList = useMemo(() => {
     const list: string[] = [];
@@ -144,9 +177,15 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
   const dailySalesData = useMemo(() => {
     return dateList.map((dStr, index) => {
       // Find lots for this date
-      const dateLots = lots.filter((l) => l.date === dStr);
+      let dateLots = lots.filter((l) => l.date === dStr);
       // Find shipments for this date
-      const dateShipments = shipments.filter((s) => s.date === dStr);
+      let dateShipments = shipments.filter((s) => s.date === dStr);
+
+      // Filter by selected farmer if specified
+      if (selectedFarmerId !== 'all') {
+        dateLots = dateLots.filter((l) => l.farmerId === selectedFarmerId);
+        dateShipments = dateShipments.filter((s) => s.farmerId === selectedFarmerId);
+      }
 
       // Filter by selected commodity if specified
       let filteredLots = dateLots;
@@ -180,7 +219,7 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
         shipmentCount: filteredShipments.length,
       };
     });
-  }, [dateList, lots, shipments, selectedCommodity]);
+  }, [dateList, lots, shipments, selectedFarmerId, selectedCommodity]);
 
   // Total sales across the date range
   const grandTotalSales = useMemo(() => {
@@ -332,35 +371,35 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
             <button
               type="button"
               onClick={() => applyPreset(7)}
-              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-slate-200 hover:border-[#1a3a52] text-slate-700 transition cursor-pointer shadow-2xs"
+              className={getPresetBtnClass('7')}
             >
               Last 7 Days
             </button>
             <button
               type="button"
               onClick={() => applyPreset(15)}
-              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-[#1a3a52] text-white border border-[#1a3a52] transition cursor-pointer shadow-2xs"
+              className={getPresetBtnClass('15')}
             >
               Last 15 Days
             </button>
             <button
               type="button"
               onClick={() => applyPreset(30)}
-              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-slate-200 hover:border-[#1a3a52] text-slate-700 transition cursor-pointer shadow-2xs"
+              className={getPresetBtnClass('30')}
             >
               Last 30 Days
             </button>
             <button
               type="button"
               onClick={applyThisMonthPreset}
-              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-slate-200 hover:border-[#1a3a52] text-slate-700 transition cursor-pointer shadow-2xs"
+              className={getPresetBtnClass('month')}
             >
               This Month
             </button>
           </div>
 
-          {/* Custom Date Pickers & Commodity Selector */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Custom Date Pickers, Farmer Selector & Commodity Selector */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <label htmlFor="sales-report-start-date" className="block text-[11px] font-black uppercase tracking-wider text-[#1a3a52] mb-1">
                 Start Date *
@@ -385,6 +424,25 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-[#1a3a52] font-semibold text-xs text-slate-800 outline-none bg-white"
               />
+            </div>
+
+            <div>
+              <label htmlFor="sales-report-farmer" className="block text-[11px] font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                Farmer Filter
+              </label>
+              <select
+                id="sales-report-farmer"
+                value={selectedFarmerId}
+                onChange={(e) => setSelectedFarmerId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-[#1a3a52] font-semibold text-xs text-slate-800 outline-none bg-white font-bold"
+              >
+                <option value="all">All Farmers</option>
+                {farmers.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} {f.village ? `(${f.village})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -456,14 +514,23 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
                 </p>
               </div>
 
-              {/* REPORT SUMMARY BOX (3 COLUMNS) */}
-              <div className="bg-[#f8fafc] rounded-2xl border border-slate-200/80 p-4 sm:p-5 grid grid-cols-3 gap-4 text-left">
+              {/* REPORT SUMMARY BOX (4 COLUMNS) */}
+              <div className="bg-[#f8fafc] rounded-2xl border border-slate-200/80 p-4 sm:p-5 grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
                 <div className="space-y-0.5">
                   <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
                     REPORT
                   </span>
-                  <span className="text-sm font-black text-[#1e293b] block mt-1">
+                  <span className="text-xs sm:text-sm font-black text-[#1e293b] block mt-1">
                     Daily Sales Report
+                  </span>
+                </div>
+
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    FARMER FILTER
+                  </span>
+                  <span className="text-xs sm:text-sm font-black text-[#1e293b] block mt-1 truncate">
+                    {selectedFarmer ? `${selectedFarmer.name} ${selectedFarmer.village ? `(${selectedFarmer.village})` : ''}` : 'All Farmers'}
                   </span>
                 </div>
 
@@ -471,7 +538,7 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
                   <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
                     DATE RANGE
                   </span>
-                  <span className="text-sm font-black text-[#1e293b] block mt-1">
+                  <span className="text-xs sm:text-sm font-black text-[#1e293b] block mt-1">
                     {formatDateSlash(startDate)} – {formatDateSlash(endDate)}
                   </span>
                 </div>
@@ -480,8 +547,8 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
                   <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
                     TOTAL DAYS
                   </span>
-                  <span className="text-sm font-black text-[#1e293b] block mt-1">
-                    {totalDaysCount}
+                  <span className="text-xs sm:text-sm font-black text-[#1e293b] block mt-1">
+                    {totalDaysCount} Days
                   </span>
                 </div>
               </div>
@@ -517,7 +584,7 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
                     TOTAL SALES AMOUNT
                   </span>
                   <span className="text-xs text-emerald-100/90 font-medium mt-0.5 block">
-                    Total sale for {formatDateSlash(startDate)} to {formatDateSlash(endDate)}
+                    Total sale for {formatDateSlash(startDate)} to {formatDateSlash(endDate)}{selectedFarmer ? ` (${selectedFarmer.name})` : ''}
                   </span>
                 </div>
                 <div className="text-right">
@@ -551,7 +618,7 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
         {/* BOTTOM ACTION BUTTONS BAR */}
         <div className="bg-white border-t border-slate-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-slate-500 font-medium">
-            Showing <strong className="text-slate-800">{totalDaysCount} days</strong> ({formatDateSlash(startDate)} to {formatDateSlash(endDate)}) • Total: <strong className="text-emerald-700 font-bold">₹{grandTotalSales.toLocaleString('en-IN')}</strong>
+            Showing <strong className="text-slate-800">{totalDaysCount} days</strong> ({formatDateSlash(startDate)} to {formatDateSlash(endDate)}){selectedFarmer ? ` • Farmer: ${selectedFarmer.name}` : ''} • Total: <strong className="text-emerald-700 font-bold">₹{grandTotalSales.toLocaleString('en-IN')}</strong>
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
