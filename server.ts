@@ -7,6 +7,18 @@ const app = express();
 const PORT = 3000;
 
 // Body parsing middleware
+import {
+  handleCheckUser,
+  handleSendOtp,
+  handleVerifyOtp,
+  handleRegisterPassword,
+  handleResetPassword,
+  handleLogin,
+  handleLogout,
+  handleMe,
+  verifyAndAuthenticateToken,
+} from './src/server/authHandler';
+
 app.use(express.json());
 
 // API Health Check
@@ -14,8 +26,64 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// AI Voice Parsing Endpoint
-app.post('/api/ai/parse-voice', async (req, res) => {
+// Authentication Endpoints (Server-side 2Factor.in OTP & Password Security)
+app.post('/api/auth/check-user', async (req, res) => {
+  const result = await handleCheckUser(req.body);
+  res.json(result);
+});
+
+app.post('/api/auth/send-otp', async (req, res) => {
+  const result = await handleSendOtp(req.body);
+  res.json(result);
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+  const result = await handleVerifyOtp(req.body);
+  res.json(result);
+});
+
+app.post('/api/auth/register-password', async (req, res) => {
+  const result = await handleRegisterPassword(req.body);
+  res.json(result);
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const result = await handleResetPassword(req.body);
+  res.json(result);
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const result = await handleLogin(req.body);
+  res.json(result);
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  const result = await handleLogout(req);
+  res.json(result);
+});
+
+app.get('/api/auth/me', async (req, res) => {
+  const result = await handleMe(req);
+  if (!result.success) {
+    return res.status(401).json(result);
+  }
+  res.json(result);
+});
+
+// Session Authentication Middleware for Protected API Endpoints
+const requireSession = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers.authorization || req.headers['x-auth-token'] || '';
+  const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : '';
+  const authRes = await verifyAndAuthenticateToken(token);
+  if (!authRes.valid) {
+    return res.status(401).json({ success: false, error: authRes.error || 'Unauthorized session token. Please log in.' });
+  }
+  (req as any).user = authRes.user;
+  next();
+};
+
+// AI Voice Parsing Endpoint (Session Protected)
+app.post('/api/ai/parse-voice', requireSession, async (req, res) => {
   try {
     const { mode = 'farmer', transcript = '' } = req.body || {};
     const apiKey = process.env.GEMINI_API_KEY || '';
@@ -111,8 +179,8 @@ app.post('/api/ai/parse-voice', async (req, res) => {
   }
 });
 
-// AI Scribble / Handwriting Recognition Endpoint
-app.post('/api/ai/parse-scribble', async (req, res) => {
+// AI Scribble / Handwriting Recognition Endpoint (Session Protected)
+app.post('/api/ai/parse-scribble', requireSession, async (req, res) => {
   try {
     const { image = '', mode = 'variety', zones = [], textHint = '' } = req.body || {};
     const apiKey = process.env.GEMINI_API_KEY || '';

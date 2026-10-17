@@ -3,6 +3,14 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import fs from 'fs';
 import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
+import {
+  handleCheckUser,
+  handleSendOtp,
+  handleVerifyOtp,
+  handleRegisterPassword,
+  handleResetPassword,
+  handleLogin,
+} from './authHandler';
 
 /**
  * Helper to safely extract JSON body from incoming HTTP request
@@ -88,6 +96,51 @@ export function mandiApiPlugin(): Plugin {
         if (pathname === '/api/health') {
           res.statusCode = 200;
           return res.end(JSON.stringify({ status: 'ok', serverTime: new Date().toISOString() }));
+        }
+
+        // ==========================================
+        // AUTHENTICATION ENDPOINTS (2FACTOR + BCRYPT)
+        // ==========================================
+        if (pathname === '/api/auth/check-user' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = await handleCheckUser(body);
+          res.statusCode = 200;
+          return res.end(JSON.stringify(result));
+        }
+
+        if (pathname === '/api/auth/send-otp' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = await handleSendOtp(body);
+          res.statusCode = 200;
+          return res.end(JSON.stringify(result));
+        }
+
+        if (pathname === '/api/auth/verify-otp' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = await handleVerifyOtp(body);
+          res.statusCode = 200;
+          return res.end(JSON.stringify(result));
+        }
+
+        if (pathname === '/api/auth/register-password' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = await handleRegisterPassword(body);
+          res.statusCode = 200;
+          return res.end(JSON.stringify(result));
+        }
+
+        if (pathname === '/api/auth/reset-password' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = await handleResetPassword(body);
+          res.statusCode = 200;
+          return res.end(JSON.stringify(result));
+        }
+
+        if (pathname === '/api/auth/login' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = await handleLogin(body);
+          res.statusCode = 200;
+          return res.end(JSON.stringify(result));
         }
 
         // ==========================================

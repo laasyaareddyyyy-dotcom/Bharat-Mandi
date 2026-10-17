@@ -335,6 +335,7 @@ export interface RegisteredAccount {
   marketName?: string;
   apmcLicense?: string;
   photoUrl?: string;
+  passwordResetAt?: string;
   createdAt: string;
 }
 

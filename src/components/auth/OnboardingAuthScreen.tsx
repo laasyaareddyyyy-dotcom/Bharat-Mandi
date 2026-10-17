@@ -30,6 +30,14 @@ import { sounds } from '../../utils/audio';
 import { COMMODITY_CONFIGS, DEFAULT_MARKET_YARD_NAME, ALL_COMMODITIES } from '../../data/initialData';
 import { validateIndianMobile, cleanIndianMobile } from '../../utils/phoneValidation';
 import { sendPhoneOtp, verifyPhoneOtp, isSupabaseConfigured } from '../../services/supabase';
+import { fetchUserAccountByPhone } from '../../services/firestoreSync';
+import {
+  checkUserOnServer,
+  sendOtpOnServer,
+  verifyOtpOnServer,
+  registerPasswordOnServer,
+  resetPasswordOnServer,
+} from '../../services/serverAuth';
 
 type AuthViewMode = 'login' | 'signup' | 'forgot-password';
 type SignupStep = 'details' | 'otp' | 'commodities';
@@ -166,7 +174,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     errShopAddressRequired: 'Please enter your shop address',
 
     otpHeading: 'One-Time Verification OTP',
-    otpSubtitle: (phone) => `Enter the 6-digit verification code sent to +91 ${phone}`,
+    otpSubtitle: (phone) => `Enter the 4-digit verification code sent to +91 ${phone}`,
     btnVerifyOtp: 'Verify OTP Code & Select Commodity',
     commodityHeading: 'Select Commodity Types You Trade',
     commoditySubtitle: 'Choose the crops and produce you handle in the market',
@@ -1460,9 +1468,13 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
   // Forgot Password state
   const [forgotStep, setForgotStep] = useState<'request' | 'otp' | 'new-password'>('request');
   const [forgotIdentifier, setForgotIdentifier] = useState<string>('');
-  const [forgotOtp, setForgotOtp] = useState<string[]>(['1', '2', '3', '4', '5', '6']);
+  const [forgotOtp, setForgotOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmNewPassword, setConfirmNewPassword] = useState<string>('');
+  const [forgotOtpExpiresAt, setForgotOtpExpiresAt] = useState<number | null>(null);
+  const [forgotOtpResendTimer, setForgotOtpResendTimer] = useState<number>(0);
+  const [forgotOtpResendCount, setForgotOtpResendCount] = useState<number>(0);
+  const [forgotOtpAttempts, setForgotOtpAttempts] = useState<number>(0);
 
   // Sign Up Form State
   const [signupStep, setSignupStep] = useState<SignupStep>('details');
@@ -1481,10 +1493,13 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
   const [marketYard, setMarketYard] = useState<string>('');
   const [apmcLicense, setApmcLicense] = useState<string>('');
 
-  // Sign Up OTP state
-  const [signupOtp, setSignupOtp] = useState<string[]>(['1', '2', '3', '4', '5', '6']);
-  const [isOtpSimulated, setIsOtpSimulated] = useState<boolean>(true);
-  const [otpResendTimer, setOtpResendTimer] = useState<number>(30);
+  // 2Factor.in Session & Verification Token States
+  const [forgotSessionId, setForgotSessionId] = useState<string>('');
+  const [forgotVerificationToken, setForgotVerificationToken] = useState<string>('');
+  const [signupSessionId, setSignupSessionId] = useState<string>('');
+  const [signupVerificationToken, setSignupVerificationToken] = useState<string>('');
+  const [signupOtp, setSignupOtp] = useState<string[]>(['', '', '', '', '', '']);
+  const [otpResendTimer, setOtpResendTimer] = useState<number>(0);
 
   // Sign Up Commodity Selection
   const [selectedCommodities, setSelectedCommodities] = useState<CommodityCategory[]>(['flowers']);
@@ -1506,33 +1521,26 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     return () => clearInterval(timer);
   }, [signupStep, otpResendTimer]);
 
+  // Timer effect for Forgot Password OTP resend countdown
+  React.useEffect(() => {
+    if (forgotOtpResendTimer <= 0) return;
+    const timer = setInterval(() => {
+      setForgotOtpResendTimer((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [forgotOtpResendTimer]);
 
-
-  // Quick 1-Click Login for Saved Accounts
+  // Quick Login for Saved Accounts - pre-fills mobile and requires password entry
   const handleQuickAccountLogin = (acct: (typeof registeredAccounts)[0]) => {
     sounds.playBidTick();
-    switchUserAccount(acct.phoneNumber);
-    if (acct.phoneNumber.replace(/\D/g, '').endsWith('9110387978')) {
-      setPortalMode('admin');
-    } else {
-      setPortalMode('merchant');
-    }
-
-    const restoredCommodities: CommodityCategory[] =
-      acct.selectedCommodities && acct.selectedCommodities.length > 0
-        ? (acct.selectedCommodities as CommodityCategory[])
-        : (['flowers'] as CommodityCategory[]);
-    setUserCommodities(restoredCommodities);
-
-    try {
-      localStorage.setItem('bharatmandi_onboarding_completed', 'true');
-      localStorage.setItem('bharatmandi_user_role', 'merchant');
-      localStorage.setItem('bharatmandi_active_phone_v1', acct.phoneNumber);
-      localStorage.setItem('bharatmandi_user_commodities', JSON.stringify(restoredCommodities));
-    } catch {}
-
-    sounds.playGavelStrike();
-    onComplete();
+    setAuthMode('login');
+    setAuthMethod('phone');
+    setLoginIdentifier(acct.phoneNumber);
+    setLoginPassword('');
+    setErrorMsg(`Selected account +91 ${acct.phoneNumber}. Please enter your password to log in.`);
+    setTimeout(() => {
+      document.getElementById('login-password-input')?.focus();
+    }, 100);
   };
 
   // Standard Password Login (No OTP)
@@ -1589,36 +1597,82 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
   // Forgot Password Flow
   const handleForgotRequestOtp = async () => {
     setErrorMsg('');
+    setSuccessMsg('');
     const cleanForgotPhone = forgotIdentifier.replace(/\D/g, "").slice(-10);
     if (!cleanForgotPhone || cleanForgotPhone.length !== 10) {
       setErrorMsg("Please enter a valid 10-digit registered mobile number");
       return;
     }
 
-    setIsSubmitting(true);
-    if (authMethod === 'phone') {
-      const res = await sendPhoneOtp(forgotIdentifier);
-      setIsSubmitting(false);
-      if (res.simulated) {
-        setForgotOtp(['1', '2', '3', '4', '5', '6']);
-      } else {
-        setForgotOtp(['', '', '', '', '', '']);
-      }
-    } else {
-      setIsSubmitting(false);
-      setForgotOtp(['1', '2', '3', '4', '5', '6']);
+    if (forgotOtpResendCount >= 3) {
+      setErrorMsg("Maximum OTP resend limit reached (3/3). Please try again later or contact support.");
+      return;
     }
+
+    setIsSubmitting(true);
+
+    // Verify account exists before sending OTP
+    let acct = registeredAccounts.find(a => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanForgotPhone);
+    if (!acct && cleanForgotPhone.length === 10) {
+      acct = await fetchUserAccountByPhone(cleanForgotPhone);
+    }
+
+    if (!acct) {
+      setIsSubmitting(false);
+      setErrorMsg("No account found registered with this mobile number. Please check your mobile or Sign Up first.");
+      return;
+    }
+
+    const res = await sendOtpOnServer(cleanForgotPhone, 'forgot-password');
+    setIsSubmitting(false);
+
+    if (!res.success) {
+      setErrorMsg(res.error || 'Could not send OTP, please try again.');
+      return;
+    }
+
+    setForgotSessionId(res.sessionId || '');
+    setForgotOtpExpiresAt(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    setForgotOtpResendTimer(30); // 30s cooldown
+    setForgotOtpResendCount((prev) => prev + 1);
+    setForgotOtpAttempts(0);
+    setForgotOtp(['', '', '', '', '', '']);
 
     setForgotStep('otp');
     sounds.playBidTick();
   };
 
-  const handleForgotVerifyOtp = () => {
+  const handleForgotVerifyOtp = async () => {
     const code = forgotOtp.join('');
     if (code.length < 6) {
       setErrorMsg('Please enter the full 6-digit OTP code');
       return;
     }
+
+    // Check OTP Expiry
+    if (forgotOtpExpiresAt && Date.now() > forgotOtpExpiresAt) {
+      setErrorMsg('OTP code has expired (valid for 10 minutes). Please request a new OTP code.');
+      return;
+    }
+
+    // Check Verification Attempts Limit
+    if (forgotOtpAttempts >= 3) {
+      setErrorMsg('Maximum wrong OTP attempts exceeded (3/3). Please request a new OTP code.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const verifyRes = await verifyOtpOnServer(forgotIdentifier, forgotSessionId, code);
+    setIsSubmitting(false);
+
+    if (!verifyRes.success) {
+      const newAttempts = forgotOtpAttempts + 1;
+      setForgotOtpAttempts(newAttempts);
+      setErrorMsg(verifyRes.error || `Invalid OTP code. Remaining attempts: ${Math.max(0, 3 - newAttempts)}`);
+      return;
+    }
+
+    setForgotVerificationToken(verifyRes.verificationToken || '');
     setErrorMsg('');
     setForgotStep('new-password');
     sounds.playCashChime();
@@ -1626,6 +1680,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
   const handleForgotResetSubmit = async () => {
     setErrorMsg('');
+    setSuccessMsg('');
     if (!newPassword || newPassword.length < 4) {
       setErrorMsg('Password must be at least 4 characters');
       return;
@@ -1635,29 +1690,44 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       return;
     }
 
-    const res = await resetUserPassword(forgotIdentifier, newPassword);
+    if (!forgotVerificationToken) {
+      setErrorMsg('OTP verification token missing or expired. Please verify OTP first.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const res = await resetPasswordOnServer({
+      phone: forgotIdentifier,
+      newPassword,
+      confirmNewPassword,
+      verificationToken: forgotVerificationToken,
+    });
+    setIsSubmitting(false);
+
     if (!res.success) {
       setErrorMsg(res.error || 'Failed to reset password');
       return;
     }
 
-    setSuccessMsg('Password reset successfully! Logging you in...');
     sounds.playGavelStrike();
+    setSuccessMsg('Password reset successfully! Your old password has been invalidated. Please log in with your new password.');
 
-    setTimeout(() => {
-      verifyPasswordAndLogin(forgotIdentifier, newPassword);
-      setPortalMode('merchant');
-      try {
-        localStorage.setItem('bharatmandi_onboarding_completed', 'true');
-      } catch {}
-      onComplete();
-    }, 1000);
+    // Switch to login mode and invalidate previous session
+    setAuthMode('login');
+    setLoginIdentifier(forgotIdentifier);
+    setLoginPassword('');
+    setForgotStep('request');
+    setForgotIdentifier('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setForgotOtp(['', '', '', '', '', '']);
+    setForgotVerificationToken('');
   };
 
   const signupTrans = SIGNUP_TRANSLATIONS[language] || SIGNUP_TRANSLATIONS.en;
 
   // Sign Up Flow Sub-Step Navigation Handlers
-  const handleStep1Next = (e?: React.FormEvent) => {
+  const handleStep1Next = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const errors: Record<string, string> = {};
 
@@ -1674,6 +1744,21 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
+      return;
+    }
+
+    const cleanPhone = phoneVal.cleanNumber || cleanIndianMobile(signupPhone);
+
+    // Check duplicate account locally and in Cloud Firestore
+    setIsSubmitting(true);
+    let existingAcc = registeredAccounts.find(a => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone);
+    if (!existingAcc && cleanPhone.length === 10) {
+      existingAcc = await fetchUserAccountByPhone(cleanPhone);
+    }
+    setIsSubmitting(false);
+
+    if (existingAcc) {
+      setFieldErrors({ signupPhone: 'This mobile number is already registered. Please log in.' });
       return;
     }
 
@@ -1747,17 +1832,17 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     const phoneVal = validateIndianMobile(signupPhone);
     const cleanPhone = phoneVal.cleanNumber || cleanIndianMobile(signupPhone);
 
-    const res = await sendPhoneOtp(cleanPhone);
+    const res = await sendOtpOnServer(cleanPhone, 'signup');
     setIsSubmitting(false);
 
-    setIsOtpSimulated(Boolean(res.simulated));
-    setOtpResendTimer(30);
-
-    if (res.simulated) {
-      setSignupOtp(['1', '2', '3', '4', '5', '6']);
-    } else {
-      setSignupOtp(['', '', '', '', '', '']);
+    if (!res.success) {
+      setErrorMsg(res.error || 'Could not send OTP code.');
+      return;
     }
+
+    setSignupSessionId(res.sessionId || '');
+    setOtpResendTimer(30);
+    setSignupOtp(['', '', '', '', '', '']);
 
     setSignupStep('otp');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1772,19 +1857,18 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     const phoneVal = validateIndianMobile(signupPhone);
     const cleanPhone = phoneVal.cleanNumber || cleanIndianMobile(signupPhone);
 
-    const res = await sendPhoneOtp(cleanPhone);
+    const res = await sendOtpOnServer(cleanPhone, 'signup');
     setIsSubmitting(false);
 
-    setIsOtpSimulated(Boolean(res.simulated));
-    setOtpResendTimer(30);
-
-    if (res.simulated) {
-      setSignupOtp(['1', '2', '3', '4', '5', '6']);
-      setSuccessMsg('Resent code (Demo 123456 auto-filled)');
-    } else {
-      setSignupOtp(['', '', '', '', '', '']);
-      setSuccessMsg(`Resent OTP SMS to +91 ${signupPhone}`);
+    if (!res.success) {
+      setErrorMsg(res.error || 'Could not send OTP code.');
+      return;
     }
+
+    setSignupSessionId(res.sessionId || '');
+    setOtpResendTimer(30);
+    setSignupOtp(['', '', '', '', '', '']);
+    setSuccessMsg(`Resent 6-digit OTP SMS to +91 ${signupPhone}`);
   };
 
   const handleStepBack = () => {
@@ -1854,21 +1938,20 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
   const handleSignupVerifyOtp = async () => {
     const entered = signupOtp.join('');
     if (entered.length < 6) {
-      setErrorMsg('Please enter the 6-digit OTP code');
+      setErrorMsg('Please enter the full 6-digit OTP code');
       return;
     }
 
     setIsSubmitting(true);
-    if (isSupabaseConfigured()) {
-      const verifyRes = await verifyPhoneOtp(signupPhone, entered);
-      if (!verifyRes.success) {
-        setIsSubmitting(false);
-        setErrorMsg(verifyRes.error || 'Invalid OTP code. Please check and try again.');
-        return;
-      }
+    const verifyRes = await verifyOtpOnServer(signupPhone, signupSessionId, entered);
+    setIsSubmitting(false);
+
+    if (!verifyRes.success) {
+      setErrorMsg(verifyRes.error || 'Invalid OTP code. Please check and try again.');
+      return;
     }
 
-    setIsSubmitting(false);
+    setSignupVerificationToken(verifyRes.verificationToken || '');
     setSignupStep('commodities');
     sounds.playCashChime();
   };
@@ -1880,23 +1963,27 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       return;
     }
 
+    if (!signupVerificationToken) {
+      setErrorMsg('Phone verification token missing or expired. Please verify OTP first.');
+      return;
+    }
+
     const cleanPhone = cleanIndianMobile(signupPhone);
 
-    const regResult = await registerNewAccount({
-      role: 'merchant',
-      fullName,
-      phoneNumber: cleanPhone,
-      email: "",
+    setIsSubmitting(true);
+    const regResult = await registerPasswordOnServer({
+      phone: cleanPhone,
       password: signupPassword,
+      confirmPassword: signupPassword,
+      verificationToken: signupVerificationToken,
+      fullName,
       shopOrVillage: shopName,
       shopAddress,
       shopNumber: shopNumber || 'Shop 1',
-      state: selectedState,
       marketName: marketYard,
-      apmcLicense,
-      licenseOrCrop: apmcLicense || selectedCommodities.join(', '),
       selectedCommodities,
     });
+    setIsSubmitting(false);
 
     if (!regResult.success) {
       setErrorMsg(regResult.error || 'Registration failed');
@@ -2276,10 +2363,10 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
             {forgotStep === 'otp' && (
               <div className="space-y-4 text-center">
                 <p className="text-xs sm:text-sm text-slate-600">
-                  Enter the 6-digit reset code sent to <strong>{forgotIdentifier}</strong>:
+                  Enter the 6-digit reset code sent to <strong>+91 {forgotIdentifier}</strong> (valid for 10 mins):
                 </p>
 
-                <div className="flex justify-center gap-2 my-2">
+                <div className="flex justify-center gap-1.5 sm:gap-2 my-2">
                   {forgotOtp.map((digit, idx) => (
                     <input
                       key={idx}
@@ -2296,26 +2383,48 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                           document.getElementById(`forgot-otp-${idx + 1}`)?.focus();
                         }
                       }}
-                      className="w-10 h-12 text-center text-xl font-mono font-black border-2 border-slate-300 focus:border-[#1a3a52] rounded-xl outline-none"
+                      className="w-10 sm:w-12 h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono font-black border-2 border-slate-300 focus:border-[#1a3a52] rounded-xl outline-none shadow-xs"
                     />
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  id="btn-forgot-verify-otp"
-                  onClick={handleForgotVerifyOtp}
-                  className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] text-white font-black text-sm transition shadow-md cursor-pointer"
-                >
-                  Verify Reset Code
-                </button>
+                {forgotOtpAttempts > 0 && (
+                  <p className="text-xs text-amber-600 font-bold">
+                    Wrong OTP attempts: {forgotOtpAttempts} / 3
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleForgotRequestOtp}
+                    disabled={forgotOtpResendTimer > 0 || forgotOtpResendCount >= 3 || isSubmitting}
+                    className="w-1/2 py-3 px-3 rounded-xl border-2 border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                  >
+                    {forgotOtpResendCount >= 3
+                      ? 'Resend Limit Reached'
+                      : forgotOtpResendTimer > 0
+                      ? `Resend in ${forgotOtpResendTimer}s`
+                      : 'Resend OTP'}
+                  </button>
+
+                  <button
+                    type="button"
+                    id="btn-forgot-verify-otp"
+                    onClick={handleForgotVerifyOtp}
+                    disabled={isSubmitting}
+                    className="w-1/2 py-3 px-3 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-xs transition shadow-md cursor-pointer"
+                  >
+                    Verify Reset Code
+                  </button>
+                </div>
               </div>
             )}
 
             {forgotStep === 'new-password' && (
               <div className="space-y-4">
                 <p className="text-xs sm:text-sm text-slate-600">
-                  Set a new password for your account:
+                  Set a new password for your account. Once saved, your old password will be invalidated immediately across all sessions:
                 </p>
 
                 <div>
@@ -2350,9 +2459,10 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                   type="button"
                   id="btn-forgot-save-password"
                   onClick={handleForgotResetSubmit}
-                  className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm transition shadow-md cursor-pointer"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm transition shadow-md cursor-pointer disabled:opacity-50"
                 >
-                  Reset Password &amp; Log In
+                  Save New Password &amp; Go to Login
                 </button>
               </div>
             )}
@@ -2745,18 +2855,12 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                       SMS Code Sent to <span className="font-mono text-blue-900 font-extrabold">+91 {signupPhone}</span>
                     </p>
                   </div>
-                  {isOtpSimulated ? (
-                    <p className="text-slate-600 text-[11px] leading-relaxed">
-                      <strong>Gateway Note:</strong> Carrier SMS requires an active SMS Gateway key (e.g. Twilio or MSG91) in Supabase. In demo simulation mode, the verification code <strong>123456</strong> is auto-filled below.
-                    </p>
-                  ) : (
-                    <p className="text-emerald-700 font-bold text-[11px]">
-                      ✓ OTP dispatched via carrier SMS. Check your phone's SMS inbox.
-                    </p>
-                  )}
+                  <p className="text-emerald-700 font-bold text-[11px]">
+                    ✓ 6-digit OTP dispatched via 2Factor SMS. Check your phone's SMS inbox.
+                  </p>
                 </div>
 
-                <div className="flex justify-center gap-2 my-2">
+                <div className="flex justify-center gap-1.5 sm:gap-2 my-2">
                   {signupOtp.map((digit, idx) => (
                     <input
                       key={idx}
@@ -2773,7 +2877,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                           document.getElementById(`signup-otp-${idx + 1}`)?.focus();
                         }
                       }}
-                      className="w-10 h-12 text-center text-xl font-mono font-black border-2 border-slate-300 focus:border-[#1a3a52] rounded-xl outline-none"
+                      className="w-10 sm:w-12 h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono font-black border-2 border-slate-300 focus:border-[#1a3a52] rounded-xl outline-none shadow-xs"
                     />
                   ))}
                 </div>

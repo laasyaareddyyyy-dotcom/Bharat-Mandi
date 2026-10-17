@@ -16,12 +16,12 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Registered user accounts collection and documents
+    // Registered user accounts collection - restricted strictly from browser client access (server-side only)
     match /registeredAccounts {
-      allow read, write: if true;
+      allow read, write: if false;
     }
     match /registeredAccounts/{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
     // Merchant documents and all nested subcollections

@@ -110,18 +110,29 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path,
   };
-  console.error('Firestore Error:', JSON.stringify(errInfo));
+  const isExpectedNetworkOrOffline =
+    errInfo.error.toLowerCase().includes('offline') ||
+    errInfo.error.toLowerCase().includes('network') ||
+    errInfo.error.toLowerCase().includes('failed to get document') ||
+    errInfo.error.toLowerCase().includes('unreachable');
+
+  if (isExpectedNetworkOrOffline) {
+    console.warn('Firestore network status note:', JSON.stringify(errInfo));
+  } else {
+    console.error('Firestore Error:', JSON.stringify(errInfo));
+  }
   return errInfo;
 }
 
 // Connection test on boot
 export async function testFirestoreConnection() {
   try {
+    await ensureFirebaseAuth();
     await getDocFromServer(doc(db, 'test', 'connection'));
     console.log('Firestore connection online verified successfully.');
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firestore offline mode active.');
+    if (error instanceof Error) {
+      console.warn('Firestore initial connection note:', error.message);
     }
   }
 }

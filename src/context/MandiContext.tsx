@@ -45,6 +45,8 @@ import {
   syncLocalToSupabase,
   fetchUserCloudData,
 } from '../services/supabaseSync';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import {
   syncToFirestore,
   fetchFromFirestore,
@@ -55,9 +57,20 @@ import {
   deleteShipmentFromFirestore,
   deletePaymentFromFirestore,
   deleteSettlementFromFirestore,
+  cleanUndefinedValues,
 } from '../services/firestoreSync';
 import { createTicketInSupabase } from '../services/supabaseTickets';
 import { isSupabaseConfigured } from '../services/supabase';
+import {
+  loginOnServer,
+  checkUserOnServer,
+  sendOtpOnServer,
+  verifyOtpOnServer,
+  registerPasswordOnServer,
+  resetPasswordOnServer,
+  logoutOnServer,
+  verifySessionOnServer,
+} from '../services/serverAuth';
 import {
   initialFarmers,
   initialMerchantProfile,
@@ -1664,86 +1677,125 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  // Verify Password & Login with Cloud Lookup
+  // Verify Password & Login with Server-side Authentication & 15-Minute Lockout
   const verifyPasswordAndLogin = async (
     identifier: string,
     passwordInput: string
-  ): Promise<{ success: boolean; error?: string; account?: RegisteredAccount }> => {
-    const cleanId = identifier.trim().toLowerCase();
+  ): Promise<{ success: boolean; error?: string; account?: RegisteredAccount; isLocked?: boolean }> => {
     const cleanPhone = identifier.replace(/\D/g, '').slice(-10);
 
-    let foundAccount = registeredAccounts.find(
-      (a) =>
-        (cleanPhone && a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone) ||
-        (a.email && a.email.trim().toLowerCase() === cleanId)
-    );
-
-    // If account not found in local cache (e.g. Logging in on a new device), check Firestore
-    if (!foundAccount && cleanPhone && cleanPhone.length === 10) {
-      const cloudAccount = await fetchUserAccountByPhone(cleanPhone);
-      if (cloudAccount) {
-        foundAccount = cloudAccount;
-        setRegisteredAccounts((prev) => {
-          const updated = deduplicateRegisteredAccounts([...prev, cloudAccount]);
-          try { localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updated)); } catch {}
-          return updated;
-        });
-      }
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      return { success: false, error: 'Please enter a valid 10-digit registered mobile number.' };
     }
 
-    if (!foundAccount) {
+    if (!passwordInput || passwordInput.trim().length === 0) {
+      return { success: false, error: 'Please enter your password.' };
+    }
+
+    // Call server endpoint for strict password comparison and 15-min lockout enforcement
+    const serverResult = await loginOnServer(cleanPhone, passwordInput);
+    if (!serverResult.success) {
       return {
         success: false,
-        error: 'You have not registered yet. Please Sign Up first to create your merchant account.',
+        error: serverResult.error || 'Incorrect password.',
+        isLocked: serverResult.isLocked,
       };
     }
 
-    if (foundAccount.pinHash || foundAccount.password) {
-      const isMatch = await verifyPasswordHash(passwordInput, foundAccount.pinHash, foundAccount.password);
-      if (!isMatch) {
-        return {
-          success: false,
-          error: 'Incorrect password. Please try again or click Forgot Password.',
-        };
-      }
-    }
+    const foundAccount: RegisteredAccount = serverResult.account || {
+      id: `USR-${cleanPhone}`,
+      merchantId: `merchant-${cleanPhone}`,
+      phoneNumber: cleanPhone,
+      fullName: 'Mandi Merchant',
+      shopOrVillage: 'Wholesale Shop',
+      licenseOrCrop: 'Verified Trader',
+      role: 'merchant',
+      createdAt: getTodayDateString(),
+    };
 
-    // Switch account immediately and pull user's entire cloud dataset
+    setRegisteredAccounts((prev) => {
+      const updated = deduplicateRegisteredAccounts([...prev, foundAccount]);
+      try {
+        const cleanForStorage = updated.map(({ password, passwordHash, pinHash, ...clean }: any) => clean);
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(cleanForStorage));
+      } catch {}
+      return updated;
+    });
+
+    // Switch account immediately and pull user's cloud dataset
     switchUserAccount(foundAccount.phoneNumber);
     return { success: true, account: foundAccount };
   };
 
   // Reset User Password
-  const resetUserPassword = (
+  const resetUserPassword = async (
     identifier: string,
     newPasswordInput: string
-  ): { success: boolean; error?: string } => {
+  ): Promise<{ success: boolean; error?: string }> => {
     const cleanId = identifier.trim().toLowerCase();
     const cleanPhone = identifier.replace(/\D/g, '').slice(-10);
 
-    let updated = false;
-    const updatedAccounts = registeredAccounts.map((a) => {
-      if (
+    let targetAccount = registeredAccounts.find(
+      (a) =>
         (cleanPhone && a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone) ||
         (a.email && a.email.trim().toLowerCase() === cleanId)
-      ) {
-        updated = true;
-        return { ...a, password: newPasswordInput };
+    );
+
+    if (!targetAccount && cleanPhone && cleanPhone.length === 10) {
+      targetAccount = await fetchUserAccountByPhone(cleanPhone);
+    }
+
+    if (!targetAccount) {
+      return {
+        success: false,
+        error: 'No account found to reset password. Please check your registered mobile number.',
+      };
+    }
+
+    const hashedPassword = await hashPassword(newPasswordInput);
+    const passwordResetAt = new Date().toISOString();
+
+    const updatedAccount: RegisteredAccount = {
+      ...targetAccount,
+      pinHash: hashedPassword,
+      passwordResetAt,
+    };
+    delete (updatedAccount as any).password;
+
+    // Invalidate local active session if it matches this account
+    const activePhone = localStorage.getItem('bharatmandi_active_phone_v1') || '';
+    if (activePhone.replace(/\D/g, '').slice(-10) === cleanPhone) {
+      localStorage.removeItem('bharatmandi_onboarding_completed');
+      localStorage.removeItem('bharatmandi_active_phone_v1');
+    }
+
+    // Update registeredAccounts state & localStorage
+    const updatedAccounts = registeredAccounts.map((a) => {
+      const aPhone = a.phoneNumber.replace(/\D/g, '').slice(-10);
+      if (aPhone === cleanPhone || (a.email && a.email.trim().toLowerCase() === cleanId)) {
+        return updatedAccount;
       }
       return a;
     });
 
-    if (!updated) {
-      return {
-        success: false,
-        error: 'No account found to reset password. Please check your mobile or email.',
-      };
+    if (!updatedAccounts.some((a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone)) {
+      updatedAccounts.push(updatedAccount);
     }
 
     setRegisteredAccounts(updatedAccounts);
     try {
-      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+      const cleanForStorage = updatedAccounts.map(({ password, passwordHash, pinHash, ...clean }: any) => clean);
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(cleanForStorage));
     } catch {}
+
+    // Persist directly to Cloud Firestore under registeredAccounts/cleanPhone
+    try {
+      const accRef = doc(db, 'registeredAccounts', cleanPhone);
+      const { password, ...securePayload } = updatedAccount as any;
+      await setDoc(accRef, cleanUndefinedValues(securePayload), { merge: true });
+    } catch (err) {
+      console.warn('Error saving updated password to Firestore:', err);
+    }
 
     return { success: true };
   };
@@ -1832,7 +1884,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       };
     }
 
-    // Validate uniqueness
+    // Validate uniqueness locally
     const uniqueness = checkUniqueness({
       shopName: accountData.role === 'merchant' ? accountData.shopOrVillage : undefined,
       shopAddress: accountData.role === 'merchant' ? (accountData.shopAddress || accountData.shopOrVillage) : undefined,
@@ -1841,6 +1893,17 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     if (!uniqueness.valid) {
       return { success: false, error: uniqueness.message };
+    }
+
+    // Also check Cloud Firestore to prevent duplicate registration from another device
+    if (cleanPhone && cleanPhone.length === 10) {
+      const existingCloudAcc = await fetchUserAccountByPhone(cleanPhone);
+      if (existingCloudAcc) {
+        return {
+          success: false,
+          error: 'This mobile number is already registered. Please log in.',
+        };
+      }
     }
 
     const assignedMerchantId = getOrCreateSequentialMerchantId(cleanPhone, registeredAccounts);
@@ -1863,7 +1926,8 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const updatedAccounts = [...registeredAccounts, newAccount];
     setRegisteredAccounts(updatedAccounts);
     try {
-      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+      const cleanForStorage = updatedAccounts.map(({ password, passwordHash, pinHash, ...clean }: any) => clean);
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(cleanForStorage));
     } catch {}
 
     // Initialize Merchant Profile with assigned Merchant ID
@@ -1951,8 +2015,9 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [currentUserPhone]);
 
   // Logout Current User
-  const logoutCurrentUser = () => {
+  const logoutCurrentUser = async () => {
     try {
+      await logoutOnServer();
       localStorage.setItem('bharatmandi_onboarding_completed', 'false');
       localStorage.setItem(GLOBAL_STORAGE_KEYS.ONBOARDING_DONE, 'false');
       localStorage.setItem('bharatmandi_active_user_phone', '');

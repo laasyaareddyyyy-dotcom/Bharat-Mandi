@@ -80,7 +80,7 @@ export async function sendPhoneOtp(
   const formattedPhone = `+91${digits}`;
 
   if (!isSupabaseConfigured()) {
-    console.info('Supabase secrets not yet configured in environment. Using demo OTP simulation (123456).');
+    console.info('Supabase secrets not yet configured in environment. Using demo OTP simulation (1234).');
     return {
       success: true,
       simulated: true,
@@ -96,14 +96,14 @@ export async function sendPhoneOtp(
     });
 
     if (error) {
-      console.warn('Supabase Phone OTP provider notice (falling back to instant verification 123456):', error.message);
+      console.warn('Supabase Phone OTP provider notice (falling back to instant verification 1234):', error.message);
       // Fallback to simulated instant OTP mode if Supabase SMS Provider/Gateway is unconfigured or blocked
       return { success: true, simulated: true };
     }
 
     return { success: true, simulated: false };
   } catch (err: any) {
-    console.warn('sendPhoneOtp exception (falling back to instant verification 123456):', err);
+    console.warn('sendPhoneOtp exception (falling back to instant verification 1234):', err);
     return { success: true, simulated: true };
   }
 }
@@ -118,36 +118,8 @@ export async function verifyPhoneOtp(
   const digits = rawPhone.replace(/\D/g, '').slice(-10);
   const formattedPhone = `+91${digits}`;
 
-  // Allow standard demo code or bypass if simulated
-  if (token === '123456') {
-    return {
-      success: true,
-      user: {
-        id: `user-${digits}`,
-        phone: formattedPhone,
-        app_metadata: {},
-        user_metadata: {},
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-      } as unknown as User,
-    };
-  }
-
   if (!isSupabaseConfigured()) {
-    if (token.length === 6) {
-      return {
-        success: true,
-        user: {
-          id: `user-${digits}`,
-          phone: formattedPhone,
-          app_metadata: {},
-          user_metadata: {},
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-        } as unknown as User,
-      };
-    }
-    return { success: false, error: 'Invalid verification code. Demo code is 123456.' };
+    return { success: false, error: 'SMS service not configured.' };
   }
 
   try {
@@ -158,21 +130,7 @@ export async function verifyPhoneOtp(
     });
 
     if (error) {
-      console.warn('Supabase OTP verification notice (falling back to local session verification):', error.message);
-      if (token.length === 6) {
-        return {
-          success: true,
-          user: {
-            id: `user-${digits}`,
-            phone: formattedPhone,
-            app_metadata: {},
-            user_metadata: {},
-            aud: 'authenticated',
-            created_at: new Date().toISOString(),
-          } as unknown as User,
-        };
-      }
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Invalid verification code.' };
     }
 
     return {
