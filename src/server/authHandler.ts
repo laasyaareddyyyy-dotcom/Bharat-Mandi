@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { initializeApp, getApps, getApp } from 'firebase-admin/app';
@@ -14,10 +15,16 @@ const adminApp = !getApps().length
 // Admin Firestore instance bypasses client firestore.rules completely
 const db = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId || '(default)');
 
-// 2Factor.in API & JWT Environment Variables
+// 2Factor.in API & Strict JWT Environment Variables
 const TWOFACTOR_API_KEY = process.env.TWOFACTOR_API_KEY || '81f437aa-c9ff-11f1-af74-0200cd936042';
 const TWOFACTOR_TEMPLATE_NAME = process.env.TWOFACTOR_TEMPLATE_NAME || 'BharatMandiOTP';
-const JWT_SECRET = process.env.JWT_SECRET || 'PhoolMitra_Mandi_JWT_Secret_Key_v2026';
+const JWT_SECRET = process.env.JWT_SECRET || '';
+
+// Strict Requirement 1: JWT signing secret MUST come from server env var (min 32 chars)
+if (!JWT_SECRET || JWT_SECRET.trim().length < 32) {
+  console.error('[FATAL ERROR] JWT_SECRET environment variable is missing or less than 32 characters long!');
+  throw new Error('FATAL: JWT_SECRET environment variable is missing or less than 32 characters long. The authentication server cannot start.');
+}
 
 export interface AuthSession {
   sessionId: string;
@@ -58,6 +65,64 @@ export function cleanAndValidatePhone(rawPhone: string): { isValid: boolean; cle
     };
   }
   return { isValid: true, cleanPhone: digits };
+}
+
+/**
+ * Extract client IP address for IP rate limiting
+ */
+export function extractClientIp(req: any): string {
+  if (!req) return '127.0.0.1';
+  const rawHeader = req.headers?.['x-forwarded-for'] || req.headers?.['x-real-ip'];
+  if (typeof rawHeader === 'string' && rawHeader.trim().length > 0) {
+    return rawHeader.split(',')[0].trim().replace(/[^a-zA-Z0-9._:-]/g, '');
+  }
+  return (req.ip || req.socket?.remoteAddress || '127.0.0.1').replace(/[^a-zA-Z0-9._:-]/g, '');
+}
+
+/**
+ * IP-based Rate Limiting in Firestore (ipRateLimits/{action_sanitizedIp})
+ * - send-otp: max 5 requests per IP per 15 minutes
+ * - login: max 10 requests per IP per 15 minutes
+ */
+export async function checkIpRateLimit(
+  req: any,
+  action: 'send-otp' | 'login'
+): Promise<{ allowed: boolean; error?: string }> {
+  const clientIp = extractClientIp(req);
+  const sanitizedIpKey = clientIp.replace(/[\/.:]/g, '_');
+  const docId = `${action}_${sanitizedIpKey}`;
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000; // 15 minutes
+  const maxLimit = action === 'send-otp' ? 5 : 10;
+
+  try {
+    const docRef = db.collection('ipRateLimits').doc(docId);
+    const snap = await docRef.get();
+    let timestamps: number[] = [];
+
+    if (snap.exists) {
+      const data = snap.data();
+      if (Array.isArray(data?.timestamps)) {
+        timestamps = data.timestamps.filter((t: number) => now - t < windowMs);
+      }
+    }
+
+    if (timestamps.length >= maxLimit) {
+      const oldestInWindow = Math.min(...timestamps);
+      const remainingSecs = Math.ceil((windowMs - (now - oldestInWindow)) / 1000);
+      return {
+        allowed: false,
+        error: `Too many ${action === 'send-otp' ? 'OTP' : 'login'} requests from this IP address (${clientIp}). Please wait ${Math.max(1, remainingSecs)} seconds before trying again.`,
+      };
+    }
+
+    timestamps.push(now);
+    await docRef.set({ ip: clientIp, action, timestamps, updatedAt: now }, { merge: true });
+    return { allowed: true };
+  } catch (err) {
+    console.error('[Server Auth] IP rate limit check error:', err);
+  }
+  return { allowed: true };
 }
 
 /**
@@ -297,9 +362,15 @@ export async function handleCheckUser(reqBody: any) {
 }
 
 /**
- * 2. SEND OTP VIA 2FACTOR.IN (SERVER-SIDE ONLY)
+ * 2. SEND OTP VIA 2FACTOR.IN (SERVER-SIDE ONLY WITH IP RATE LIMITING)
  */
-export async function handleSendOtp(reqBody: any) {
+export async function handleSendOtp(reqBody: any, req?: any) {
+  // Enforce IP Rate Limiting
+  const ipCheck = await checkIpRateLimit(req, 'send-otp');
+  if (!ipCheck.allowed) {
+    return { success: false, error: ipCheck.error };
+  }
+
   const { phone, purpose = 'signup' } = reqBody || {};
   const phoneVal = cleanAndValidatePhone(phone);
   if (!phoneVal.isValid) {
@@ -667,9 +738,15 @@ export async function handleResetPassword(reqBody: any) {
 }
 
 /**
- * 6. SERVER-SIDE LOGIN VERIFICATION (STRICT PASSCHECK + 15-MIN LOCKOUT + SIGNED TOKEN)
+ * 6. SERVER-SIDE LOGIN VERIFICATION (IP + ACCOUNT LOCKOUT + STRICT PASSCHECK)
  */
-export async function handleLogin(reqBody: any) {
+export async function handleLogin(reqBody: any, req?: any) {
+  // Enforce IP Rate Limiting
+  const ipCheck = await checkIpRateLimit(req, 'login');
+  if (!ipCheck.allowed) {
+    return { success: false, error: ipCheck.error };
+  }
+
   const { phone, password } = reqBody || {};
 
   const phoneVal = cleanAndValidatePhone(phone);

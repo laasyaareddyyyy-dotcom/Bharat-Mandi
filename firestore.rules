@@ -6,30 +6,21 @@ service cloud.firestore {
       return id != null && id is string && id.size() > 0 && id.size() <= 128;
     }
 
-    // Default deny unhandled documents
+    // OPTION A: Default DENY all direct browser access to every collection in the database.
+    // The browser client SDK cannot read or write ANY document or subcollection directly.
+    // All data operations must pass through authenticated Express server endpoints (/api/data/*).
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Connection health check
-    match /test/{document=**} {
-      allow read, write: if true;
-    }
-
-    // Registered user accounts collection - restricted strictly from browser client access (server-side only)
-    match /registeredAccounts {
-      allow read, write: if false;
-    }
-    match /registeredAccounts/{document=**} {
-      allow read, write: if false;
-    }
-
-    // Merchant documents and all nested subcollections
-    match /merchants {
-      allow read, write: if true;
-    }
-    match /merchants/{document=**} {
-      allow read, write: if true;
-    }
+    // Explicit zero-trust lockdown blocks for all collections
+    match /registeredAccounts/{document=**} { allow read, write: if false; }
+    match /authSessions/{document=**} { allow read, write: if false; }
+    match /otpRateLimits/{document=**} { allow read, write: if false; }
+    match /loginAttempts/{document=**} { allow read, write: if false; }
+    match /userSessions/{document=**} { allow read, write: if false; }
+    match /ipRateLimits/{document=**} { allow read, write: if false; }
+    match /merchants/{document=**} { allow read, write: if false; }
+    match /test/{document=**} { allow read, write: if false; }
   }
 }

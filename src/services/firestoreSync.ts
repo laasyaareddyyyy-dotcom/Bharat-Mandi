@@ -8,6 +8,7 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType, ensureFirebaseAuth } from './firebase';
+import { getAuthHeaders } from './serverAuth';
 import {
   MerchantProfile,
   Farmer,
@@ -63,7 +64,7 @@ export function cleanUndefinedValues<T>(obj: T): T {
 }
 
 /**
- * Saves or updates all Mandi data into Firebase Firestore keyed by user's mobile number
+ * Saves or updates all Mandi data into Firebase Firestore via authenticated server endpoint (/api/data/sync)
  */
 export async function syncToFirestore(
   data: {
@@ -82,6 +83,23 @@ export async function syncToFirestore(
   },
   overridePhone?: string
 ): Promise<{ success: boolean; error?: string }> {
+  try {
+    const headers = getAuthHeaders();
+    if (headers['Authorization']) {
+      const res = await fetch('/api/data/sync', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      });
+      const resJson = await res.json();
+      if (resJson.success) {
+        return { success: true };
+      }
+    }
+  } catch (err) {
+    console.warn('[Firestore Sync] Server data sync endpoint exception:', err);
+  }
+
   await ensureFirebaseAuth();
   const merchantId = getMerchantDocId(overridePhone);
   if (!merchantId) {
@@ -168,26 +186,6 @@ export async function syncToFirestore(
       }
     }
 
-    // 9. Registered Accounts (Keyed by both account.id and clean phone for multi-phone lookup)
-    if (Array.isArray(data.registeredAccounts)) {
-      for (const account of data.registeredAccounts) {
-        if (!account.phoneNumber) continue;
-        const phoneKey = account.phoneNumber.replace(/\D/g, '').slice(-10);
-        if (phoneKey) {
-          const accRef = doc(db, 'registeredAccounts', phoneKey);
-          const { password, ...securePayload } = account as any;
-          await setDoc(
-            accRef,
-            cleanUndefinedValues({
-              ...securePayload,
-              ...(currentUid ? { ownerUid: currentUid } : {}),
-            }),
-            { merge: true }
-          );
-        }
-      }
-    }
-
     return { success: true };
   } catch (err: any) {
     handleFirestoreError(err, OperationType.WRITE, `merchants/${merchantId}`);
@@ -196,7 +194,7 @@ export async function syncToFirestore(
 }
 
 /**
- * Fetches all user records from Cloud Firestore for a specific mobile phone number
+ * Fetches all user records from Cloud Firestore via authenticated server endpoint (/api/data/fetch)
  */
 export async function fetchFromFirestore(targetPhone?: string): Promise<{
   profile?: MerchantProfile;
@@ -211,6 +209,33 @@ export async function fetchFromFirestore(targetPhone?: string): Promise<{
   registeredAccounts: RegisteredAccount[];
   helpTickets: HelpTicket[];
 } | null> {
+  try {
+    const headers = getAuthHeaders();
+    if (headers['Authorization']) {
+      const res = await fetch('/api/data/fetch', {
+        method: 'GET',
+        headers,
+      });
+      const resJson = await res.json();
+      if (resJson.success && resJson.data) {
+        return {
+          profile: resJson.data.profile,
+          farmers: (resJson.data.farmers || []) as Farmer[],
+          lots: (resJson.data.lots || []) as SaleLot[],
+          shipments: (resJson.data.shipments || []) as Shipment[],
+          payments: (resJson.data.payments || []) as PaymentRecord[],
+          settlements: (resJson.data.settlements || []) as FifteenDaySettlement[],
+          stocks: (resJson.data.stocks || []) as StockItem[],
+          employees: (resJson.data.employees || []) as EmployeeRecord[],
+          parchiAuditLogs: [],
+          helpTickets: [],
+          registeredAccounts: [],
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[Firestore Sync] Server data fetch endpoint exception:', err);
+  }
   await ensureFirebaseAuth();
   const merchantId = getMerchantDocId(targetPhone);
   if (!merchantId) {

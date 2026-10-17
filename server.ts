@@ -18,6 +18,11 @@ import {
   handleMe,
   verifyAndAuthenticateToken,
 } from './src/server/authHandler';
+import {
+  handleSyncData,
+  handleFetchData,
+  handleDeleteData,
+} from './src/server/dataHandler';
 
 app.use(express.json());
 
@@ -33,7 +38,7 @@ app.post('/api/auth/check-user', async (req, res) => {
 });
 
 app.post('/api/auth/send-otp', async (req, res) => {
-  const result = await handleSendOtp(req.body);
+  const result = await handleSendOtp(req.body, req);
   res.json(result);
 });
 
@@ -53,7 +58,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const result = await handleLogin(req.body);
+  const result = await handleLogin(req.body, req);
   res.json(result);
 });
 
@@ -81,6 +86,26 @@ const requireSession = async (req: express.Request, res: express.Response, next:
   (req as any).user = authRes.user;
   next();
 };
+
+// Zero-Trust Merchant Data Routes (Session Protected)
+app.post('/api/data/sync', requireSession, async (req, res) => {
+  const userPhone = (req as any).user?.phoneNumber || (req as any).user?.phone;
+  const result = await handleSyncData(userPhone, req.body);
+  res.json(result);
+});
+
+app.get('/api/data/fetch', requireSession, async (req, res) => {
+  const userPhone = (req as any).user?.phoneNumber || (req as any).user?.phone;
+  const result = await handleFetchData(userPhone);
+  res.json(result);
+});
+
+app.post('/api/data/delete', requireSession, async (req, res) => {
+  const userPhone = (req as any).user?.phoneNumber || (req as any).user?.phone;
+  const { itemType, itemId } = req.body || {};
+  const result = await handleDeleteData(userPhone, itemType, itemId);
+  res.json(result);
+});
 
 // AI Voice Parsing Endpoint (Session Protected)
 app.post('/api/ai/parse-voice', requireSession, async (req, res) => {
@@ -426,3 +451,6 @@ async function startServer() {
 }
 
 startServer();
+
+export { app };
+export default app;
