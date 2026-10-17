@@ -17,6 +17,7 @@ import {
   handleLogout,
   handleMe,
   verifyAndAuthenticateToken,
+  getHealthStatus,
 } from './src/server/authHandler';
 import {
   handleSyncData,
@@ -26,9 +27,9 @@ import {
 
 app.use(express.json());
 
-// API Health Check
+// API Health Check (returns presence of required env var names and boolean true/false only, never values)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json(getHealthStatus());
 });
 
 // Authentication Endpoints (Server-side 2Factor.in OTP & Password Security)
