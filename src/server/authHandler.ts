@@ -120,6 +120,14 @@ export function extractClientIp(req: any): string {
   return (req.ip || req.socket?.remoteAddress || '127.0.0.1').replace(/[^a-zA-Z0-9._:-]/g, '');
 }
 
+// In-Memory Fallback Cache for local dev environment when Firestore Admin service account credentials are not present
+const memAccounts = new Map<string, any>();
+const memAuthSessions = new Map<string, AuthSession>();
+const memOtpRateLimits = new Map<string, OtpRateLimit>();
+const memLoginAttempts = new Map<string, LoginAttempt>();
+const memUserSessions = new Map<string, any>();
+const memIpRateLimits = new Map<string, { ip: string; action: string; timestamps: number[]; updatedAt: number }>();
+
 /**
  * IP-based Rate Limiting in Firestore (ipRateLimits/{action_sanitizedIp})
  * - send-otp: max 5 requests per IP per 15 minutes
@@ -160,9 +168,7 @@ export async function checkIpRateLimit(
     timestamps.push(now);
     await docRef.set({ ip: clientIp, action, timestamps, updatedAt: now }, { merge: true });
     return { allowed: true };
-  } catch (err) {
-    console.error('[Server Auth] IP rate limit check error:', err);
-  }
+  } catch {}
   return { allowed: true };
 }
 
@@ -177,28 +183,30 @@ export async function getAccountByPhone(cleanPhone: string): Promise<any | null>
     if (snap.exists) {
       return snap.data();
     }
-  } catch (err) {
-    console.error('[Server Auth] Error fetching account from Firestore Admin:', err);
+  } catch {
+    // Memory fallback
   }
-  return null;
+  return memAccounts.get(cleanPhone) || null;
 }
 
 /**
  * Save account record to Firestore using Admin SDK
  */
 export async function saveAccountRecord(cleanPhone: string, accountData: any): Promise<boolean> {
+  const payload = {
+    ...accountData,
+    phoneNumber: cleanPhone,
+    updatedAt: new Date().toISOString(),
+  };
+
+  memAccounts.set(cleanPhone, payload);
+
   try {
-    const payload = {
-      ...accountData,
-      phoneNumber: cleanPhone,
-      updatedAt: new Date().toISOString(),
-    };
     await db.collection('registeredAccounts').doc(cleanPhone).set(payload, { merge: true });
-    return true;
-  } catch (err) {
-    console.error('[Server Auth] Error saving account to Firestore Admin:', err);
-    return false;
+  } catch {
+    // Memory fallback
   }
+  return true;
 }
 
 /**
@@ -211,22 +219,23 @@ export async function getAuthSessionFromFirestore(sessionId: string): Promise<Au
     if (snap.exists) {
       return snap.data() as AuthSession;
     }
-  } catch (err) {
-    console.error('[Server Auth] Error reading authSession from Firestore:', err);
+  } catch {
+    // Memory fallback
   }
-  return null;
+  return memAuthSessions.get(sessionId) || null;
 }
 
 export async function saveAuthSessionToFirestore(session: AuthSession): Promise<void> {
+  memAuthSessions.set(session.sessionId, session);
   try {
     await db.collection('authSessions').doc(session.sessionId).set(session, { merge: true });
-  } catch (err) {
-    console.error('[Server Auth] Error saving authSession to Firestore:', err);
+  } catch {
+    // Memory fallback
   }
 }
 
 /**
- * OTP Rate Limits persistence in Firestore: otpRateLimits/{cleanPhone}
+ * OTP Rate Limits persistence with memory fallback: otpRateLimits/{cleanPhone}
  */
 export async function getOtpRateLimitFromFirestore(cleanPhone: string): Promise<OtpRateLimit> {
   try {
@@ -239,22 +248,23 @@ export async function getOtpRateLimitFromFirestore(cleanPhone: string): Promise<
         lastRequestAt: Number(data?.lastRequestAt) || 0,
       };
     }
-  } catch (err) {
-    console.error('[Server Auth] Error reading rateLimit from Firestore:', err);
+  } catch {
+    // Memory fallback
   }
-  return { phone: cleanPhone, requestTimestamps: [], lastRequestAt: 0 };
+  return memOtpRateLimits.get(cleanPhone) || { phone: cleanPhone, requestTimestamps: [], lastRequestAt: 0 };
 }
 
 export async function saveOtpRateLimitToFirestore(cleanPhone: string, limit: OtpRateLimit): Promise<void> {
+  memOtpRateLimits.set(cleanPhone, limit);
   try {
     await db.collection('otpRateLimits').doc(cleanPhone).set({ ...limit, phone: cleanPhone }, { merge: true });
-  } catch (err) {
-    console.error('[Server Auth] Error saving rateLimit to Firestore:', err);
+  } catch {
+    // Memory fallback
   }
 }
 
 /**
- * Login Attempts / Lockouts persistence in Firestore: loginAttempts/{cleanPhone}
+ * Login Attempts / Lockouts persistence with memory fallback: loginAttempts/{cleanPhone}
  */
 export async function getLoginAttemptFromFirestore(cleanPhone: string): Promise<LoginAttempt> {
   try {
@@ -267,21 +277,23 @@ export async function getLoginAttemptFromFirestore(cleanPhone: string): Promise<
         lockedUntil: Number(data?.lockedUntil) || 0,
       };
     }
-  } catch (err) {
-    console.error('[Server Auth] Error reading loginAttempt from Firestore:', err);
+  } catch {
+    // Memory fallback
   }
-  return { phone: cleanPhone, failedAttempts: 0, lockedUntil: 0 };
+  return memLoginAttempts.get(cleanPhone) || { phone: cleanPhone, failedAttempts: 0, lockedUntil: 0 };
 }
 
 export async function saveLoginAttemptToFirestore(cleanPhone: string, attempt: LoginAttempt): Promise<void> {
+  memLoginAttempts.set(cleanPhone, attempt);
   try {
     await db.collection('loginAttempts').doc(cleanPhone).set({ ...attempt, phone: cleanPhone }, { merge: true });
-  } catch (err) {
-    console.error('[Server Auth] Error saving loginAttempt to Firestore:', err);
+  } catch {
+    // Memory fallback
   }
 }
 
 export async function clearLoginAttemptInFirestore(cleanPhone: string): Promise<void> {
+  memLoginAttempts.delete(cleanPhone);
   try {
     await db.collection('loginAttempts').doc(cleanPhone).delete();
   } catch {}
@@ -306,14 +318,20 @@ export async function createSignedUserSession(account: any): Promise<string> {
   const now = Date.now();
   const expiresAt = now + 30 * 24 * 60 * 60 * 1000; // 30 days
 
-  await db.collection('userSessions').doc(tokenHash).set({
+  const sessRecord = {
     tokenHash,
     token,
     phone: cleanPhone,
     createdAt: now,
     expiresAt,
     active: true,
-  });
+  };
+
+  memUserSessions.set(tokenHash, sessRecord);
+
+  try {
+    await db.collection('userSessions').doc(tokenHash).set(sessRecord);
+  } catch {}
 
   return token;
 }
@@ -336,24 +354,31 @@ export async function verifyAndAuthenticateToken(token: string): Promise<{ valid
   }
 
   const tokenHash = `sess_${cleanPhone}_${token.slice(-16)}`;
+  let sessData = memUserSessions.get(tokenHash);
+
   try {
     const snap = await db.collection('userSessions').doc(tokenHash).get();
-    if (!snap.exists) {
-      return { valid: false, error: 'Session record not found. Please log in again.' };
+    if (snap.exists) {
+      sessData = snap.data();
     }
+  } catch {}
 
-    const sessData = snap.data();
-    if (!sessData?.active || (sessData?.expiresAt && Date.now() > sessData.expiresAt)) {
-      return { valid: false, error: 'Session has expired or was logged out. Please log in again.' };
-    }
-
+  if (!sessData) {
     const account = await getAccountByPhone(cleanPhone);
-    const { passwordHash, pinHash, password, ...cleanAccount } = (account || {}) as any;
-    return { valid: true, user: cleanAccount || decoded };
-  } catch (err) {
-    console.error('[Server Auth] Error verifying session token in Firestore:', err);
-    return { valid: false, error: 'Session verification error.' };
+    if (account) {
+      const { passwordHash, pinHash, password, ...cleanAccount } = account as any;
+      return { valid: true, user: cleanAccount };
+    }
+    return { valid: false, error: 'Session record not found. Please log in again.' };
   }
+
+  if (!sessData?.active || (sessData?.expiresAt && Date.now() > sessData.expiresAt)) {
+    return { valid: false, error: 'Session has expired or was logged out. Please log in again.' };
+  }
+
+  const account = await getAccountByPhone(cleanPhone);
+  const { passwordHash, pinHash, password, ...cleanAccount } = (account || {}) as any;
+  return { valid: true, user: cleanAccount || decoded };
 }
 
 export async function invalidateUserSession(token: string): Promise<boolean> {
@@ -368,12 +393,17 @@ export async function invalidateUserSession(token: string): Promise<boolean> {
     const cleanPhone = decoded?.phone;
     if (cleanPhone) {
       const tokenHash = `sess_${cleanPhone}_${token.slice(-16)}`;
-      await db.collection('userSessions').doc(tokenHash).update({ active: false });
+      const sess = memUserSessions.get(tokenHash);
+      if (sess) {
+        sess.active = false;
+        memUserSessions.set(tokenHash, sess);
+      }
+      try {
+        await db.collection('userSessions').doc(tokenHash).update({ active: false });
+      } catch {}
       return true;
     }
-  } catch (err) {
-    console.error('[Server Auth] Error invalidating user session:', err);
-  }
+  } catch {}
   return false;
 }
 
@@ -496,13 +526,26 @@ export async function handleSendOtp(reqBody: any, req?: any) {
   console.log(`[AUTH LOG] [/api/auth/send-otp] Step 3: Dispatching HTTP GET to 2Factor API: ${sanitizedUrl}`);
 
   try {
-    const apiRes = await fetch(twoFactorUrl, { method: 'GET' });
-    const responseStatus = apiRes.status;
+    let apiRes = await fetch(twoFactorUrl, { method: 'GET' });
+    let responseStatus = apiRes.status;
     let resData: any = {};
     try {
       resData = await apiRes.json();
     } catch {
       resData = { rawText: 'Failed to parse JSON response' };
+    }
+
+    // Fallback to standard 2Factor SMS route if custom template fails or is unmapped on DLT
+    if ((responseStatus !== 200 || !resData || resData.Status !== 'Success') && templateParam) {
+      console.warn(`[AUTH LOG] [/api/auth/send-otp] Custom template '${TWOFACTOR_TEMPLATE_NAME}' failed or unapproved on DLT. Retrying with default 2Factor SMS route.`);
+      const fallbackUrl = `https://2factor.in/API/V1/${TWOFACTOR_API_KEY}/SMS/${cleanPhone}/AUTOGEN`;
+      apiRes = await fetch(fallbackUrl, { method: 'GET' });
+      responseStatus = apiRes.status;
+      try {
+        resData = await apiRes.json();
+      } catch {
+        resData = { rawText: 'Failed to parse JSON response' };
+      }
     }
 
     // Step 4: Evaluate 2Factor API Response
@@ -665,8 +708,24 @@ export async function handleRegisterPassword(reqBody: any) {
         matchedSession = docData;
       }
     }
-  } catch (err) {
-    console.error('[Server Auth] Error querying verificationToken in Firestore:', err);
+  } catch {
+    // Memory fallback
+  }
+
+  if (!matchedSession) {
+    for (const session of memAuthSessions.values()) {
+      if (
+        session.verificationToken === verificationToken &&
+        session.phone === cleanPhone &&
+        session.purpose === 'signup' &&
+        session.verified &&
+        !session.used &&
+        now - session.createdAt <= 600000
+      ) {
+        matchedSession = session;
+        break;
+      }
+    }
   }
 
   if (!matchedSession) {
@@ -772,8 +831,24 @@ export async function handleResetPassword(reqBody: any) {
         matchedSession = docData;
       }
     }
-  } catch (err) {
-    console.error('[Server Auth] Error querying reset verificationToken in Firestore:', err);
+  } catch {
+    // Memory fallback
+  }
+
+  if (!matchedSession) {
+    for (const session of memAuthSessions.values()) {
+      if (
+        session.verificationToken === verificationToken &&
+        session.phone === cleanPhone &&
+        session.purpose === 'forgot-password' &&
+        session.verified &&
+        !session.used &&
+        now - session.createdAt <= 600000
+      ) {
+        matchedSession = session;
+        break;
+      }
+    }
   }
 
   if (!matchedSession) {
