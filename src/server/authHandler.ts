@@ -37,8 +37,8 @@ const adminApp = initFirebaseAdminApp();
 const db = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId || '(default)');
 
 // 2Factor.in API & Strict JWT Environment Variables
-const TWOFACTOR_API_KEY = process.env.TWOFACTOR_API_KEY || '81f437aa-c9ff-11f1-af74-0200cd936042';
-const TWOFACTOR_TEMPLATE_NAME = process.env.TWOFACTOR_TEMPLATE_NAME || 'BharatMandiOTP';
+const TWOFACTOR_API_KEY = process.env.TWOFACTOR_API_KEY || '';
+const TWOFACTOR_TEMPLATE_NAME = process.env.TWOFACTOR_TEMPLATE_NAME || '';
 const JWT_SECRET =
   process.env.JWT_SECRET ||
   'PhoolMitra_Mandi_Strict_JWT_Secret_Key_32Chars_V2026_Secure!';
@@ -55,8 +55,8 @@ export function getHealthStatus() {
     status: 'ok',
     timestamp: new Date().toISOString(),
     env: {
-      TWOFACTOR_API_KEY: Boolean(process.env.TWOFACTOR_API_KEY || '81f437aa-c9ff-11f1-af74-0200cd936042'),
-      TWOFACTOR_TEMPLATE_NAME: Boolean(process.env.TWOFACTOR_TEMPLATE_NAME || 'BharatMandiOTP'),
+      TWOFACTOR_API_KEY: Boolean(process.env.TWOFACTOR_API_KEY),
+      TWOFACTOR_TEMPLATE_NAME: Boolean(process.env.TWOFACTOR_TEMPLATE_NAME),
       JWT_SECRET: Boolean(process.env.JWT_SECRET || 'PhoolMitra_Mandi_Strict_JWT_Secret_Key_32Chars_V2026_Secure!'),
       FIREBASE_PROJECT_ID: Boolean(process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId),
       FIREBASE_CLIENT_EMAIL: Boolean(process.env.FIREBASE_CLIENT_EMAIL),
