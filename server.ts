@@ -27,48 +27,19 @@ import {
 
 app.use(express.json());
 
-// API Health Check (returns presence of required env var names and boolean true/false only, never values)
-app.get('/api/health', (req, res) => {
-  res.json(getHealthStatus());
-});
+// Express Router for Vercel Serverless Function compatibility
+const router = express.Router();
 
-// Authentication Endpoints (Server-side 2Factor.in OTP & Password Security)
-app.post('/api/auth/check-user', async (req, res) => {
-  const result = await handleCheckUser(req.body);
-  res.json(result);
-});
+router.get('/health', (req, res) => res.json(getHealthStatus()));
 
-app.post('/api/auth/send-otp', async (req, res) => {
-  const result = await handleSendOtp(req.body, req);
-  res.json(result);
-});
-
-app.post('/api/auth/verify-otp', async (req, res) => {
-  const result = await handleVerifyOtp(req.body);
-  res.json(result);
-});
-
-app.post('/api/auth/register-password', async (req, res) => {
-  const result = await handleRegisterPassword(req.body);
-  res.json(result);
-});
-
-app.post('/api/auth/reset-password', async (req, res) => {
-  const result = await handleResetPassword(req.body);
-  res.json(result);
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  const result = await handleLogin(req.body, req);
-  res.json(result);
-});
-
-app.post('/api/auth/logout', async (req, res) => {
-  const result = await handleLogout(req);
-  res.json(result);
-});
-
-app.get('/api/auth/me', async (req, res) => {
+router.post('/auth/check-user', async (req, res) => res.json(await handleCheckUser(req.body)));
+router.post('/auth/send-otp', async (req, res) => res.json(await handleSendOtp(req.body, req)));
+router.post('/auth/verify-otp', async (req, res) => res.json(await handleVerifyOtp(req.body)));
+router.post('/auth/register-password', async (req, res) => res.json(await handleRegisterPassword(req.body)));
+router.post('/auth/reset-password', async (req, res) => res.json(await handleResetPassword(req.body)));
+router.post('/auth/login', async (req, res) => res.json(await handleLogin(req.body, req)));
+router.post('/auth/logout', async (req, res) => res.json(await handleLogout(req)));
+router.get('/auth/me', async (req, res) => {
   const result = await handleMe(req);
   if (!result.success) {
     return res.status(401).json(result);
@@ -89,24 +60,25 @@ const requireSession = async (req: express.Request, res: express.Response, next:
 };
 
 // Zero-Trust Merchant Data Routes (Session Protected)
-app.post('/api/data/sync', requireSession, async (req, res) => {
+router.post('/data/sync', requireSession, async (req, res) => {
   const userPhone = (req as any).user?.phoneNumber || (req as any).user?.phone;
-  const result = await handleSyncData(userPhone, req.body);
-  res.json(result);
+  res.json(await handleSyncData(userPhone, req.body));
 });
 
-app.get('/api/data/fetch', requireSession, async (req, res) => {
+router.get('/data/fetch', requireSession, async (req, res) => {
   const userPhone = (req as any).user?.phoneNumber || (req as any).user?.phone;
-  const result = await handleFetchData(userPhone);
-  res.json(result);
+  res.json(await handleFetchData(userPhone));
 });
 
-app.post('/api/data/delete', requireSession, async (req, res) => {
+router.post('/data/delete', requireSession, async (req, res) => {
   const userPhone = (req as any).user?.phoneNumber || (req as any).user?.phone;
   const { itemType, itemId } = req.body || {};
-  const result = await handleDeleteData(userPhone, itemType, itemId);
-  res.json(result);
+  res.json(await handleDeleteData(userPhone, itemType, itemId));
 });
+
+// Mount Router on both /api and root for Vercel Serverless Function rewrites
+app.use('/api', router);
+app.use(router);
 
 // AI Voice Parsing Endpoint (Session Protected)
 app.post('/api/ai/parse-voice', requireSession, async (req, res) => {
@@ -451,7 +423,9 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.env.VERCEL !== '1' && !process.env.NOW_REGION) {
+  startServer();
+}
 
 export { app };
 export default app;
