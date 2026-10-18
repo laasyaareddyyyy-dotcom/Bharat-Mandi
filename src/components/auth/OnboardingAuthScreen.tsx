@@ -1774,17 +1774,32 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
     const cleanPhone = phoneVal.cleanNumber || cleanIndianMobile(signupPhone);
 
-    // Check duplicate account locally and in Cloud Firestore
-    setIsSubmitting(true);
-    let existingAcc = registeredAccounts.find(a => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone);
-    if (!existingAcc && cleanPhone.length === 10) {
-      existingAcc = await fetchUserAccountByPhone(cleanPhone);
-    }
-    setIsSubmitting(false);
-
-    if (existingAcc) {
-      setFieldErrors({ signupPhone: 'This mobile number is already registered. Please log in.' });
+    // 1. Check if account is saved locally on this device -> Direct Log In!
+    const localMatch = registeredAccounts.find(a => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone);
+    if (localMatch) {
+      sounds.playCashChime();
+      handleQuickAccountLogin(localMatch);
       return;
+    }
+
+    // 2. Check if account is registered on server database -> Redirect to Log In
+    setIsSubmitting(true);
+    try {
+      const serverCheck = await checkUserOnServer(cleanPhone);
+      setIsSubmitting(false);
+
+      if (serverCheck && (serverCheck.exists || serverCheck.hasPassword)) {
+        sounds.playBidTick();
+        setAuthMode('login');
+        setLoginIdentifier(cleanPhone);
+        setErrorMsg(`Mobile number +91 ${cleanPhone} is already signed up! Switched to Log In.`);
+        setTimeout(() => {
+          document.getElementById('login-password-input')?.focus();
+        }, 100);
+        return;
+      }
+    } catch {
+      setIsSubmitting(false);
     }
 
     setFieldErrors({});
@@ -1861,6 +1876,20 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     setIsSubmitting(false);
 
     if (!res.success) {
+      if (res.isAlreadyRegistered) {
+        const matchedLocal = registeredAccounts.find(
+          (a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone
+        );
+        if (matchedLocal) {
+          sounds.playCashChime();
+          handleQuickAccountLogin(matchedLocal);
+          return;
+        }
+        setAuthMode('login');
+        setLoginIdentifier(cleanPhone);
+        setErrorMsg(`Mobile number +91 ${cleanPhone} is already signed up! Switched to Log In.`);
+        return;
+      }
       setErrorMsg(res.error || 'Could not send OTP code.');
       return;
     }
@@ -2616,6 +2645,13 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                       {fieldErrors.signupPhone && (
                         <p className="text-[11px] text-red-600 font-bold mt-1">{fieldErrors.signupPhone}</p>
                       )}
+                      {cleanIndianMobile(signupPhone).length === 10 &&
+                        registeredAccounts.some((a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanIndianMobile(signupPhone)) && (
+                          <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2 mt-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>This number is already signed up — Clicking Next will log you in directly!</span>
+                          </div>
+                        )}
                     </div>
 
                     

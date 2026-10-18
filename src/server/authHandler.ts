@@ -1,40 +1,8 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-
-// Initialize Firebase Admin App on Server with multiline FIREBASE_PRIVATE_KEY parsing
-function initFirebaseAdminApp() {
-  if (getApps().length > 0) {
-    return getApp();
-  }
-  const projectId = process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-
-  if (clientEmail && rawPrivateKey) {
-    const privateKey = rawPrivateKey.replace(/\\n/g, '\n');
-    return initializeApp({
-      credential: cert({
-        projectId,
-        clientEmail,
-        privateKey,
-      }),
-      projectId,
-    });
-  }
-
-  return initializeApp({
-    projectId,
-  });
-}
-
-const adminApp = initFirebaseAdminApp();
-
-// Admin Firestore instance bypasses client firestore.rules completely
-const db = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId || '(default)');
+import { getAdminDb } from './firebaseAdmin';
 
 // 2Factor.in API & Strict JWT Environment Variables
 const TWOFACTOR_API_KEY = process.env.TWOFACTOR_API_KEY || '';
@@ -43,27 +11,43 @@ const JWT_SECRET =
   process.env.JWT_SECRET ||
   'PhoolMitra_Mandi_Strict_JWT_Secret_Key_32Chars_V2026_Secure!';
 
-if (JWT_SECRET.trim().length < 32) {
-  console.warn('[Server Auth Warning] JWT_SECRET is shorter than 32 characters.');
+// Make startup environment configuration issues visible in server logs (without logging secret values)
+if (!process.env.TWOFACTOR_API_KEY) {
+  console.error('[Server Startup Log] Missing required environment variable: TWOFACTOR_API_KEY');
+}
+if (!process.env.TWOFACTOR_TEMPLATE_NAME) {
+  console.error('[Server Startup Log] Missing required environment variable: TWOFACTOR_TEMPLATE_NAME');
+}
+if (!process.env.JWT_SECRET) {
+  console.error('[Server Startup Log] Missing required environment variable: JWT_SECRET');
+} else if (process.env.JWT_SECRET.trim().length < 32) {
+  console.error('[Server Startup Log] Invalid environment variable configuration: JWT_SECRET must be at least 32 characters');
 }
 
 /**
- * Health Check helper returning environment variable presence (NAMES and true/false ONLY, never values)
+ * Lightweight Health Check helper returning environment variable presence
+ * (Variable NAMES and true/false presence ONLY, never values)
+ * Does NOT initialize Firebase or perform database operations.
  */
 export function getHealthStatus() {
+  const firebaseProjectId = Boolean((process.env.FIREBASE_PROJECT_ID || firebaseConfig?.projectId || '').trim());
+  const firebaseClientEmail = Boolean((process.env.FIREBASE_CLIENT_EMAIL || '').trim());
+  const firebasePrivateKey = Boolean((process.env.FIREBASE_PRIVATE_KEY || '').trim());
+  const twoFactorKey = Boolean((process.env.TWOFACTOR_API_KEY || TWOFACTOR_API_KEY || '').trim() && (process.env.TWOFACTOR_API_KEY || TWOFACTOR_API_KEY) !== 'YOUR_2FACTOR_API_KEY_HERE');
+  const twoFactorTemplate = Boolean((process.env.TWOFACTOR_TEMPLATE_NAME || TWOFACTOR_TEMPLATE_NAME || '').trim());
+  const jwtSecret = Boolean((process.env.JWT_SECRET || JWT_SECRET || '').trim() && (process.env.JWT_SECRET || JWT_SECRET).length >= 32);
+
   return {
     status: 'ok',
     timestamp: new Date().toISOString(),
     env: {
-      TWOFACTOR_API_KEY: Boolean(process.env.TWOFACTOR_API_KEY),
-      TWOFACTOR_TEMPLATE_NAME: Boolean(process.env.TWOFACTOR_TEMPLATE_NAME),
-      JWT_SECRET: Boolean(process.env.JWT_SECRET || 'PhoolMitra_Mandi_Strict_JWT_Secret_Key_32Chars_V2026_Secure!'),
-      FIREBASE_PROJECT_ID: Boolean(process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId),
-      FIREBASE_CLIENT_EMAIL: Boolean(process.env.FIREBASE_CLIENT_EMAIL),
-      FIREBASE_PRIVATE_KEY: Boolean(process.env.FIREBASE_PRIVATE_KEY),
-      GOOGLE_APPLICATION_CREDENTIALS: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS),
+      FIREBASE_PROJECT_ID: firebaseProjectId,
+      FIREBASE_CLIENT_EMAIL: firebaseClientEmail,
+      FIREBASE_PRIVATE_KEY: firebasePrivateKey,
+      TWOFACTOR_API_KEY: twoFactorKey,
+      TWOFACTOR_TEMPLATE_NAME: twoFactorTemplate,
+      JWT_SECRET: jwtSecret,
     },
-    firebaseAdminInitialized: Boolean(adminApp && db),
   };
 }
 
@@ -144,31 +128,34 @@ export async function checkIpRateLimit(
   const windowMs = 15 * 60 * 1000; // 15 minutes
   const maxLimit = action === 'send-otp' ? 5 : 10;
 
-  try {
-    const docRef = db.collection('ipRateLimits').doc(docId);
-    const snap = await docRef.get();
-    let timestamps: number[] = [];
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const docRef = db.collection('ipRateLimits').doc(docId);
+      const snap = await docRef.get();
+      let timestamps: number[] = [];
 
-    if (snap.exists) {
-      const data = snap.data();
-      if (Array.isArray(data?.timestamps)) {
-        timestamps = data.timestamps.filter((t: number) => now - t < windowMs);
+      if (snap.exists) {
+        const data = snap.data();
+        if (Array.isArray(data?.timestamps)) {
+          timestamps = data.timestamps.filter((t: number) => now - t < windowMs);
+        }
       }
-    }
 
-    if (timestamps.length >= maxLimit) {
-      const oldestInWindow = Math.min(...timestamps);
-      const remainingSecs = Math.ceil((windowMs - (now - oldestInWindow)) / 1000);
-      return {
-        allowed: false,
-        error: `Too many ${action === 'send-otp' ? 'OTP' : 'login'} requests from this IP address (${clientIp}). Please wait ${Math.max(1, remainingSecs)} seconds before trying again.`,
-      };
-    }
+      if (timestamps.length >= maxLimit) {
+        const oldestInWindow = Math.min(...timestamps);
+        const remainingSecs = Math.ceil((windowMs - (now - oldestInWindow)) / 1000);
+        return {
+          allowed: false,
+          error: `Too many ${action === 'send-otp' ? 'OTP' : 'login'} requests from this IP address (${clientIp}). Please wait ${Math.max(1, remainingSecs)} seconds before trying again.`,
+        };
+      }
 
-    timestamps.push(now);
-    await docRef.set({ ip: clientIp, action, timestamps, updatedAt: now }, { merge: true });
-    return { allowed: true };
-  } catch {}
+      timestamps.push(now);
+      await docRef.set({ ip: clientIp, action, timestamps, updatedAt: now }, { merge: true });
+      return { allowed: true };
+    } catch {}
+  }
   return { allowed: true };
 }
 
@@ -178,13 +165,16 @@ export async function checkIpRateLimit(
 export async function getAccountByPhone(cleanPhone: string): Promise<any | null> {
   if (!cleanPhone || cleanPhone.length !== 10) return null;
 
-  try {
-    const snap = await db.collection('registeredAccounts').doc(cleanPhone).get();
-    if (snap.exists) {
-      return snap.data();
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const snap = await db.collection('registeredAccounts').doc(cleanPhone).get();
+      if (snap.exists) {
+        return snap.data();
+      }
+    } catch {
+      // Memory fallback
     }
-  } catch {
-    // Memory fallback
   }
   return memAccounts.get(cleanPhone) || null;
 }
@@ -201,10 +191,13 @@ export async function saveAccountRecord(cleanPhone: string, accountData: any): P
 
   memAccounts.set(cleanPhone, payload);
 
-  try {
-    await db.collection('registeredAccounts').doc(cleanPhone).set(payload, { merge: true });
-  } catch {
-    // Memory fallback
+  const db = getAdminDb();
+  if (db) {
+    try {
+      await db.collection('registeredAccounts').doc(cleanPhone).set(payload, { merge: true });
+    } catch {
+      // Memory fallback
+    }
   }
   return true;
 }
@@ -214,23 +207,29 @@ export async function saveAccountRecord(cleanPhone: string, accountData: any): P
  */
 export async function getAuthSessionFromFirestore(sessionId: string): Promise<AuthSession | null> {
   if (!sessionId) return null;
-  try {
-    const snap = await db.collection('authSessions').doc(sessionId).get();
-    if (snap.exists) {
-      return snap.data() as AuthSession;
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const snap = await db.collection('authSessions').doc(sessionId).get();
+      if (snap.exists) {
+        return snap.data() as AuthSession;
+      }
+    } catch {
+      // Memory fallback
     }
-  } catch {
-    // Memory fallback
   }
   return memAuthSessions.get(sessionId) || null;
 }
 
 export async function saveAuthSessionToFirestore(session: AuthSession): Promise<void> {
   memAuthSessions.set(session.sessionId, session);
-  try {
-    await db.collection('authSessions').doc(session.sessionId).set(session, { merge: true });
-  } catch {
-    // Memory fallback
+  const db = getAdminDb();
+  if (db) {
+    try {
+      await db.collection('authSessions').doc(session.sessionId).set(session, { merge: true });
+    } catch {
+      // Memory fallback
+    }
   }
 }
 
@@ -238,28 +237,34 @@ export async function saveAuthSessionToFirestore(session: AuthSession): Promise<
  * OTP Rate Limits persistence with memory fallback: otpRateLimits/{cleanPhone}
  */
 export async function getOtpRateLimitFromFirestore(cleanPhone: string): Promise<OtpRateLimit> {
-  try {
-    const snap = await db.collection('otpRateLimits').doc(cleanPhone).get();
-    if (snap.exists) {
-      const data = snap.data();
-      return {
-        phone: cleanPhone,
-        requestTimestamps: Array.isArray(data?.requestTimestamps) ? data.requestTimestamps : [],
-        lastRequestAt: Number(data?.lastRequestAt) || 0,
-      };
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const snap = await db.collection('otpRateLimits').doc(cleanPhone).get();
+      if (snap.exists) {
+        const data = snap.data();
+        return {
+          phone: cleanPhone,
+          requestTimestamps: Array.isArray(data?.requestTimestamps) ? data.requestTimestamps : [],
+          lastRequestAt: Number(data?.lastRequestAt) || 0,
+        };
+      }
+    } catch {
+      // Memory fallback
     }
-  } catch {
-    // Memory fallback
   }
   return memOtpRateLimits.get(cleanPhone) || { phone: cleanPhone, requestTimestamps: [], lastRequestAt: 0 };
 }
 
 export async function saveOtpRateLimitToFirestore(cleanPhone: string, limit: OtpRateLimit): Promise<void> {
   memOtpRateLimits.set(cleanPhone, limit);
-  try {
-    await db.collection('otpRateLimits').doc(cleanPhone).set({ ...limit, phone: cleanPhone }, { merge: true });
-  } catch {
-    // Memory fallback
+  const db = getAdminDb();
+  if (db) {
+    try {
+      await db.collection('otpRateLimits').doc(cleanPhone).set({ ...limit, phone: cleanPhone }, { merge: true });
+    } catch {
+      // Memory fallback
+    }
   }
 }
 
@@ -267,36 +272,45 @@ export async function saveOtpRateLimitToFirestore(cleanPhone: string, limit: Otp
  * Login Attempts / Lockouts persistence with memory fallback: loginAttempts/{cleanPhone}
  */
 export async function getLoginAttemptFromFirestore(cleanPhone: string): Promise<LoginAttempt> {
-  try {
-    const snap = await db.collection('loginAttempts').doc(cleanPhone).get();
-    if (snap.exists) {
-      const data = snap.data();
-      return {
-        phone: cleanPhone,
-        failedAttempts: Number(data?.failedAttempts) || 0,
-        lockedUntil: Number(data?.lockedUntil) || 0,
-      };
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const snap = await db.collection('loginAttempts').doc(cleanPhone).get();
+      if (snap.exists) {
+        const data = snap.data();
+        return {
+          phone: cleanPhone,
+          failedAttempts: Number(data?.failedAttempts) || 0,
+          lockedUntil: Number(data?.lockedUntil) || 0,
+        };
+      }
+    } catch {
+      // Memory fallback
     }
-  } catch {
-    // Memory fallback
   }
   return memLoginAttempts.get(cleanPhone) || { phone: cleanPhone, failedAttempts: 0, lockedUntil: 0 };
 }
 
 export async function saveLoginAttemptToFirestore(cleanPhone: string, attempt: LoginAttempt): Promise<void> {
   memLoginAttempts.set(cleanPhone, attempt);
-  try {
-    await db.collection('loginAttempts').doc(cleanPhone).set({ ...attempt, phone: cleanPhone }, { merge: true });
-  } catch {
-    // Memory fallback
+  const db = getAdminDb();
+  if (db) {
+    try {
+      await db.collection('loginAttempts').doc(cleanPhone).set({ ...attempt, phone: cleanPhone }, { merge: true });
+    } catch {
+      // Memory fallback
+    }
   }
 }
 
 export async function clearLoginAttemptInFirestore(cleanPhone: string): Promise<void> {
   memLoginAttempts.delete(cleanPhone);
-  try {
-    await db.collection('loginAttempts').doc(cleanPhone).delete();
-  } catch {}
+  const db = getAdminDb();
+  if (db) {
+    try {
+      await db.collection('loginAttempts').doc(cleanPhone).delete();
+    } catch {}
+  }
 }
 
 /**
@@ -329,9 +343,12 @@ export async function createSignedUserSession(account: any): Promise<string> {
 
   memUserSessions.set(tokenHash, sessRecord);
 
-  try {
-    await db.collection('userSessions').doc(tokenHash).set(sessRecord);
-  } catch {}
+  const db = getAdminDb();
+  if (db) {
+    try {
+      await db.collection('userSessions').doc(tokenHash).set(sessRecord);
+    } catch {}
+  }
 
   return token;
 }
@@ -356,12 +373,15 @@ export async function verifyAndAuthenticateToken(token: string): Promise<{ valid
   const tokenHash = `sess_${cleanPhone}_${token.slice(-16)}`;
   let sessData = memUserSessions.get(tokenHash);
 
-  try {
-    const snap = await db.collection('userSessions').doc(tokenHash).get();
-    if (snap.exists) {
-      sessData = snap.data();
-    }
-  } catch {}
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const snap = await db.collection('userSessions').doc(tokenHash).get();
+      if (snap.exists) {
+        sessData = snap.data();
+      }
+    } catch {}
+  }
 
   if (!sessData) {
     const account = await getAccountByPhone(cleanPhone);
@@ -398,9 +418,12 @@ export async function invalidateUserSession(token: string): Promise<boolean> {
         sess.active = false;
         memUserSessions.set(tokenHash, sess);
       }
-      try {
-        await db.collection('userSessions').doc(tokenHash).update({ active: false });
-      } catch {}
+      const db = getAdminDb();
+      if (db) {
+        try {
+          await db.collection('userSessions').doc(tokenHash).update({ active: false });
+        } catch {}
+      }
       return true;
     }
   } catch {}
@@ -719,25 +742,28 @@ export async function handleRegisterPassword(reqBody: any) {
 
   // Find verified auth session in Firestore matching verificationToken
   let matchedSession: AuthSession | null = null;
-  try {
-    const snap = await db
-      .collection('authSessions')
-      .where('verificationToken', '==', verificationToken)
-      .where('phone', '==', cleanPhone)
-      .where('purpose', '==', 'signup')
-      .where('verified', '==', true)
-      .where('used', '==', false)
-      .limit(1)
-      .get();
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const snap = await db
+        .collection('authSessions')
+        .where('verificationToken', '==', verificationToken)
+        .where('phone', '==', cleanPhone)
+        .where('purpose', '==', 'signup')
+        .where('verified', '==', true)
+        .where('used', '==', false)
+        .limit(1)
+        .get();
 
-    if (!snap.empty) {
-      const docData = snap.docs[0].data() as AuthSession;
-      if (now - docData.createdAt <= 600000) {
-        matchedSession = docData;
+      if (!snap.empty) {
+        const docData = snap.docs[0].data() as AuthSession;
+        if (now - docData.createdAt <= 600000) {
+          matchedSession = docData;
+        }
       }
+    } catch {
+      // Memory fallback
     }
-  } catch {
-    // Memory fallback
   }
 
   if (!matchedSession) {
@@ -842,25 +868,28 @@ export async function handleResetPassword(reqBody: any) {
 
   // Find verified auth session in Firestore matching verificationToken for forgot-password
   let matchedSession: AuthSession | null = null;
-  try {
-    const snap = await db
-      .collection('authSessions')
-      .where('verificationToken', '==', verificationToken)
-      .where('phone', '==', cleanPhone)
-      .where('purpose', '==', 'forgot-password')
-      .where('verified', '==', true)
-      .where('used', '==', false)
-      .limit(1)
-      .get();
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const snap = await db
+        .collection('authSessions')
+        .where('verificationToken', '==', verificationToken)
+        .where('phone', '==', cleanPhone)
+        .where('purpose', '==', 'forgot-password')
+        .where('verified', '==', true)
+        .where('used', '==', false)
+        .limit(1)
+        .get();
 
-    if (!snap.empty) {
-      const docData = snap.docs[0].data() as AuthSession;
-      if (now - docData.createdAt <= 600000) {
-        matchedSession = docData;
+      if (!snap.empty) {
+        const docData = snap.docs[0].data() as AuthSession;
+        if (now - docData.createdAt <= 600000) {
+          matchedSession = docData;
+        }
       }
+    } catch {
+      // Memory fallback
     }
-  } catch {
-    // Memory fallback
   }
 
   if (!matchedSession) {

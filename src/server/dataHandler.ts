@@ -1,14 +1,4 @@
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, getApp } from 'firebase-admin/app';
-import firebaseConfig from '../../firebase-applet-config.json';
-
-const adminApp = !getApps().length
-  ? initializeApp({
-      projectId: firebaseConfig.projectId,
-    })
-  : getApp();
-
-const db = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId || '(default)');
+import { getAdminDb } from './firebaseAdmin';
 
 // In-Memory Fallback Store for Merchant Data
 const memMerchants = new Map<string, any>();
@@ -63,70 +53,73 @@ export async function handleSyncData(userPhone: string, data: any) {
 
   memMerchants.set(merchantId, existingMem);
 
-  try {
-    const merchantRef = db.collection('merchants').doc(merchantId);
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const merchantRef = db.collection('merchants').doc(merchantId);
 
-    if (data.profile) {
-      await merchantRef.set(
-        cleanUndefinedValues({
-          ...data.profile,
-          userPhone,
-          updatedAt: new Date().toISOString(),
-        }),
-        { merge: true }
-      );
-    }
-
-    if (Array.isArray(data.farmers)) {
-      for (const farmer of data.farmers) {
-        if (!farmer.id) continue;
-        await merchantRef.collection('farmers').doc(String(farmer.id)).set(cleanUndefinedValues(farmer), { merge: true });
+      if (data.profile) {
+        await merchantRef.set(
+          cleanUndefinedValues({
+            ...data.profile,
+            userPhone,
+            updatedAt: new Date().toISOString(),
+          }),
+          { merge: true }
+        );
       }
-    }
 
-    if (Array.isArray(data.lots)) {
-      for (const lot of data.lots) {
-        if (!lot.id) continue;
-        await merchantRef.collection('lots').doc(String(lot.id)).set(cleanUndefinedValues(lot), { merge: true });
+      if (Array.isArray(data.farmers)) {
+        for (const farmer of data.farmers) {
+          if (!farmer.id) continue;
+          await merchantRef.collection('farmers').doc(String(farmer.id)).set(cleanUndefinedValues(farmer), { merge: true });
+        }
       }
-    }
 
-    if (Array.isArray(data.shipments)) {
-      for (const shipment of data.shipments) {
-        if (!shipment.id) continue;
-        await merchantRef.collection('shipments').doc(String(shipment.id)).set(cleanUndefinedValues(shipment), { merge: true });
+      if (Array.isArray(data.lots)) {
+        for (const lot of data.lots) {
+          if (!lot.id) continue;
+          await merchantRef.collection('lots').doc(String(lot.id)).set(cleanUndefinedValues(lot), { merge: true });
+        }
       }
-    }
 
-    if (Array.isArray(data.payments)) {
-      for (const payment of data.payments) {
-        if (!payment.id) continue;
-        await merchantRef.collection('payments').doc(String(payment.id)).set(cleanUndefinedValues(payment), { merge: true });
+      if (Array.isArray(data.shipments)) {
+        for (const shipment of data.shipments) {
+          if (!shipment.id) continue;
+          await merchantRef.collection('shipments').doc(String(shipment.id)).set(cleanUndefinedValues(shipment), { merge: true });
+        }
       }
-    }
 
-    if (Array.isArray(data.settlements)) {
-      for (const settlement of data.settlements) {
-        if (!settlement.id) continue;
-        await merchantRef.collection('settlements').doc(String(settlement.id)).set(cleanUndefinedValues(settlement), { merge: true });
+      if (Array.isArray(data.payments)) {
+        for (const payment of data.payments) {
+          if (!payment.id) continue;
+          await merchantRef.collection('payments').doc(String(payment.id)).set(cleanUndefinedValues(payment), { merge: true });
+        }
       }
-    }
 
-    if (Array.isArray(data.stocks)) {
-      for (const stock of data.stocks) {
-        if (!stock.id) continue;
-        await merchantRef.collection('stocks').doc(String(stock.id)).set(cleanUndefinedValues(stock), { merge: true });
+      if (Array.isArray(data.settlements)) {
+        for (const settlement of data.settlements) {
+          if (!settlement.id) continue;
+          await merchantRef.collection('settlements').doc(String(settlement.id)).set(cleanUndefinedValues(settlement), { merge: true });
+        }
       }
-    }
 
-    if (Array.isArray(data.employees)) {
-      for (const emp of data.employees) {
-        if (!emp.id) continue;
-        await merchantRef.collection('employees').doc(String(emp.id)).set(cleanUndefinedValues(emp), { merge: true });
+      if (Array.isArray(data.stocks)) {
+        for (const stock of data.stocks) {
+          if (!stock.id) continue;
+          await merchantRef.collection('stocks').doc(String(stock.id)).set(cleanUndefinedValues(stock), { merge: true });
+        }
       }
+
+      if (Array.isArray(data.employees)) {
+        for (const emp of data.employees) {
+          if (!emp.id) continue;
+          await merchantRef.collection('employees').doc(String(emp.id)).set(cleanUndefinedValues(emp), { merge: true });
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Data Handler Sync Note]', err?.message || err);
     }
-  } catch {
-    // Memory store fallback on Firestore permission error
   }
 
   return { success: true, message: 'Data synced successfully to server database.' };
@@ -142,59 +135,64 @@ export async function handleFetchData(userPhone: string) {
 
   const merchantId = `merchant-${userPhone}`;
   const memData = memMerchants.get(merchantId);
+  const db = getAdminDb();
 
-  try {
-    const merchantRef = db.collection('merchants').doc(merchantId);
-    const merchantSnap = await merchantRef.get();
-    const profile = merchantSnap.exists ? merchantSnap.data() : memData?.profile;
+  if (db) {
+    try {
+      const merchantRef = db.collection('merchants').doc(merchantId);
+      const merchantSnap = await merchantRef.get();
+      const profile = merchantSnap.exists ? merchantSnap.data() : memData?.profile;
 
-    const safeFetchSubDocs = async (collectionName: string) => {
-      try {
-        const snap = await merchantRef.collection(collectionName).get();
-        if (!snap.empty) return snap.docs.map((d) => d.data());
-      } catch {}
-      return memData?.[collectionName] || [];
-    };
+      const safeFetchSubDocs = async (collectionName: string) => {
+        try {
+          const snap = await merchantRef.collection(collectionName).get();
+          if (!snap.empty) return snap.docs.map((d) => d.data());
+        } catch {}
+        return memData?.[collectionName] || [];
+      };
 
-    const [farmers, lots, shipments, payments, settlements, stocks, employees] = await Promise.all([
-      safeFetchSubDocs('farmers'),
-      safeFetchSubDocs('lots'),
-      safeFetchSubDocs('shipments'),
-      safeFetchSubDocs('payments'),
-      safeFetchSubDocs('settlements'),
-      safeFetchSubDocs('stocks'),
-      safeFetchSubDocs('employees'),
-    ]);
+      const [farmers, lots, shipments, payments, settlements, stocks, employees] = await Promise.all([
+        safeFetchSubDocs('farmers'),
+        safeFetchSubDocs('lots'),
+        safeFetchSubDocs('shipments'),
+        safeFetchSubDocs('payments'),
+        safeFetchSubDocs('settlements'),
+        safeFetchSubDocs('stocks'),
+        safeFetchSubDocs('employees'),
+      ]);
 
-    return {
-      success: true,
-      data: {
-        profile: profile || memData?.profile,
-        farmers,
-        lots,
-        shipments,
-        payments,
-        settlements,
-        stocks,
-        employees,
-      },
-    };
-  } catch {
-    // Return in-memory merchant data fallback
-    return {
-      success: true,
-      data: memData || {
-        profile: undefined,
-        farmers: [],
-        lots: [],
-        shipments: [],
-        payments: [],
-        settlements: [],
-        stocks: [],
-        employees: [],
-      },
-    };
+      return {
+        success: true,
+        data: {
+          profile: profile || memData?.profile,
+          farmers,
+          lots,
+          shipments,
+          payments,
+          settlements,
+          stocks,
+          employees,
+        },
+      };
+    } catch (err: any) {
+      console.warn('[Data Handler Fetch Note]', err?.message || err);
+    }
   }
+
+  // Return in-memory merchant data fallback
+  return {
+    success: true,
+    data: memData || {
+      profile: undefined,
+      farmers: [],
+      lots: [],
+      shipments: [],
+      payments: [],
+      settlements: [],
+      stocks: [],
+      employees: [],
+    },
+  };
 }
 
 /**
@@ -212,9 +210,12 @@ export async function handleDeleteData(userPhone: string, itemType: string, item
     memMerchants.set(merchantId, memData);
   }
 
-  try {
-    await db.collection('merchants').doc(merchantId).collection(itemType).doc(String(itemId)).delete();
-  } catch {}
+  const db = getAdminDb();
+  if (db) {
+    try {
+      await db.collection('merchants').doc(merchantId).collection(itemType).doc(String(itemId)).delete();
+    } catch {}
+  }
 
   return { success: true, message: `Item ${itemId} deleted from ${itemType}.` };
 }
