@@ -2,8 +2,6 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, signInAnonymously, onAuthStateChanged, ConfirmationResult } from 'firebase/auth';
 import {
   getFirestore,
-  doc,
-  getDocFromServer,
   initializeFirestore,
   persistentLocalCache,
   persistentSingleTabManager,
@@ -127,12 +125,13 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // Connection test on boot
 export async function testFirestoreConnection() {
   try {
-    await ensureFirebaseAuth();
-    await getDocFromServer(doc(db, 'test', 'connection'));
-    console.log('Firestore connection online verified successfully.');
+    const res = await fetch('/api/health');
+    if (res.ok) {
+      console.log('Server health connection online verified successfully.');
+    }
   } catch (error) {
     if (error instanceof Error) {
-      console.warn('Firestore initial connection note:', error.message);
+      console.warn('Initial server connection note:', error.message);
     }
   }
 }

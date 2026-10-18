@@ -1530,20 +1530,32 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     return () => clearInterval(timer);
   }, [forgotOtpResendTimer]);
 
-  // Quick Login for Saved Accounts - pre-fills mobile and requires password entry
+  // Direct Login for Saved Accounts - logs in directly without asking for password again
   const handleQuickAccountLogin = (acct: (typeof registeredAccounts)[0]) => {
-    sounds.playBidTick();
-    setAuthMode('login');
-    setAuthMethod('phone');
-    setLoginIdentifier(acct.phoneNumber);
-    setLoginPassword('');
-    setErrorMsg(`Selected account +91 ${acct.phoneNumber}. Please enter your password to log in.`);
-    setTimeout(() => {
-      document.getElementById('login-password-input')?.focus();
-    }, 100);
+    sounds.playCashChime();
+    const cleanPhone = acct.phoneNumber.replace(/\D/g, '').slice(-10);
+    switchUserAccount(cleanPhone);
+
+    if (cleanPhone.endsWith('9110387978')) {
+      setPortalMode('admin');
+    } else {
+      setPortalMode(acct.role || 'merchant');
+    }
+
+    if (acct.selectedCommodities && acct.selectedCommodities.length > 0) {
+      setUserCommodities(acct.selectedCommodities);
+    }
+
+    try {
+      localStorage.setItem('bharatmandi_onboarding_completed', 'true');
+      localStorage.setItem('bharatmandi_user_role', acct.role || 'merchant');
+      localStorage.setItem('bharatmandi_active_phone_v1', cleanPhone);
+    } catch {}
+
+    onComplete();
   };
 
-  // Standard Password Login (No OTP)
+  // Standard Password or Direct Saved Account Login
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -1554,6 +1566,19 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       setErrorMsg("Please enter a valid 10-digit registered mobile number");
       return;
     }
+
+    // Check if this account is saved on this device
+    const matchedSavedAccount = registeredAccounts.find(
+      (a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanLoginPhone
+    );
+
+    if (matchedSavedAccount) {
+      // Direct login for saved accounts on device without asking password again
+      handleQuickAccountLogin(matchedSavedAccount);
+      return;
+    }
+
+    // Unsaved account on this device — password required
     if (!loginPassword) {
       setErrorMsg('Please enter your password');
       return;
@@ -1574,10 +1599,12 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     // Login Successful
     sounds.playCashChime();
     const verifiedPhone = result.account?.phoneNumber || loginIdentifier;
-    if (verifiedPhone.replace(/\D/g, '').endsWith('9110387978')) {
+    const cleanVerifiedPhone = verifiedPhone.replace(/\D/g, '').slice(-10);
+
+    if (cleanVerifiedPhone.endsWith('9110387978')) {
       setPortalMode('admin');
     } else {
-      setPortalMode('merchant');
+      setPortalMode(result.account?.role || 'merchant');
     }
     if (result.account?.selectedCommodities && result.account.selectedCommodities.length > 0) {
       setUserCommodities(result.account.selectedCommodities);
@@ -1585,10 +1612,8 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
     try {
       localStorage.setItem('bharatmandi_onboarding_completed', 'true');
-      localStorage.setItem('bharatmandi_user_role', 'merchant');
-      if (result.account?.phoneNumber) {
-        localStorage.setItem('bharatmandi_active_phone_v1', result.account.phoneNumber);
-      }
+      localStorage.setItem('bharatmandi_user_role', result.account?.role || 'merchant');
+      localStorage.setItem('bharatmandi_active_phone_v1', cleanVerifiedPhone);
     } catch {}
 
     onComplete();
@@ -2193,106 +2218,125 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
             )}
 
             {/* Standard Login Form */}
-            <form onSubmit={handlePasswordLogin} className="space-y-4">
-              <div>
-                <label htmlFor="login-identifier-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                  Mobile Number (10 Digits) *
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3 font-bold text-slate-500 text-sm">🇮🇳 +91</span>
-                  <input
-                    id="login-identifier-input"
-                    type="tel"
-                    maxLength={10}
-                    value={loginIdentifier}
-                    onChange={(e) => {
-                      let val = e.target.value.replace(/\D/g, "");
-                      if (val.length > 0 && !/[6-9]/.test(val[0])) {
-                        val = "";
-                      }
-                      setLoginIdentifier(val.slice(0, 10));
-                    }}
-                    placeholder="9849012345"
-                    className="w-full pl-20 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-sm text-[#1e293b] outline-none"
-                    required
-                  />
-                </div>
-              </div>
+            {(() => {
+              const cleanLoginPhone = loginIdentifier.replace(/\D/g, "").slice(-10);
+              const isSavedAccountMatched = Boolean(
+                cleanLoginPhone.length === 10 &&
+                registeredAccounts.some((a) => a.phoneNumber.replace(/\D/g, "").slice(-10) === cleanLoginPhone)
+              );
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="login-password-input" className="text-xs font-black uppercase tracking-wider text-[#1a3a52]">
-                    Password *
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sounds.playBidTick();
-                      setAuthMode('forgot-password');
-                      setForgotStep('request');
-                      setForgotIdentifier(loginIdentifier);
-                      setErrorMsg('');
-                      setSuccessMsg('');
-                    }}
-                    className="text-xs font-bold text-[#1a3a52] hover:underline cursor-pointer"
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-3.5 text-slate-400">
-                    <Lock className="w-5 h-5" />
-                  </span>
-                  <input
-                    id="login-password-input"
-                    type={showPassword ? 'text' : 'password'}
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="Enter your merchant password"
-                    className="w-full pl-11 pr-11 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
+              return (
+                <form onSubmit={handlePasswordLogin} className="space-y-4">
+                  <div>
+                    <label htmlFor="login-identifier-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                      Mobile Number (10 Digits) *
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3 font-bold text-slate-500 text-sm">🇮🇳 +91</span>
+                      <input
+                        id="login-identifier-input"
+                        type="tel"
+                        maxLength={10}
+                        value={loginIdentifier}
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/\D/g, "");
+                          if (val.length > 0 && !/[6-9]/.test(val[0])) {
+                            val = "";
+                          }
+                          setLoginIdentifier(val.slice(0, 10));
+                        }}
+                        placeholder="9849012345"
+                        className="w-full pl-20 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-sm text-[#1e293b] outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
 
-              <button
-                type="submit"
-                id="btn-login-submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
-              >
-                <span>Log In to Dashboard</span>
-                <ArrowRight className="w-4 h-4 text-[#d4af37]" />
-              </button>
+                  {isSavedAccountMatched ? (
+                    <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold">
+                      <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 shrink-0" />
+                      <span>Saved account on this device — Direct Auto-Login active (Password saved)</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label htmlFor="login-password-input" className="text-xs font-black uppercase tracking-wider text-[#1a3a52]">
+                          Password *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sounds.playBidTick();
+                            setAuthMode('forgot-password');
+                            setForgotStep('request');
+                            setForgotIdentifier(loginIdentifier);
+                            setErrorMsg('');
+                            setSuccessMsg('');
+                          }}
+                          className="text-xs font-bold text-[#1a3a52] hover:underline cursor-pointer"
+                        >
+                          Forgot Password?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-3.5 text-slate-400">
+                          <Lock className="w-5 h-5" />
+                        </span>
+                        <input
+                          id="login-password-input"
+                          type={showPassword ? 'text' : 'password'}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="Enter your merchant password"
+                          className="w-full pl-11 pr-11 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
+                          required={!isSavedAccountMatched}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-              {/* Small letters switch to Sign Up */}
-              <div className="text-center pt-3 border-t border-slate-200">
-                <p className="text-xs text-slate-500 font-medium">
-                  Don't have an account?{' '}
                   <button
-                    type="button"
-                    id="switch-to-signup-btn"
-                    onClick={() => {
-                      sounds.playBidTick();
-                      setAuthMode('signup');
-                      setSignupStep('details');
-                      setErrorMsg('');
-                      setSuccessMsg('');
-                    }}
-                    className="font-black text-[#1a3a52] hover:underline cursor-pointer ml-1"
+                    type="submit"
+                    id="btn-login-submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                   >
-                    Sign Up New Merchant
+                    <span>
+                      {isSavedAccountMatched ? 'Log In Directly (Saved Account)' : 'Log In to Dashboard'}
+                    </span>
+                    <ArrowRight className="w-4 h-4 text-[#d4af37]" />
                   </button>
-                </p>
-              </div>
-            </form>
+
+                  {/* Small letters switch to Sign Up */}
+                  <div className="text-center pt-3 border-t border-slate-200">
+                    <p className="text-xs text-slate-500 font-medium">
+                      Don't have an account?{' '}
+                      <button
+                        type="button"
+                        id="switch-to-signup-btn"
+                        onClick={() => {
+                          sounds.playBidTick();
+                          setAuthMode('signup');
+                          setSignupStep('details');
+                          setErrorMsg('');
+                          setSuccessMsg('');
+                        }}
+                        className="font-black text-[#1a3a52] hover:underline cursor-pointer ml-1"
+                      >
+                        Sign Up New Merchant
+                      </button>
+                    </p>
+                  </div>
+                </form>
+              );
+            })()}
           </div>
         )}
 

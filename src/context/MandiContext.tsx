@@ -45,8 +45,7 @@ import {
   syncLocalToSupabase,
   fetchUserCloudData,
 } from '../services/supabaseSync';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+
 import {
   syncToFirestore,
   fetchFromFirestore,
@@ -1788,13 +1787,12 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(cleanForStorage));
     } catch {}
 
-    // Persist directly to Cloud Firestore under registeredAccounts/cleanPhone
+    // Persist via server data sync route
     try {
-      const accRef = doc(db, 'registeredAccounts', cleanPhone);
-      const { password, ...securePayload } = updatedAccount as any;
-      await setDoc(accRef, cleanUndefinedValues(securePayload), { merge: true });
+      const cleanForSync = updatedAccounts.map(({ password, ...clean }: any) => clean);
+      await syncToFirestore({ registeredAccounts: cleanForSync });
     } catch (err) {
-      console.warn('Error saving updated password to Firestore:', err);
+      console.warn('Error syncing updated password account to server:', err);
     }
 
     return { success: true };
