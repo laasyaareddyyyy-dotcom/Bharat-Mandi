@@ -358,6 +358,8 @@ export const Navbar: React.FC = () => {
               <span>{t('tabFarmers')}</span>
             </button>
 
+
+
             <button
               type="button"
               id="desktop-nav-support"

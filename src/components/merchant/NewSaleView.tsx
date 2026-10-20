@@ -69,7 +69,7 @@ const getSafeCommodityConfig = (cat?: string) => {
   return COMMODITY_CONFIGS.flowers;
 };
 
-export const NewSaleView: React.FC = () => {
+export const NewSaleView: React.FC<{ targetMerchantId?: string }> = ({ targetMerchantId }) => {
   const {
     farmers,
     addFarmer,
@@ -82,13 +82,14 @@ export const NewSaleView: React.FC = () => {
     setSelectedParchiLot,
     openEditParchiModal,
     merchantProfile,
+    registeredAccounts,
+    currentUserAccount,
     activeSessionDate,
     setActiveSessionDate,
     setIsDateSwitcherOpen,
     setMerchantTab,
     openPdfModalForLot,
     userCommodities,
-    registeredAccounts,
     activeCommodityFilter,
     addCustomVarietyName,
     language,
@@ -509,6 +510,8 @@ export const NewSaleView: React.FC = () => {
       farmerName: targetFarmer.name,
       farmerVillage: targetFarmer.village,
       farmerPhone: targetFarmer.phone,
+      merchantId: merchantProfile.merchantId,
+      merchantName: merchantProfile.shopName || 'Flower Mandi',
       items: computedVarietyRows.map((r) => ({
         id: r.id,
         commodityCategory: r.commodityCategory || userCommodities[0] || 'flowers',

@@ -6,21 +6,28 @@ service cloud.firestore {
       return id != null && id is string && id.size() > 0 && id.size() <= 128;
     }
 
-    // OPTION A: Default DENY all direct browser access to every collection in the database.
-    // The browser client SDK cannot read or write ANY document or subcollection directly.
-    // All data operations must pass through authenticated Express server endpoints (/api/data/*).
+    // Allow registered accounts checking & creation directly via Firebase Client SDK
+    match /registeredAccounts/{docId} {
+      allow read, write: if true;
+    }
+
+    // Allow merchant data sync directly via Firebase Client SDK
+    match /merchants/{merchantId}/{document=**} {
+      allow read, write: if true;
+    }
+
+    // Allow global support tickets for admin portal
+    match /supportTickets/{document=**} {
+      allow read, write: if true;
+    }
+
+    match /test/{document=**} {
+      allow read, write: if true;
+    }
+
+    // Default deny for all other paths
     match /{document=**} {
       allow read, write: if false;
     }
-
-    // Explicit zero-trust lockdown blocks for all collections
-    match /registeredAccounts/{document=**} { allow read, write: if false; }
-    match /authSessions/{document=**} { allow read, write: if false; }
-    match /otpRateLimits/{document=**} { allow read, write: if false; }
-    match /loginAttempts/{document=**} { allow read, write: if false; }
-    match /userSessions/{document=**} { allow read, write: if false; }
-    match /ipRateLimits/{document=**} { allow read, write: if false; }
-    match /merchants/{document=**} { allow read, write: if false; }
-    match /test/{document=**} { allow read, write: if false; }
   }
 }

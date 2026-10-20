@@ -74,3 +74,39 @@ export async function verifyPasswordHash(
 
   return false;
 }
+
+/**
+ * Validate username format: 3-20 chars, letters, numbers, underscore, dot
+ */
+export function isValidUsername(username: string): boolean {
+  if (!username) return false;
+  const clean = username.trim();
+  return /^[a-zA-Z0-9._]{3,20}$/.test(clean);
+}
+
+/**
+ * Block easily guessable / simple repeating / sequential 6-digit PINs
+ */
+export function isWeakPin(pin: string): boolean {
+  if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) return true;
+  const weakPins = [
+    '000000',
+    '111111',
+    '222222',
+    '333333',
+    '444444',
+    '555555',
+    '666666',
+    '777777',
+    '888888',
+    '999999',
+    '123456',
+    '654321',
+    '012345',
+    '543210',
+  ];
+  return weakPins.includes(pin);
+}
+
+export const hashPin = hashPassword;
+export const verifyPinHash = verifyPasswordHash;

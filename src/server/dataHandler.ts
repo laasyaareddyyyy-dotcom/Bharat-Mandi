@@ -117,6 +117,13 @@ export async function handleSyncData(userPhone: string, data: any) {
           await merchantRef.collection('employees').doc(String(emp.id)).set(cleanUndefinedValues(emp), { merge: true });
         }
       }
+
+      if (Array.isArray(data.workerRequests)) {
+        for (const wreq of data.workerRequests) {
+          if (!wreq.id) continue;
+          await merchantRef.collection('workerRequests').doc(String(wreq.id)).set(cleanUndefinedValues(wreq), { merge: true });
+        }
+      }
     } catch (err: any) {
       console.warn('[Data Handler Sync Note]', err?.message || err);
     }
@@ -151,7 +158,7 @@ export async function handleFetchData(userPhone: string) {
         return memData?.[collectionName] || [];
       };
 
-      const [farmers, lots, shipments, payments, settlements, stocks, employees] = await Promise.all([
+      const [farmers, lots, shipments, payments, settlements, stocks, employees, workerRequests] = await Promise.all([
         safeFetchSubDocs('farmers'),
         safeFetchSubDocs('lots'),
         safeFetchSubDocs('shipments'),
@@ -159,6 +166,7 @@ export async function handleFetchData(userPhone: string) {
         safeFetchSubDocs('settlements'),
         safeFetchSubDocs('stocks'),
         safeFetchSubDocs('employees'),
+        safeFetchSubDocs('workerRequests'),
       ]);
 
       return {
@@ -172,6 +180,7 @@ export async function handleFetchData(userPhone: string) {
           settlements,
           stocks,
           employees,
+          workerRequests,
         },
       };
     } catch (err: any) {

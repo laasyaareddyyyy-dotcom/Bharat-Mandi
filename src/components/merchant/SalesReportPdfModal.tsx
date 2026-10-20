@@ -445,6 +445,8 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
               </select>
             </div>
 
+
+
             <div>
               <label htmlFor="sales-report-commodity" className="block text-[11px] font-black uppercase tracking-wider text-[#1a3a52] mb-1">
                 Commodity Filter

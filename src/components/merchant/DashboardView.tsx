@@ -68,7 +68,6 @@ export const DashboardView: React.FC = () => {
   const [filterLocation, setFilterLocation] = useState<string>('all');
   const [filterMinAmount, setFilterMinAmount] = useState<string>('');
   const [filterMaxAmount, setFilterMaxAmount] = useState<string>('');
-
   const [deleteModalConfig, setDeleteModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -270,6 +269,8 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-200">
+
+
       {/* SECTION 1: NET FARMER TOTAL AT THE TOP */}
       <section className="space-y-2">
         <div className="flex items-center gap-2 border-b-2 border-[#1a3a52]/20 pb-2">
@@ -641,8 +642,6 @@ export const DashboardView: React.FC = () => {
                 </div>
 
 
-
-                {/* Location / Village */}
                 <div>
                   <label className="text-[10px] uppercase font-bold text-[#64748b] block mb-1">
                     Location / Village

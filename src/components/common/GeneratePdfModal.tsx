@@ -165,6 +165,8 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
     if (lots && lots.length > 0) {
       return lots.map((l) => ({
         id: l.id,
+        parchiNumber: l.parchiNumber,
+        date: l.date,
         flowerVariety: l.flowerVariety,
         flowerQuality: l.flowerQuality || 'Good',
         quantity: Number(l.quantity) || 0,
@@ -175,6 +177,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
         packagingType: l.packagingType || 'Boxes',
         rate: Number(l.rate) || 0,
         grossTotal: Number(l.grossTotal) || Math.round(Number(l.quantity) * Number(l.rate)),
+        workerName: l.workerName,
       }));
     }
 
@@ -186,6 +189,8 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
     return [
       {
         id: lot?.id || 'item-1',
+        parchiNumber: lot?.parchiNumber || draftData?.parchiNumber,
+        date: lot?.date || draftData?.date,
         flowerVariety: lot?.flowerVariety || draftData?.flowerVariety || 'Mixed Flowers',
         flowerQuality: lot?.flowerQuality || draftData?.flowerQuality || 'Good',
         quantity: q,
@@ -194,6 +199,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
         packagingType: lot?.packagingType || draftData?.packagingType || 'Boxes',
         rate: r,
         grossTotal: g,
+        workerName: lot?.workerName,
       },
     ];
   }, [draftData, linkedShipment, lots, lot]);

@@ -147,6 +147,7 @@ interface MandiContextType {
   switchUserAccount: (phone: string) => void;
   verifyPasswordAndLogin: (identifier: string, passwordInput: string) => Promise<{ success: boolean; error?: string; account?: RegisteredAccount }>;
   resetUserPassword: (identifier: string, newPasswordInput: string) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
+  changeUserPin: (currentPin: string, newPin: string) => Promise<{ success: boolean; error?: string }>;
   registerNewAccount: (account: Omit<RegisteredAccount, 'id' | 'createdAt'>) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
   checkUniqueness: (params: { shopName?: string; shopAddress?: string; phoneNumber?: string; excludePhone?: string }) => UniquenessCheckResult;
   logoutCurrentUser: () => void;
@@ -230,6 +231,8 @@ interface MandiContextType {
   connectionRequests: ConnectionRequest[];
   acceptConnectionRequest: (requestId: string) => void;
   declineConnectionRequest: (requestId: string) => void;
+
+
 
   // Stock Management
   stocks: StockItem[];
@@ -533,6 +536,19 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const saved = localStorage.getItem(GLOBAL_STORAGE_KEYS.PORTAL) as PortalMode;
     return saved || 'merchant';
   });
+
+  // Keep portalMode strictly synchronized with the current active user role
+  useEffect(() => {
+    if (currentUserAccount?.role) {
+      const role = currentUserAccount.role;
+      if (role === 'merchant' || role === 'farmer' || role === 'admin') {
+        setPortalModeState(role as PortalMode);
+        try {
+          localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, role);
+        } catch {}
+      }
+    }
+  }, [currentUserAccount?.role]);
 
   const [merchantTab, setMerchantTab] = useState<MerchantTab>('dashboard');
   const [dashboardTab, setDashboardTab] = useState<'summary' | 'ledger' | 'merchant-info' | 'tools-settings'>('summary');
@@ -1676,7 +1692,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  // Verify Password & Login with Server-side Authentication & 15-Minute Lockout
+  // Verify Password & Login with Instant Local & Firestore Authentication
   const verifyPasswordAndLogin = async (
     identifier: string,
     passwordInput: string
@@ -1691,39 +1707,78 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return { success: false, error: 'Please enter your password.' };
     }
 
-    // Call server endpoint for strict password comparison and 15-min lockout enforcement
-    const serverResult = await loginOnServer(cleanPhone, passwordInput);
-    if (!serverResult.success) {
-      return {
-        success: false,
-        error: serverResult.error || 'Incorrect password.',
-        isLocked: serverResult.isLocked,
-      };
+    // 1. Check in-memory registered accounts
+    let foundAccount = registeredAccounts.find(
+      (a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone
+    );
+
+    // 2. Fallback to Cloud Firestore
+    if (!foundAccount) {
+      try {
+        foundAccount = await fetchUserAccountByPhone(cleanPhone);
+      } catch (err) {
+        console.warn('Firestore fetch user account error:', err);
+      }
     }
 
-    const foundAccount: RegisteredAccount = serverResult.account || {
-      id: `USR-${cleanPhone}`,
-      merchantId: `merchant-${cleanPhone}`,
-      phoneNumber: cleanPhone,
-      fullName: 'Mandi Merchant',
-      shopOrVillage: 'Wholesale Shop',
-      licenseOrCrop: 'Verified Trader',
-      role: 'merchant',
-      createdAt: getTodayDateString(),
-    };
+    // 3. Local Password Verification
+    if (foundAccount) {
+      let isMatch = false;
+      if (foundAccount.password && foundAccount.password === passwordInput) {
+        isMatch = true;
+      } else if (foundAccount.pinHash && foundAccount.pinHash === passwordInput) {
+        isMatch = true;
+      } else if (foundAccount.pinHash) {
+        try {
+          isMatch = await verifyPasswordHash(passwordInput, foundAccount.pinHash);
+        } catch {
+          isMatch = false;
+        }
+      }
 
-    setRegisteredAccounts((prev) => {
-      const updated = deduplicateRegisteredAccounts([...prev, foundAccount]);
+      if (isMatch) {
+        setRegisteredAccounts((prev) => {
+          const updated = deduplicateRegisteredAccounts([...prev, foundAccount!]);
+          try {
+            localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+
+        switchUserAccount(foundAccount.phoneNumber);
+        setPortalModeState(foundAccount.role || 'merchant');
+        try {
+          localStorage.setItem(GLOBAL_STORAGE_KEYS.ONBOARDING_DONE, 'true');
+          localStorage.setItem(GLOBAL_STORAGE_KEYS.ACTIVE_ROLE, foundAccount.role || 'merchant');
+          localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, foundAccount.role || 'merchant');
+          localStorage.setItem(GLOBAL_STORAGE_KEYS.ACTIVE_USER_PHONE, cleanPhone);
+        } catch {}
+        return { success: true, account: foundAccount };
+      } else {
+        return { success: false, error: 'Incorrect password. Please re-enter your password.' };
+      }
+    }
+
+    // 4. Server Endpoint Fallback
+    const serverResult = await loginOnServer(cleanPhone, passwordInput);
+    if (serverResult.success && serverResult.account) {
+      const acct = serverResult.account;
+      setRegisteredAccounts((prev) => deduplicateRegisteredAccounts([...prev, acct]));
+      switchUserAccount(acct.phoneNumber);
+      setPortalModeState(acct.role || 'merchant');
       try {
-        const cleanForStorage = updated.map(({ password, passwordHash, pinHash, ...clean }: any) => clean);
-        localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(cleanForStorage));
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.ONBOARDING_DONE, 'true');
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.ACTIVE_ROLE, acct.role || 'merchant');
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, acct.role || 'merchant');
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.ACTIVE_USER_PHONE, cleanPhone);
       } catch {}
-      return updated;
-    });
+      return { success: true, account: acct };
+    }
 
-    // Switch account immediately and pull user's cloud dataset
-    switchUserAccount(foundAccount.phoneNumber);
-    return { success: true, account: foundAccount };
+    return {
+      success: false,
+      error: serverResult.error || 'Account not found for this mobile number. Please Sign Up first.',
+    };
   };
 
   // Reset User Password
@@ -1783,16 +1838,86 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     setRegisteredAccounts(updatedAccounts);
     try {
-      const cleanForStorage = updatedAccounts.map(({ password, passwordHash, pinHash, ...clean }: any) => clean);
-      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(cleanForStorage));
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
     } catch {}
 
     // Persist via server data sync route
     try {
-      const cleanForSync = updatedAccounts.map(({ password, ...clean }: any) => clean);
+      const cleanForSync = updatedAccounts.map((a: any) => ({
+        ...a,
+        pinHash: a.pinHash || a.password,
+        passwordHash: a.passwordHash || a.pinHash || a.password,
+      }));
       await syncToFirestore({ registeredAccounts: cleanForSync });
     } catch (err) {
       console.warn('Error syncing updated password account to server:', err);
+    }
+
+    return { success: true };
+  };
+
+  const changeUserPin = async (
+    currentPin: string,
+    newPin: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUserAccount) {
+      return { success: false, error: 'No active logged-in account.' };
+    }
+    if (!currentPin) {
+      return { success: false, error: 'Please enter your current 6-digit PIN.' };
+    }
+    if (!newPin || newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+      return { success: false, error: 'New PIN must be exactly 6 numeric digits.' };
+    }
+    const { isWeakPin, verifyPasswordHash, hashPassword } = await import('../utils/cryptoUtils');
+    if (isWeakPin(newPin)) {
+      return {
+        success: false,
+        error: 'This PIN is too weak/simple (e.g. 111111, 123456, 000000). Please choose a stronger 6-digit PIN.',
+      };
+    }
+
+    const accountPhone = currentUserAccount.phoneNumber.replace(/\D/g, '').slice(-10);
+    const isCurrentValid = await verifyPasswordHash(
+      currentPin,
+      currentUserAccount.pinHash || currentUserAccount.password,
+      currentUserAccount.password,
+      accountPhone
+    );
+
+    if (!isCurrentValid) {
+      return { success: false, error: 'Current 6-digit PIN is incorrect.' };
+    }
+
+    const hashedPin = await hashPassword(newPin, accountPhone);
+    const updatedAccount: RegisteredAccount = {
+      ...currentUserAccount,
+      pinHash: hashedPin,
+      password: hashedPin,
+    };
+
+    const updatedAccounts = registeredAccounts.map((a) => {
+      const aPhone = a.phoneNumber.replace(/\D/g, '').slice(-10);
+      if (aPhone === accountPhone) {
+        return updatedAccount;
+      }
+      return a;
+    });
+
+    setRegisteredAccounts(updatedAccounts);
+    try {
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+    } catch {}
+
+    try {
+      const cleanForSync = updatedAccounts.map((a: any) => ({
+        ...a,
+        pinHash: a.pinHash || a.password,
+        passwordHash: a.passwordHash || a.pinHash || a.password,
+      }));
+      await syncToFirestore({ registeredAccounts: cleanForSync });
+    } catch (err) {
+      console.warn('Error syncing updated PIN to server:', err);
     }
 
     return { success: true };
@@ -1924,8 +2049,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const updatedAccounts = [...registeredAccounts, newAccount];
     setRegisteredAccounts(updatedAccounts);
     try {
-      const cleanForStorage = updatedAccounts.map(({ password, passwordHash, pinHash, ...clean }: any) => clean);
-      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(cleanForStorage));
+      localStorage.setItem(GLOBAL_STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
     } catch {}
 
     // Initialize Merchant Profile with assigned Merchant ID
@@ -2465,8 +2589,8 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       id: `lot-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       parchiNumber,
       time,
-      merchantId: merchantProfile.merchantId || `MANDI-${currentUserPhone.slice(-4)}`,
-      merchantName: merchantProfile.shopName || 'Mandi Shop',
+      merchantId: lotData.merchantId || merchantProfile.merchantId || `MANDI-${currentUserPhone.slice(-4)}`,
+      merchantName: lotData.merchantName || merchantProfile.shopName || 'Mandi Shop',
     };
 
     setLots((prev) => deduplicateLots([newLot, ...prev]));
@@ -2533,6 +2657,9 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const commissionAmount = Number(shipmentData.commissionAmount) || (commissionPercent > 0 ? Math.round((grossTotal * commissionPercent) / 100) : 0);
     const netAmountAfterDailyCuts = Math.max(0, grossTotal - transportCharge - hamaliCharge - commissionAmount);
 
+    const resolvedMerchantId = shipmentData.merchantId || merchantProfile.merchantId || `MANDI-${currentUserPhone.slice(-4)}`;
+    const resolvedMerchantName = shipmentData.merchantName || merchantProfile.shopName || 'Flower Mandi';
+
     const newShipment: Shipment = {
       ...shipmentData,
       id: `shp-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -2547,8 +2674,8 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       paymentStatus: shipmentData.paymentStatus || 'Unpaid',
       amountPaid: shipmentData.amountPaid || 0,
       balanceDue: netAmountAfterDailyCuts - (shipmentData.amountPaid || 0),
-      merchantId: merchantProfile.merchantId || `MANDI-${currentUserPhone.slice(-4)}`,
-      merchantName: merchantProfile.shopName || 'Flower Mandi',
+      merchantId: resolvedMerchantId,
+      merchantName: resolvedMerchantName,
     };
 
     setShipments((prev) => deduplicateShipments([newShipment, ...prev]));
@@ -3229,6 +3356,8 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   };
 
+
+
   // Get Pair-wise Connection Status between Farmer & Merchant
   const getConnectionStatus = useCallback(
     (farmerPhone: string, merchantIdOrPhone?: string): ConnectionStatus => {
@@ -3829,6 +3958,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         switchUserAccount,
         verifyPasswordAndLogin,
         resetUserPassword,
+        changeUserPin,
         registerNewAccount,
         checkUniqueness,
         logoutCurrentUser,
@@ -3870,6 +4000,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         sendConnectionRequest,
         getConnectionStatus,
         disconnectFarmerAndMerchant,
+
         syncedStatements,
         syncStatementToFarmer,
         deleteSyncedStatement,

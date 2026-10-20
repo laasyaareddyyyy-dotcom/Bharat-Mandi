@@ -116,6 +116,9 @@ export interface SaleLot {
   merchantId?: string;
   merchantName?: string;
   shipmentId?: string;
+  workerId?: string;
+  workerName?: string;
+  isWorkerEntry?: boolean;
 }
 
 export interface ShipmentItem {
@@ -159,6 +162,9 @@ export interface Shipment {
   notes?: string;
   merchantId?: string;
   merchantName?: string;
+  workerId?: string;
+  workerName?: string;
+  isWorkerEntry?: boolean;
 }
 
 export interface FifteenDaySettlement {
@@ -319,6 +325,7 @@ export interface ConnectionRequest {
 export interface RegisteredAccount {
   id: string;
   merchantId?: string;
+  username?: string;
   phoneNumber: string;
   email?: string;
   password?: string;
@@ -337,6 +344,15 @@ export interface RegisteredAccount {
   photoUrl?: string;
   passwordResetAt?: string;
   createdAt: string;
+}
+
+export interface SavedProfile {
+  id: string;
+  username: string;
+  fullName: string;
+  phoneNumber: string;
+  shopOrVillage?: string;
+  photoUrl?: string;
 }
 
 export interface ReportFilters {

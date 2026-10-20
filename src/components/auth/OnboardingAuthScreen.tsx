@@ -10,6 +10,7 @@ import {
   Check,
   ChevronRight,
   AlertCircle,
+  AlertTriangle,
   Mail,
   Lock,
   KeyRound,
@@ -33,11 +34,17 @@ import { sendPhoneOtp, verifyPhoneOtp, isSupabaseConfigured } from '../../servic
 import { fetchUserAccountByPhone } from '../../services/firestoreSync';
 import {
   checkUserOnServer,
+  checkUsernameOnServer,
   sendOtpOnServer,
   verifyOtpOnServer,
   registerPasswordOnServer,
   resetPasswordOnServer,
+  loginOnServer,
+  getSavedProfilesFromDevice,
+  saveProfileToDevice,
+  removeProfileFromDevice,
 } from '../../services/serverAuth';
+import { isWeakPin, isValidUsername } from '../../utils/cryptoUtils';
 
 type AuthViewMode = 'login' | 'signup' | 'forgot-password';
 type SignupStep = 'details' | 'otp' | 'commodities';
@@ -1451,68 +1458,103 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     registerNewAccount,
     switchUserAccount,
     verifyPasswordAndLogin,
-    resetUserPassword,
     setUserCommodities,
     deleteRegisteredAccount,
   } = useMandi();
 
-  // Auth Mode State
-  const [authMode, setAuthMode] = useState<AuthViewMode>('signup');
-  const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
+  // Saved Profiles list state
+  const [savedProfiles, setSavedProfiles] = useState<any[]>(() => {
+    const fromDevice = getSavedProfilesFromDevice();
+    if (fromDevice && fromDevice.length > 0) return fromDevice;
+    return registeredAccounts.map((a) => ({
+      id: a.id || `USR-${a.phoneNumber}`,
+      username: a.username || `trader_${a.phoneNumber.slice(-4)}`,
+      fullName: a.fullName || 'Mandi Merchant',
+      phoneNumber: a.phoneNumber,
+      shopOrVillage: a.shopOrVillage || (a as any).shopName || '',
+      photoUrl: a.photoUrl || '',
+    }));
+  });
 
-  // Input Fields
+  const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
+  const [isManagingProfiles, setIsManagingProfiles] = useState<boolean>(false);
+  const [profileToRemove, setProfileToRemove] = useState<any | null>(null);
+
+  // Auth Mode State (default to login if saved profiles exist)
+  const [authMode, setAuthMode] = useState<AuthViewMode>(() =>
+    savedProfiles.length > 0 ? 'login' : 'signup'
+  );
+
+  // Login Input Fields
   const [loginIdentifier, setLoginIdentifier] = useState<string>('');
-  const [loginPassword, setLoginPassword] = useState<string>('');
-  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [loginPin, setLoginPin] = useState<string>('');
+  const [showLoginPin, setShowLoginPin] = useState<boolean>(false);
 
-  // Forgot Password state
-  const [forgotStep, setForgotStep] = useState<'request' | 'otp' | 'new-password'>('request');
-  const [forgotIdentifier, setForgotIdentifier] = useState<string>('');
+  // Lockout state
+  const [lockoutMsg, setLockoutMsg] = useState<string>('');
+
+  // Forgot PIN state
+  const [forgotStep, setForgotStep] = useState<'request' | 'otp' | 'new-pin'>('request');
+  const [forgotPhone, setForgotPhone] = useState<string>('');
   const [forgotOtp, setForgotOtp] = useState<string[]>(['', '', '', '', '', '']);
-  const [newPassword, setNewPassword] = useState<string>('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState<string>('');
-  const [forgotOtpExpiresAt, setForgotOtpExpiresAt] = useState<number | null>(null);
+  const [newPin, setNewPin] = useState<string>('');
+  const [confirmNewPin, setConfirmNewPin] = useState<string>('');
   const [forgotOtpResendTimer, setForgotOtpResendTimer] = useState<number>(0);
-  const [forgotOtpResendCount, setForgotOtpResendCount] = useState<number>(0);
   const [forgotOtpAttempts, setForgotOtpAttempts] = useState<number>(0);
 
-  // Sign Up Form State
-  const [signupStep, setSignupStep] = useState<SignupStep>('details');
-  const [signupSubStep, setSignupSubStep] = useState<1 | 2 | 3 | 4>(1);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [fullName, setFullName] = useState<string>('');
+  // Sign Up Form State (5 Steps: Step 1 Mobile -> Step 2 OTP -> Step 3 Username -> Step 4 Merchant Details -> Step 5 PIN)
+  const [signupStep, setSignupStep] = useState<'phone' | 'otp' | 'username' | 'merchant_details' | 'pin'>('phone');
   const [signupPhone, setSignupPhone] = useState<string>('');
-  const [signupEmail, setSignupEmail] = useState<string>('');
-  const [signupPassword, setSignupPassword] = useState<string>('');
-  const [signupConfirmPassword, setSignupConfirmPassword] = useState<string>('');
-  const [showSignupPassword, setShowSignupPassword] = useState<boolean>(false);
+  const [signupOtp, setSignupOtp] = useState<string[]>(['', '', '', '', '', '']);
+  const [otpResendTimer, setOtpResendTimer] = useState<number>(0);
+  const [signupUsername, setSignupUsername] = useState<string>('');
+  const [usernameChecking, setUsernameChecking] = useState<boolean>(false);
+  const [usernameTaken, setUsernameTaken] = useState<boolean>(false);
+  const [signupPin, setSignupPin] = useState<string>('');
+  const [signupConfirmPin, setSignupConfirmPin] = useState<string>('');
+  const [showSignupPin, setShowSignupPin] = useState<boolean>(false);
+
+  // Merchant details for signup (Step 4)
+  const [fullName, setFullName] = useState<string>('');
   const [shopName, setShopName] = useState<string>('');
   const [shopNumber, setShopNumber] = useState<string>('');
   const [shopAddress, setShopAddress] = useState<string>('');
+  const [city, setCity] = useState<string>('');
   const [selectedState, setSelectedState] = useState<string>('Telangana');
   const [marketYard, setMarketYard] = useState<string>('');
-  const [apmcLicense, setApmcLicense] = useState<string>('');
+  const [licenseNumber, setLicenseNumber] = useState<string>('');
+  const [selectedCommodities, setSelectedCommodities] = useState<CommodityCategory[]>(['flowers']);
 
-  // 2Factor.in Session & Verification Token States
+  // Verification Tokens
   const [forgotSessionId, setForgotSessionId] = useState<string>('');
   const [forgotVerificationToken, setForgotVerificationToken] = useState<string>('');
   const [signupSessionId, setSignupSessionId] = useState<string>('');
   const [signupVerificationToken, setSignupVerificationToken] = useState<string>('');
-  const [signupOtp, setSignupOtp] = useState<string[]>(['', '', '', '', '', '']);
-  const [otpResendTimer, setOtpResendTimer] = useState<number>(0);
-
-  // Sign Up Commodity Selection
-  const [selectedCommodities, setSelectedCommodities] = useState<CommodityCategory[]>(['flowers']);
 
   // UI status
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
 
-  // Saved accounts deletion confirmation
-  const [confirmingDeletePhone, setConfirmingDeletePhone] = useState<string | null>(null);
+  // Sync saved profiles when registeredAccounts updates
+  React.useEffect(() => {
+    const list = getSavedProfilesFromDevice();
+    if (list.length > 0) {
+      setSavedProfiles(list);
+    } else if (registeredAccounts.length > 0) {
+      const formatted = registeredAccounts.map((a) => ({
+        id: a.id || `USR-${a.phoneNumber}`,
+        username: a.username || `trader_${a.phoneNumber.slice(-4)}`,
+        fullName: a.fullName || 'Mandi Merchant',
+        phoneNumber: a.phoneNumber,
+        shopOrVillage: a.shopOrVillage || (a as any).shopName || '',
+        photoUrl: a.photoUrl || '',
+      }));
+      setSavedProfiles(formatted);
+    }
+  }, [registeredAccounts]);
 
-  // Timer effect for OTP resend countdown
+  // Timer effect for Sign Up OTP resend
   React.useEffect(() => {
     if (signupStep !== 'otp' || otpResendTimer <= 0) return;
     const timer = setInterval(() => {
@@ -1521,7 +1563,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     return () => clearInterval(timer);
   }, [signupStep, otpResendTimer]);
 
-  // Timer effect for Forgot Password OTP resend countdown
+  // Timer effect for Forgot PIN OTP resend
   React.useEffect(() => {
     if (forgotOtpResendTimer <= 0) return;
     const timer = setInterval(() => {
@@ -1530,136 +1572,359 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     return () => clearInterval(timer);
   }, [forgotOtpResendTimer]);
 
-  // Direct Login for Saved Accounts - logs in directly without asking for password again
-  const handleQuickAccountLogin = (acct: (typeof registeredAccounts)[0]) => {
-    sounds.playCashChime();
-    const cleanPhone = acct.phoneNumber.replace(/\D/g, '').slice(-10);
-    switchUserAccount(cleanPhone);
-
-    if (cleanPhone.endsWith('9110387978')) {
-      setPortalMode('admin');
-    } else {
-      setPortalMode(acct.role || 'merchant');
-    }
-
-    if (acct.selectedCommodities && acct.selectedCommodities.length > 0) {
-      setUserCommodities(acct.selectedCommodities);
-    }
-
-    try {
-      localStorage.setItem('bharatmandi_onboarding_completed', 'true');
-      localStorage.setItem('bharatmandi_user_role', acct.role || 'merchant');
-      localStorage.setItem('bharatmandi_active_phone_v1', cleanPhone);
-    } catch {}
-
-    onComplete();
+  // Profile Selection for Instagram-Style Login
+  const handleSelectProfile = (profile: any) => {
+    sounds.playBidTick();
+    setSelectedProfile(profile);
+    setLoginIdentifier(profile.username || profile.phoneNumber);
+    setLoginPin('');
+    setErrorMsg('');
+    setLockoutMsg('');
+    setSuccessMsg('');
+    setTimeout(() => {
+      document.getElementById('login-pin-input')?.focus();
+    }, 100);
   };
 
-  // Standard Password or Direct Saved Account Login
-  const handlePasswordLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLoginAnotherAccount = () => {
+    sounds.playBidTick();
+    setSelectedProfile(null);
+    setLoginIdentifier('');
+    setLoginPin('');
+    setErrorMsg('');
+    setLockoutMsg('');
+    setSuccessMsg('');
+    setTimeout(() => {
+      document.getElementById('login-identifier-input')?.focus();
+    }, 100);
+  };
+
+  const handleConfirmRemoveProfile = () => {
+    if (!profileToRemove) return;
+    const identifier = profileToRemove.id || profileToRemove.phoneNumber || profileToRemove.username;
+    removeProfileFromDevice(identifier);
+    if (profileToRemove.phoneNumber) {
+      deleteRegisteredAccount(profileToRemove.phoneNumber);
+    }
+    const updated = getSavedProfilesFromDevice();
+    setSavedProfiles(updated);
+    if (
+      selectedProfile &&
+      (selectedProfile.id === profileToRemove.id ||
+        selectedProfile.phoneNumber === profileToRemove.phoneNumber ||
+        selectedProfile.username === profileToRemove.username)
+    ) {
+      setSelectedProfile(null);
+      setLoginIdentifier('');
+    }
+    setProfileToRemove(null);
+    sounds.playTrashSound?.();
+  };
+
+  // Standard Login submit with 6-digit PIN
+  const handlePinLoginSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
+    setLockoutMsg('');
 
-    const cleanLoginPhone = loginIdentifier.replace(/\D/g, "").slice(-10);
-    if (!cleanLoginPhone || cleanLoginPhone.length !== 10) {
-      setErrorMsg("Please enter a valid 10-digit registered mobile number");
+    const cleanInput = (loginIdentifier || selectedProfile?.username || selectedProfile?.phoneNumber || '').trim();
+    if (!cleanInput) {
+      setErrorMsg('Please enter your username or 10-digit mobile number');
       return;
     }
 
-    // Check if this account is saved on this device
-    const matchedSavedAccount = registeredAccounts.find(
-      (a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanLoginPhone
-    );
-
-    if (matchedSavedAccount) {
-      // Direct login for saved accounts on device without asking password again
-      handleQuickAccountLogin(matchedSavedAccount);
-      return;
-    }
-
-    // Unsaved account on this device — password required
-    if (!loginPassword) {
-      setErrorMsg('Please enter your password');
+    if (!loginPin || loginPin.length !== 6 || !/^\d{6}$/.test(loginPin)) {
+      setErrorMsg('Please enter your 6-digit numeric PIN');
       return;
     }
 
     setIsSubmitting(true);
     sounds.playBidTick();
 
-    const result = await verifyPasswordAndLogin(loginIdentifier, loginPassword);
+    const res = await loginOnServer(cleanInput, loginPin);
     setIsSubmitting(false);
 
-    if (!result.success) {
-      setErrorMsg(result.error || 'Invalid credentials');
+    if (!res.success) {
       sounds.playTrashSound?.();
+      if (res.isLocked) {
+        setLockoutMsg(res.error || 'Login locked due to 5 incorrect PIN attempts.');
+      } else {
+        setErrorMsg(res.error || 'Wrong PIN');
+      }
       return;
     }
 
     // Login Successful
     sounds.playCashChime();
-    const verifiedPhone = result.account?.phoneNumber || loginIdentifier;
-    const cleanVerifiedPhone = verifiedPhone.replace(/\D/g, '').slice(-10);
+    const verifiedPhone = res.account?.phoneNumber || cleanInput;
+    const cleanPhone = verifiedPhone.replace(/\D/g, '').slice(-10);
 
-    if (cleanVerifiedPhone.endsWith('9110387978')) {
-      setPortalMode('admin');
-    } else {
-      setPortalMode(result.account?.role || 'merchant');
-    }
-    if (result.account?.selectedCommodities && result.account.selectedCommodities.length > 0) {
-      setUserCommodities(result.account.selectedCommodities);
+    switchUserAccount(cleanPhone);
+    setPortalMode(cleanPhone.endsWith('9110387978') ? 'admin' : res.account?.role || 'merchant');
+
+    if (res.account?.selectedCommodities && res.account.selectedCommodities.length > 0) {
+      setUserCommodities(res.account.selectedCommodities);
     }
 
     try {
       localStorage.setItem('bharatmandi_onboarding_completed', 'true');
-      localStorage.setItem('bharatmandi_user_role', result.account?.role || 'merchant');
-      localStorage.setItem('bharatmandi_active_phone_v1', cleanVerifiedPhone);
+      localStorage.setItem('bharatmandi_user_role', res.account?.role || 'merchant');
+      localStorage.setItem('bharatmandi_active_phone_v1', cleanPhone);
     } catch {}
 
     onComplete();
   };
 
-  // Forgot Password Flow
-  const handleForgotRequestOtp = async () => {
+  // ==========================================
+  // SIGN UP FLOW HANDLERS (5 STEPS)
+  // ==========================================
+
+  // Step 1: Send OTP to 10-digit Mobile
+  const handleSignupSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
-    const cleanForgotPhone = forgotIdentifier.replace(/\D/g, "").slice(-10);
-    if (!cleanForgotPhone || cleanForgotPhone.length !== 10) {
-      setErrorMsg("Please enter a valid 10-digit registered mobile number");
+
+    const phoneVal = validateIndianMobile(signupPhone);
+    if (!phoneVal.isValid) {
+      setErrorMsg('Enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9)');
       return;
     }
 
-    if (forgotOtpResendCount >= 3) {
-      setErrorMsg("Maximum OTP resend limit reached (3/3). Please try again later or contact support.");
+    const cleanPhone = phoneVal.cleanNumber || cleanIndianMobile(signupPhone);
+
+    setIsSubmitting(true);
+    sounds.playBidTick();
+
+    const res = await sendOtpOnServer(cleanPhone, 'signup');
+    setIsSubmitting(false);
+
+    if (!res.success) {
+      setErrorMsg(res.error || 'Could not send OTP. Please try again.');
+      return;
+    }
+
+    setSignupSessionId(res.sessionId || '');
+    setOtpResendTimer(30);
+    setSignupOtp(['', '', '', '', '', '']);
+
+    // Check if phone already exists
+    const serverCheck = await checkUserOnServer(cleanPhone);
+    if (serverCheck && (serverCheck.exists || serverCheck.hasPassword)) {
+      setSuccessMsg(`Mobile +91 ${cleanPhone} is registered. Enter OTP to log in immediately.`);
+    }
+
+    setSignupStep('otp');
+    sounds.playCashChime();
+  };
+
+  // Step 2: Verify OTP Code
+  const handleSignupVerifyOtp = async () => {
+    const entered = signupOtp.join('');
+    if (entered.length < 6) {
+      setErrorMsg('Please enter the full 6-digit OTP code');
+      return;
+    }
+
+    const cleanPhone = cleanIndianMobile(signupPhone);
+
+    setIsSubmitting(true);
+    const verifyRes = await verifyOtpOnServer(cleanPhone, signupSessionId, entered);
+    setIsSubmitting(false);
+
+    if (!verifyRes.success) {
+      setErrorMsg(verifyRes.error || 'Invalid OTP code. Please check and try again.');
+      return;
+    }
+
+    setSignupVerificationToken(verifyRes.verificationToken || '');
+
+    // Check if user is already registered (skip sign up and log in)
+    const serverCheck = await checkUserOnServer(cleanPhone);
+    if (serverCheck && (serverCheck.exists || serverCheck.hasPassword)) {
+      sounds.playCashChime();
+      switchUserAccount(cleanPhone);
+      setPortalMode('merchant');
+      try {
+        localStorage.setItem('bharatmandi_onboarding_completed', 'true');
+        localStorage.setItem('bharatmandi_active_phone_v1', cleanPhone);
+      } catch {}
+      onComplete();
+      return;
+    }
+
+    setErrorMsg('');
+    setSignupStep('username');
+    sounds.playCashChime();
+  };
+
+  // Step 3: Validate Username (with 5-Second Timeout & Error Re-enable)
+  const handleUsernameSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!signupUsername || !isValidUsername(signupUsername)) {
+      setErrorMsg('Username must be 3 to 20 characters long (letters, numbers, _ and . allowed)');
+      return;
+    }
+
+    setUsernameChecking(true);
+    try {
+      const check = await checkUsernameOnServer(signupUsername);
+      setUsernameChecking(false);
+
+      if (!check.success && check.error) {
+        setErrorMsg(check.error || 'Could not check username, try again');
+        setUsernameTaken(false);
+        return;
+      }
+
+      if (!check.available) {
+        setUsernameTaken(true);
+        setErrorMsg('Username taken');
+        return;
+      }
+
+      setUsernameTaken(false);
+      setSuccessMsg('Username available');
+      sounds.playBidTick();
+
+      setTimeout(() => {
+        setSuccessMsg('');
+        setSignupStep('merchant_details');
+      }, 400);
+    } catch (err: any) {
+      setUsernameChecking(false);
+      setErrorMsg('Could not check username, try again');
+    }
+  };
+
+  // Step 4: Merchant Profile Details Submit
+  const handleMerchantDetailsSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!fullName.trim()) {
+      setErrorMsg('Please enter Owner / Trader Name');
+      return;
+    }
+    if (!shopName.trim()) {
+      setErrorMsg('Please enter Shop / Firm Name');
+      return;
+    }
+    if (!marketYard.trim()) {
+      setErrorMsg('Please enter Market or APMC Name');
+      return;
+    }
+
+    setSignupStep('pin');
+    sounds.playBidTick();
+  };
+
+  // Step 5: Complete Sign Up with 6-Digit PIN
+  const handlePinAndCompleteSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!signupPin || signupPin.length !== 6 || !/^\d{6}$/.test(signupPin)) {
+      setErrorMsg('Please enter a 6-digit numeric PIN');
+      return;
+    }
+
+    if (signupPin !== signupConfirmPin) {
+      setErrorMsg('PINs do not match');
+      return;
+    }
+
+    if (isWeakPin(signupPin)) {
+      setErrorMsg('This PIN is too simple (e.g. 000000, 111111, 123456). Please set a unique 6-digit PIN.');
+      return;
+    }
+
+    const cleanPhone = cleanIndianMobile(signupPhone);
+
+    setIsSubmitting(true);
+    sounds.playBidTick();
+
+    try {
+      const regResult = await registerPasswordOnServer({
+        phone: cleanPhone,
+        username: signupUsername,
+        password: signupPin,
+        confirmPassword: signupConfirmPin,
+        verificationToken: signupVerificationToken,
+        fullName,
+        shopOrVillage: shopName,
+        shopAddress: city ? `${city}, ${selectedState}` : `${marketYard}, ${selectedState}`,
+        shopNumber: shopNumber || 'Shop 1',
+        marketName: marketYard,
+        licenseOrCrop: licenseNumber || 'Verified Merchant',
+        selectedCommodities,
+        role: 'merchant',
+      });
+
+      setIsSubmitting(false);
+
+      if (!regResult.success) {
+        setErrorMsg(regResult.error || 'Registration failed. Please try again.');
+        return;
+      }
+
+      updateMerchantProfile({
+        shopName,
+        ownerName: fullName,
+        shopNumber: shopNumber || 'Shop 1',
+        apmcMarketName: marketYard,
+        address: city ? `${city}, ${selectedState}` : `${marketYard}, ${selectedState}`,
+        phoneNumber: cleanPhone,
+        licenseNumber: licenseNumber || '',
+      });
+
+      setUserCommodities(selectedCommodities);
+      switchUserAccount(cleanPhone);
+      setPortalMode(cleanPhone.endsWith('9110387978') ? 'admin' : 'merchant');
+
+      try {
+        localStorage.setItem('bharatmandi_onboarding_completed', 'true');
+        localStorage.setItem('bharatmandi_user_role', 'merchant');
+        localStorage.setItem('bharatmandi_active_phone_v1', cleanPhone);
+        localStorage.setItem('bharatmandi_user_commodities', JSON.stringify(selectedCommodities));
+      } catch {}
+
+      sounds.playGavelStrike();
+      onComplete();
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setErrorMsg(err?.message || 'Could not complete registration. Please try again.');
+    }
+  };
+
+  // ==========================================
+  // FORGOT PIN FLOW HANDLERS
+  // ==========================================
+  const handleForgotRequestOtp = async () => {
+    setErrorMsg('');
+    const cleanPhone = cleanIndianMobile(forgotPhone);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      setErrorMsg('Please enter a valid 10-digit registered mobile number');
       return;
     }
 
     setIsSubmitting(true);
-
-    // Verify account exists before sending OTP
-    let acct = registeredAccounts.find(a => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanForgotPhone);
-    if (!acct && cleanForgotPhone.length === 10) {
-      acct = await fetchUserAccountByPhone(cleanForgotPhone);
-    }
-
-    if (!acct) {
-      setIsSubmitting(false);
-      setErrorMsg("No account found registered with this mobile number. Please check your mobile or Sign Up first.");
-      return;
-    }
-
-    const res = await sendOtpOnServer(cleanForgotPhone, 'forgot-password');
+    const res = await sendOtpOnServer(cleanPhone, 'forgot-password');
     setIsSubmitting(false);
 
     if (!res.success) {
-      setErrorMsg(res.error || 'Could not send OTP, please try again.');
+      setErrorMsg(res.error || 'Could not send OTP code.');
       return;
     }
 
     setForgotSessionId(res.sessionId || '');
-    setForgotOtpExpiresAt(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
-    setForgotOtpResendTimer(30); // 30s cooldown
-    setForgotOtpResendCount((prev) => prev + 1);
+    setForgotOtpResendTimer(30);
     setForgotOtpAttempts(0);
     setForgotOtp(['', '', '', '', '', '']);
 
@@ -1674,418 +1939,74 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       return;
     }
 
-    // Check OTP Expiry
-    if (forgotOtpExpiresAt && Date.now() > forgotOtpExpiresAt) {
-      setErrorMsg('OTP code has expired (valid for 10 minutes). Please request a new OTP code.');
-      return;
-    }
-
-    // Check Verification Attempts Limit
-    if (forgotOtpAttempts >= 3) {
-      setErrorMsg('Maximum wrong OTP attempts exceeded (3/3). Please request a new OTP code.');
-      return;
-    }
+    const cleanPhone = cleanIndianMobile(forgotPhone);
 
     setIsSubmitting(true);
-    const verifyRes = await verifyOtpOnServer(forgotIdentifier, forgotSessionId, code);
+    const verifyRes = await verifyOtpOnServer(cleanPhone, forgotSessionId, code);
     setIsSubmitting(false);
 
     if (!verifyRes.success) {
       const newAttempts = forgotOtpAttempts + 1;
       setForgotOtpAttempts(newAttempts);
-      setErrorMsg(verifyRes.error || `Invalid OTP code. Remaining attempts: ${Math.max(0, 3 - newAttempts)}`);
+      setErrorMsg(verifyRes.error || `Invalid OTP code. Attempts remaining: ${Math.max(0, 3 - newAttempts)}`);
       return;
     }
 
     setForgotVerificationToken(verifyRes.verificationToken || '');
     setErrorMsg('');
-    setForgotStep('new-password');
+    setForgotStep('new-pin');
     sounds.playCashChime();
   };
 
   const handleForgotResetSubmit = async () => {
     setErrorMsg('');
-    setSuccessMsg('');
-    if (!newPassword || newPassword.length < 4) {
-      setErrorMsg('Password must be at least 4 characters');
+    if (!newPin || newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+      setErrorMsg('PIN must be exactly 6 numeric digits');
       return;
     }
-    if (newPassword !== confirmNewPassword) {
-      setErrorMsg('Passwords do not match');
+    if (newPin !== confirmNewPin) {
+      setErrorMsg('PINs do not match!');
+      return;
+    }
+    if (isWeakPin(newPin)) {
+      setErrorMsg('This PIN is too weak/simple. Please choose a stronger 6-digit PIN.');
       return;
     }
 
-    if (!forgotVerificationToken) {
-      setErrorMsg('OTP verification token missing or expired. Please verify OTP first.');
-      return;
-    }
+    const cleanPhone = cleanIndianMobile(forgotPhone);
 
     setIsSubmitting(true);
     const res = await resetPasswordOnServer({
-      phone: forgotIdentifier,
-      newPassword,
-      confirmNewPassword,
+      phone: cleanPhone,
+      newPassword: newPin,
+      confirmNewPassword: confirmNewPin,
       verificationToken: forgotVerificationToken,
     });
     setIsSubmitting(false);
 
     if (!res.success) {
-      setErrorMsg(res.error || 'Failed to reset password');
+      setErrorMsg(res.error || 'Failed to reset PIN');
       return;
     }
 
     sounds.playGavelStrike();
-    setSuccessMsg('Password reset successfully! Your old password has been invalidated. Please log in with your new password.');
+    setSuccessMsg('6-Digit Security PIN reset successfully! Switched to Log In.');
 
-    // Switch to login mode and invalidate previous session
     setAuthMode('login');
-    setLoginIdentifier(forgotIdentifier);
-    setLoginPassword('');
+    setLoginIdentifier(cleanPhone);
+    setLoginPin('');
     setForgotStep('request');
-    setForgotIdentifier('');
-    setNewPassword('');
-    setConfirmNewPassword('');
-    setForgotOtp(['', '', '', '', '', '']);
-    setForgotVerificationToken('');
+    setForgotPhone('');
+    setNewPin('');
+    setConfirmNewPin('');
+    setLockoutMsg('');
   };
 
   const signupTrans = SIGNUP_TRANSLATIONS[language] || SIGNUP_TRANSLATIONS.en;
 
-  // Sign Up Flow Sub-Step Navigation Handlers
-  const handleStep1Next = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const errors: Record<string, string> = {};
-
-    if (!fullName.trim()) {
-      errors.fullName = signupTrans.errFullNameRequired;
-    } else if (/[0-9]/.test(fullName)) {
-      errors.fullName = signupTrans.errFullNameNoNumbers;
-    }
-
-    const phoneVal = validateIndianMobile(signupPhone);
-    if (!phoneVal.isValid) {
-      errors.signupPhone = signupTrans.errPhoneRequired;
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
-    const cleanPhone = phoneVal.cleanNumber || cleanIndianMobile(signupPhone);
-
-    // 1. Check if account is saved locally on this device -> Direct Log In!
-    const localMatch = registeredAccounts.find(a => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone);
-    if (localMatch) {
-      sounds.playCashChime();
-      handleQuickAccountLogin(localMatch);
-      return;
-    }
-
-    // 2. Check if account is registered on server database -> Redirect to Log In
-    setIsSubmitting(true);
-    try {
-      const serverCheck = await checkUserOnServer(cleanPhone);
-      setIsSubmitting(false);
-
-      if (serverCheck && (serverCheck.exists || serverCheck.hasPassword)) {
-        sounds.playBidTick();
-        setAuthMode('login');
-        setLoginIdentifier(cleanPhone);
-        setErrorMsg(`Mobile number +91 ${cleanPhone} is already signed up! Switched to Log In.`);
-        setTimeout(() => {
-          document.getElementById('login-password-input')?.focus();
-        }, 100);
-        return;
-      }
-    } catch {
-      setIsSubmitting(false);
-    }
-
-    setFieldErrors({});
-    sounds.playBidTick();
-    setSignupSubStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleStep2Next = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const errors: Record<string, string> = {};
-
-    if (!signupPassword || signupPassword.length < 4) {
-      errors.signupPassword = signupTrans.errPasswordMinLength;
-    }
-    if (signupPassword !== signupConfirmPassword) {
-      errors.signupConfirmPassword = signupTrans.errPasswordMismatch;
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
-    setFieldErrors({});
-    sounds.playBidTick();
-    setSignupSubStep(3);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleStep3Next = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const errors: Record<string, string> = {};
-
-    if (!shopName.trim()) {
-      errors.shopName = signupTrans.errShopNameRequired;
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
-    setFieldErrors({});
-    sounds.playBidTick();
-    setSignupSubStep(4);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleStep4Submit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const errors: Record<string, string> = {};
-
-    if (!marketYard.trim()) {
-      errors.marketYard = signupTrans.errMarketYardRequired;
-    }
-    if (!shopAddress.trim()) {
-      errors.shopAddress = signupTrans.errShopAddressRequired;
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
-    setFieldErrors({});
-    setIsSubmitting(true);
-    sounds.playBidTick();
-
-    const phoneVal = validateIndianMobile(signupPhone);
-    const cleanPhone = phoneVal.cleanNumber || cleanIndianMobile(signupPhone);
-
-    const res = await sendOtpOnServer(cleanPhone, 'signup');
-    setIsSubmitting(false);
-
-    if (!res.success) {
-      if (res.isAlreadyRegistered) {
-        const matchedLocal = registeredAccounts.find(
-          (a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanPhone
-        );
-        if (matchedLocal) {
-          sounds.playCashChime();
-          handleQuickAccountLogin(matchedLocal);
-          return;
-        }
-        setAuthMode('login');
-        setLoginIdentifier(cleanPhone);
-        setErrorMsg(`Mobile number +91 ${cleanPhone} is already signed up! Switched to Log In.`);
-        return;
-      }
-      setErrorMsg(res.error || 'Could not send OTP code.');
-      return;
-    }
-
-    setSignupSessionId(res.sessionId || '');
-    setOtpResendTimer(30);
-    setSignupOtp(['', '', '', '', '', '']);
-
-    setSignupStep('otp');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    sounds.playCashChime();
-  };
-
-  const handleResendSignupOtp = async () => {
-    if (otpResendTimer > 0 || isSubmitting) return;
-    setIsSubmitting(true);
-    sounds.playBidTick();
-
-    const phoneVal = validateIndianMobile(signupPhone);
-    const cleanPhone = phoneVal.cleanNumber || cleanIndianMobile(signupPhone);
-
-    const res = await sendOtpOnServer(cleanPhone, 'signup');
-    setIsSubmitting(false);
-
-    if (!res.success) {
-      setErrorMsg(res.error || 'Could not send OTP code.');
-      return;
-    }
-
-    setSignupSessionId(res.sessionId || '');
-    setOtpResendTimer(30);
-    setSignupOtp(['', '', '', '', '', '']);
-    setSuccessMsg(`Resent 6-digit OTP SMS to +91 ${signupPhone}`);
-  };
-
-  const handleStepBack = () => {
-    setFieldErrors({});
-    sounds.playBidTick();
-    if (signupSubStep > 1) {
-      setSignupSubStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleJumpToStep = (targetStep: 1 | 2 | 3 | 4) => {
-    if (targetStep === signupSubStep) return;
-    if (targetStep < signupSubStep) {
-      setErrorMsg('');
-      sounds.playBidTick();
-      setSignupSubStep(targetStep);
-      return;
-    }
-
-    // Validate sequentially if jumping forward
-    if (signupSubStep === 1) {
-      if (!fullName.trim()) {
-        setErrorMsg(signupTrans.errFullNameRequired);
-        return;
-      }
-      if (/[0-9]/.test(fullName)) {
-        setErrorMsg(signupTrans.errFullNameNoNumbers);
-        return;
-      }
-      const phoneVal = validateIndianMobile(signupPhone);
-      if (!phoneVal.isValid) {
-        setErrorMsg(signupTrans.errPhoneRequired);
-        return;
-      }
-      if (targetStep === 2) {
-        setSignupSubStep(2);
-        return;
-      }
-    }
-
-    if (signupSubStep <= 2 && targetStep >= 3) {
-      if (!signupPassword || signupPassword.length < 4) {
-        setErrorMsg(signupTrans.errPasswordMinLength);
-        return;
-      }
-      if (signupPassword !== signupConfirmPassword) {
-        setErrorMsg(signupTrans.errPasswordMismatch);
-        return;
-      }
-      if (targetStep === 3) {
-        setSignupSubStep(3);
-        return;
-      }
-    }
-
-    if (signupSubStep <= 3 && targetStep === 4) {
-      if (!shopName.trim()) {
-        setErrorMsg(signupTrans.errShopNameRequired);
-        return;
-      }
-      setSignupSubStep(4);
-    }
-  };
-
-  // Sign Up Flow - Step 2: Verify One-Time OTP
-  const handleSignupVerifyOtp = async () => {
-    const entered = signupOtp.join('');
-    if (entered.length < 6) {
-      setErrorMsg('Please enter the full 6-digit OTP code');
-      return;
-    }
-
-    setIsSubmitting(true);
-    const verifyRes = await verifyOtpOnServer(signupPhone, signupSessionId, entered);
-    setIsSubmitting(false);
-
-    if (!verifyRes.success) {
-      setErrorMsg(verifyRes.error || 'Invalid OTP code. Please check and try again.');
-      return;
-    }
-
-    setSignupVerificationToken(verifyRes.verificationToken || '');
-    setSignupStep('commodities');
-    sounds.playCashChime();
-  };
-
-  // Sign Up Flow - Step 3: Complete Sign Up & Select Commodities
-  const handleSignupComplete = async () => {
-    if (selectedCommodities.length === 0) {
-      setErrorMsg('Please select at least one commodity category (e.g. Flowers, Vegetables, Grains)');
-      return;
-    }
-
-    if (!signupVerificationToken) {
-      setErrorMsg('Phone verification token missing or expired. Please verify OTP first.');
-      return;
-    }
-
-    const cleanPhone = cleanIndianMobile(signupPhone);
-
-    setIsSubmitting(true);
-    const regResult = await registerPasswordOnServer({
-      phone: cleanPhone,
-      password: signupPassword,
-      confirmPassword: signupPassword,
-      verificationToken: signupVerificationToken,
-      fullName,
-      shopOrVillage: shopName,
-      shopAddress,
-      shopNumber: shopNumber || 'Shop 1',
-      marketName: marketYard,
-      selectedCommodities,
-    });
-    setIsSubmitting(false);
-
-    if (!regResult.success) {
-      setErrorMsg(regResult.error || 'Registration failed');
-      return;
-    }
-
-    updateMerchantProfile({
-      shopName,
-      ownerName: fullName,
-      shopNumber: shopNumber || 'Shop 1',
-      apmcMarketName: marketYard,
-      address: `${shopAddress}, ${selectedState}`,
-      licenseNumber: apmcLicense || 'Verified Mandi Adathiya',
-      phoneNumber: cleanPhone,
-    });
-
-    setUserCommodities(selectedCommodities);
-    if (cleanPhone.replace(/\D/g, '').endsWith('9110387978')) {
-      setPortalMode('admin');
-    } else {
-      setPortalMode('merchant');
-    }
-
-    try {
-      localStorage.setItem('bharatmandi_onboarding_completed', 'true');
-      localStorage.setItem('bharatmandi_user_role', 'merchant');
-      localStorage.setItem('bharatmandi_active_phone_v1', cleanPhone);
-      localStorage.setItem('bharatmandi_user_commodities', JSON.stringify(selectedCommodities));
-    } catch {}
-
-    sounds.playGavelStrike();
-    onComplete();
-  };
-
-  const toggleCommodity = (cat: CommodityCategory) => {
-    sounds.playBidTick();
-    if (selectedCommodities.includes(cat)) {
-      if (selectedCommodities.length > 1) {
-        setSelectedCommodities(selectedCommodities.filter((c) => c !== cat));
-      }
-    } else {
-      setSelectedCommodities([...selectedCommodities, cat]);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#1e293b] flex flex-col justify-between font-sans relative selection:bg-[#1a3a52] selection:text-white p-3 sm:p-6 md:p-8">
-      {/* Header Bar with Logo and Language Selector */}
+    <div className="min-h-screen bg-[#f8fafc] text-[#1e293b] flex flex-col justify-between font-sans relative p-3 sm:p-6 md:p-8">
+      {/* Header Bar */}
       <header className="max-w-4xl w-full mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div className="flex items-center gap-3 text-center sm:text-left">
           <img
@@ -2099,47 +2020,52 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
               भारत MANDI • Merchant Ledger
             </h1>
             <p className="text-xs text-slate-500 font-medium">
-              Multi-Commodity Adathiya Settlement &amp; Parchi System
+              Multi-Commodity Wholesale Mandi Settlement System
             </p>
           </div>
         </div>
-
       </header>
 
       {/* Main Container */}
       <main className="max-w-2xl w-full mx-auto my-auto py-6 space-y-6">
+        {/* Lockout Warning Banner */}
+        {lockoutMsg && (
+          <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs font-bold space-y-2 animate-in fade-in duration-200 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              <span className="text-sm font-extrabold">{lockoutMsg}</span>
+            </div>
+            <div className="pt-2 border-t border-amber-200 flex items-center justify-between">
+              <span className="text-amber-800">Forgot your 6-digit PIN? Verify by mobile OTP:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playBidTick();
+                  setAuthMode('forgot-password');
+                  setForgotStep('request');
+                  setForgotPhone(loginIdentifier);
+                  setErrorMsg('');
+                  setLockoutMsg('');
+                }}
+                className="px-3.5 py-1.5 bg-[#1a3a52] text-white rounded-xl text-xs font-black hover:bg-[#122839] transition cursor-pointer"
+              >
+                Reset PIN with OTP
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Global Error Banner */}
         {errorMsg && (
           <div className="p-4 rounded-2xl bg-red-50 border-2 border-red-200 text-red-900 text-xs font-bold space-y-2 animate-in fade-in duration-200 shadow-2xs">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
               <span className="text-sm font-extrabold">{errorMsg}</span>
             </div>
-            {(errorMsg.toLowerCase().includes('not registered') || errorMsg.toLowerCase().includes('sign up first')) && (
-              <div className="pt-2 border-t border-red-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <span className="text-red-700 font-medium">Create your merchant account now in 1 minute:</span>
-                <button
-                  type="button"
-                  id="error-banner-signup-btn"
-                  onClick={() => {
-                    sounds.playBidTick();
-                    setAuthMode('signup');
-                    setSignupStep('details');
-                    if (loginIdentifier.replace(/\D/g, '').length === 10) {
-                      setSignupPhone(loginIdentifier.replace(/\D/g, ''));
-                    } 
-                    setErrorMsg('');
-                    setSuccessMsg('');
-                  }}
-                  className="px-4 py-2 bg-[#1a3a52] hover:bg-[#122839] text-white rounded-xl text-xs font-black transition cursor-pointer shadow-2xs shrink-0 flex items-center gap-1.5"
-                >
-                  <span>Sign Up New Merchant Now</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#d4af37]" />
-                </button>
-              </div>
-            )}
           </div>
         )}
 
+        {/* Global Success Banner */}
         {successMsg && (
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-3 animate-in fade-in duration-200">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -2148,24 +2074,24 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
         )}
 
         {/* =========================================================================
-            MODE 1: LOG IN (Password Based, No OTP required)
+            MODE 1: LOG IN (Instagram Style: Saved Profile Cards + 6-Digit PIN)
            ========================================================================= */}
         {authMode === 'login' && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-6">
             <div className="text-center space-y-1.5">
-              <span className="text-xs font-black uppercase tracking-wider text-[#1a3a52] bg-[#eef3f7] px-3.5 py-1 rounded-full inline-block">
+              <span className="text-xs font-black uppercase tracking-wider px-3.5 py-1 rounded-full inline-block text-[#1a3a52] bg-[#eef3f7]">
                 Merchant Sign In
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-[#1e293b]">
                 Log In to Your Mandi Ledger
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                Enter your 10-digit registered mobile number and password to log in
+                Log in with your saved profile or enter username/mobile number and 6-digit PIN
               </p>
             </div>
 
-            {/* Saved Accounts on Device */}
-            {registeredAccounts.length > 0 && (
+            {/* INSTAGRAM-STYLE SAVED PROFILES SECTION */}
+            {savedProfiles.length > 0 && (
               <div className="bg-[#f8fafc] rounded-2xl border-2 border-[#d4af37]/40 p-4 sm:p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -2174,210 +2100,228 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                       Saved Accounts on this Device
                     </h3>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-500">
-                    {registeredAccounts.length} saved
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsManagingProfiles(!isManagingProfiles)}
+                    className="text-xs font-bold text-[#1a3a52] hover:underline cursor-pointer"
+                  >
+                    {isManagingProfiles ? 'Done Managing' : 'Manage Profiles'}
+                  </button>
                 </div>
 
                 <div className="space-y-2">
-                  {registeredAccounts.map((acct) => (
-                    <div
-                      key={acct.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-white rounded-xl border border-slate-200 hover:border-[#1a3a52] transition shadow-2xs"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-[#1a3a52] text-[#d4af37] flex items-center justify-center shrink-0">
-                          <Store className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-black text-sm text-[#1e293b] truncate">
-                            {acct.fullName}
-                          </p>
-                          <p className="text-xs text-slate-500 truncate">
-                            {acct.shopOrVillage} • +91 {acct.phoneNumber}
-                          </p>
-                        </div>
-                      </div>
+                  {savedProfiles.map((prof) => {
+                    const isSelected =
+                      selectedProfile &&
+                      (selectedProfile.id === prof.id ||
+                        selectedProfile.phoneNumber === prof.phoneNumber ||
+                        selectedProfile.username === prof.username);
 
-                      {confirmingDeletePhone === acct.phoneNumber ? (
-                        <div className="flex items-center gap-2 bg-red-50 border border-red-200 p-1.5 rounded-xl shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              deleteRegisteredAccount(acct.phoneNumber);
-                              setConfirmingDeletePhone(null);
-                            }}
-                            className="px-2.5 py-1 text-xs font-bold bg-red-600 text-white rounded-lg cursor-pointer"
-                          >
-                            Remove
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmingDeletePhone(null)}
-                            className="px-2.5 py-1 text-xs font-bold bg-white text-slate-700 border rounded-lg cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleQuickAccountLogin(acct)}
-                            className="px-3.5 py-2 text-xs font-black rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                          >
-                            <span>Log In Directly</span>
-                            <ArrowRight className="w-3.5 h-3.5 text-[#d4af37]" />
-                          </button>
+                    return (
+                      <div
+                        key={prof.id || prof.phoneNumber}
+                        className={`flex items-center justify-between gap-3 p-3.5 rounded-xl border transition shadow-2xs ${
+                          isSelected
+                            ? 'bg-amber-50/60 border-[#1a3a52] ring-2 ring-[#1a3a52]/20'
+                            : 'bg-white border-slate-200 hover:border-[#1a3a52]'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleSelectProfile(prof)}
+                          className="flex items-center gap-3 min-w-0 text-left flex-1 cursor-pointer"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#1a3a52] text-[#d4af37] flex items-center justify-center shrink-0 font-black text-sm">
+                            {prof.fullName ? prof.fullName[0].toUpperCase() : 'M'}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-black text-sm text-[#1e293b] truncate">
+                              {prof.fullName || 'Mandi Merchant'}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate font-mono">
+                              @{prof.username || `trader_${prof.phoneNumber?.slice(-4)}`} • +91 {prof.phoneNumber}
+                            </p>
+                          </div>
+                        </button>
 
+                        {isManagingProfiles ? (
                           <button
                             type="button"
-                            onClick={() => setConfirmingDeletePhone(acct.phoneNumber)}
-                            title="Remove account from device"
-                            className="p-2 text-slate-400 hover:text-red-600 rounded-xl transition cursor-pointer"
+                            onClick={() => setProfileToRemove(prof)}
+                            title="Remove profile from this device"
+                            className="p-2 text-red-500 hover:text-red-700 rounded-xl transition cursor-pointer shrink-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectProfile(prof)}
+                            className="px-3.5 py-1.5 text-xs font-black rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white transition flex items-center gap-1 shrink-0 cursor-pointer"
+                          >
+                            <span>Select</span>
+                            <ArrowRight className="w-3 h-3 text-[#d4af37]" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+
+                {selectedProfile && (
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleLoginAnotherAccount}
+                      className="text-xs font-bold text-slate-500 hover:text-[#1a3a52] cursor-pointer"
+                    >
+                      ← Log in with another account
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Standard Login Form */}
-            {(() => {
-              const cleanLoginPhone = loginIdentifier.replace(/\D/g, "").slice(-10);
-              const isSavedAccountMatched = Boolean(
-                cleanLoginPhone.length === 10 &&
-                registeredAccounts.some((a) => a.phoneNumber.replace(/\D/g, "").slice(-10) === cleanLoginPhone)
-              );
+            {/* LOGIN FORM WITH 6-DIGIT PIN */}
+            <form onSubmit={handlePinLoginSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="login-identifier-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                  Username or Mobile Number *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-3.5 text-slate-400">
+                    <User className="w-5 h-5" />
+                  </span>
+                  <input
+                    id="login-identifier-input"
+                    type="text"
+                    value={loginIdentifier}
+                    onChange={(e) => setLoginIdentifier(e.target.value)}
+                    placeholder="Enter username or 10-digit mobile"
+                    disabled={Boolean(selectedProfile)}
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none disabled:bg-slate-100 disabled:text-slate-600"
+                    required
+                  />
+                </div>
+              </div>
 
-              return (
-                <form onSubmit={handlePasswordLogin} className="space-y-4">
-                  <div>
-                    <label htmlFor="login-identifier-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                      Mobile Number (10 Digits) *
-                    </label>
-                    <div className="relative flex items-center">
-                      <span className="absolute left-3 font-bold text-slate-500 text-sm">🇮🇳 +91</span>
-                      <input
-                        id="login-identifier-input"
-                        type="tel"
-                        maxLength={10}
-                        value={loginIdentifier}
-                        onChange={(e) => {
-                          let val = e.target.value.replace(/\D/g, "");
-                          if (val.length > 0 && !/[6-9]/.test(val[0])) {
-                            val = "";
-                          }
-                          setLoginIdentifier(val.slice(0, 10));
-                        }}
-                        placeholder="9849012345"
-                        className="w-full pl-20 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-sm text-[#1e293b] outline-none"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {isSavedAccountMatched ? (
-                    <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold">
-                      <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 shrink-0" />
-                      <span>Saved account on this device — Direct Auto-Login active (Password saved)</span>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label htmlFor="login-password-input" className="text-xs font-black uppercase tracking-wider text-[#1a3a52]">
-                          Password *
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            sounds.playBidTick();
-                            setAuthMode('forgot-password');
-                            setForgotStep('request');
-                            setForgotIdentifier(loginIdentifier);
-                            setErrorMsg('');
-                            setSuccessMsg('');
-                          }}
-                          className="text-xs font-bold text-[#1a3a52] hover:underline cursor-pointer"
-                        >
-                          Forgot Password?
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <span className="absolute left-3.5 top-3.5 text-slate-400">
-                          <Lock className="w-5 h-5" />
-                        </span>
-                        <input
-                          id="login-password-input"
-                          type={showPassword ? 'text' : 'password'}
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          placeholder="Enter your merchant password"
-                          className="w-full pl-11 pr-11 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
-                          required={!isSavedAccountMatched}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                        >
-                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="login-pin-input" className="text-xs font-black uppercase tracking-wider text-[#1a3a52]">
+                    6-Digit Security PIN *
+                  </label>
                   <button
-                    type="submit"
-                    id="btn-login-submit"
-                    disabled={isSubmitting}
-                    className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                    type="button"
+                    onClick={() => {
+                      sounds.playBidTick();
+                      setAuthMode('forgot-password');
+                      setForgotStep('request');
+                      setForgotPhone(loginIdentifier.replace(/\D/g, '').slice(-10));
+                      setErrorMsg('');
+                      setLockoutMsg('');
+                    }}
+                    className="text-xs font-bold text-[#1a3a52] hover:underline cursor-pointer"
                   >
-                    <span>
-                      {isSavedAccountMatched ? 'Log In Directly (Saved Account)' : 'Log In to Dashboard'}
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+                    Forgot PIN?
                   </button>
+                </div>
 
-                  {/* Small letters switch to Sign Up */}
-                  <div className="text-center pt-3 border-t border-slate-200">
-                    <p className="text-xs text-slate-500 font-medium">
-                      Don't have an account?{' '}
-                      <button
-                        type="button"
-                        id="switch-to-signup-btn"
-                        onClick={() => {
-                          sounds.playBidTick();
-                          setAuthMode('signup');
-                          setSignupStep('details');
-                          setErrorMsg('');
-                          setSuccessMsg('');
-                        }}
-                        className="font-black text-[#1a3a52] hover:underline cursor-pointer ml-1"
-                      >
-                        Sign Up New Merchant
-                      </button>
-                    </p>
-                  </div>
-                </form>
-              );
-            })()}
+                <div className="relative">
+                  <span className="absolute left-3.5 top-3.5 text-slate-400">
+                    <Lock className="w-5 h-5" />
+                  </span>
+                  <input
+                    id="login-pin-input"
+                    type={showLoginPin ? 'text' : 'password'}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={loginPin}
+                    onChange={(e) => setLoginPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter 6-digit PIN"
+                    className="w-full pl-11 pr-11 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-base text-[#1e293b] outline-none tracking-widest"
+                    required
+                    autoFocus={Boolean(selectedProfile)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPin(!showLoginPin)}
+                    className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showLoginPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* On-Screen Touch Numeric Keypad for Smooth Touchscreen PIN Entry */}
+              <div className="bg-[#f8fafc] p-3 rounded-2xl border border-slate-200 space-y-2">
+                <p className="text-[11px] font-bold text-[#1a3a52] uppercase tracking-wider text-center">
+                  Touch Numeric Keypad
+                </p>
+                <div className="grid grid-cols-3 gap-1.5 max-w-xs mx-auto">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((btn) => (
+                    <button
+                      key={btn}
+                      type="button"
+                      onClick={() => {
+                        sounds.playBidTick();
+                        if (btn === 'C') {
+                          setLoginPin('');
+                        } else if (btn === '⌫') {
+                          setLoginPin((prev) => prev.slice(0, -1));
+                        } else if (loginPin.length < 6) {
+                          setLoginPin((prev) => prev + btn);
+                        }
+                      }}
+                      className="py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-[#1a3a52] hover:text-white font-mono font-black text-base transition text-[#1e293b] cursor-pointer shadow-2xs active:scale-95"
+                    >
+                      {btn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                id="btn-login-submit"
+                disabled={isSubmitting}
+                className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] disabled:opacity-50"
+              >
+                <span>Log In to Dashboard</span>
+                <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+              </button>
+
+              <div className="text-center pt-3 border-t border-slate-200">
+                <p className="text-xs text-slate-500 font-medium">
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    id="switch-to-signup-btn"
+                    onClick={() => {
+                      sounds.playBidTick();
+                      setAuthMode('signup');
+                      setSignupStep('phone');
+                      setErrorMsg('');
+                      setSuccessMsg('');
+                    }}
+                    className="font-black text-[#1a3a52] hover:underline cursor-pointer ml-1"
+                  >
+                    Sign Up New Merchant
+                  </button>
+                </p>
+              </div>
+            </form>
           </div>
         )}
 
         {/* =========================================================================
-            MODE 2: FORGOT PASSWORD FLOW
+            MODE 2: FORGOT PIN FLOW
            ========================================================================= */}
         {authMode === 'forgot-password' && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-6">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <KeyRound className="w-5 h-5 text-[#d4af37]" />
-                <h2 className="text-xl font-black text-[#1e293b]">Reset Merchant Password</h2>
+                <h2 className="text-xl font-black text-[#1e293b]">Reset 6-Digit Security PIN</h2>
               </div>
               <button
                 type="button"
@@ -2398,23 +2342,17 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                 </p>
 
                 <div>
-                  <label htmlFor="forgot-identifier-input" className="block text-xs font-black uppercase text-[#1a3a52] mb-1">
+                  <label htmlFor="forgot-phone-input" className="block text-xs font-black uppercase text-[#1a3a52] mb-1">
                     Registered Mobile Number (10 Digits) *
                   </label>
                   <div className="relative flex items-center">
                     <span className="absolute left-3 font-bold text-slate-500 text-sm">🇮🇳 +91</span>
                     <input
-                      id="forgot-identifier-input"
+                      id="forgot-phone-input"
                       type="tel"
                       maxLength={10}
-                      value={forgotIdentifier}
-                      onChange={(e) => {
-                        let val = e.target.value.replace(/\D/g, "");
-                        if (val.length > 0 && !/[6-9]/.test(val[0])) {
-                          val = "";
-                        }
-                        setForgotIdentifier(val.slice(0, 10));
-                      }}
+                      value={forgotPhone}
+                      onChange={(e) => setForgotPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       placeholder="9849012345"
                       className="w-full pl-20 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-sm text-[#1e293b] outline-none"
                     />
@@ -2428,7 +2366,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                   disabled={isSubmitting}
                   className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md cursor-pointer"
                 >
-                  Send Reset OTP Code
+                  Send Verification OTP Code
                 </button>
               </div>
             )}
@@ -2436,7 +2374,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
             {forgotStep === 'otp' && (
               <div className="space-y-4 text-center">
                 <p className="text-xs sm:text-sm text-slate-600">
-                  Enter the 6-digit reset code sent to <strong>+91 {forgotIdentifier}</strong> (valid for 10 mins):
+                  Enter the 6-digit code sent to <strong>+91 {forgotPhone}</strong>:
                 </p>
 
                 <div className="flex justify-center gap-1.5 sm:gap-2 my-2">
@@ -2448,7 +2386,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                       maxLength={1}
                       value={digit}
                       onChange={(e) => {
-                        const val = e.target.value;
+                        const val = e.target.value.replace(/\D/g, '');
                         const newOtp = [...forgotOtp];
                         newOtp[idx] = val;
                         setForgotOtp(newOtp);
@@ -2461,24 +2399,14 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                   ))}
                 </div>
 
-                {forgotOtpAttempts > 0 && (
-                  <p className="text-xs text-amber-600 font-bold">
-                    Wrong OTP attempts: {forgotOtpAttempts} / 3
-                  </p>
-                )}
-
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={handleForgotRequestOtp}
-                    disabled={forgotOtpResendTimer > 0 || forgotOtpResendCount >= 3 || isSubmitting}
+                    disabled={forgotOtpResendTimer > 0 || isSubmitting}
                     className="w-1/2 py-3 px-3 rounded-xl border-2 border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                   >
-                    {forgotOtpResendCount >= 3
-                      ? 'Resend Limit Reached'
-                      : forgotOtpResendTimer > 0
-                      ? `Resend in ${forgotOtpResendTimer}s`
-                      : 'Resend OTP'}
+                    {forgotOtpResendTimer > 0 ? `Resend in ${forgotOtpResendTimer}s` : 'Resend OTP'}
                   </button>
 
                   <button
@@ -2488,54 +2416,58 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                     disabled={isSubmitting}
                     className="w-1/2 py-3 px-3 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-xs transition shadow-md cursor-pointer"
                   >
-                    Verify Reset Code
+                    Verify OTP Code
                   </button>
                 </div>
               </div>
             )}
 
-            {forgotStep === 'new-password' && (
+            {forgotStep === 'new-pin' && (
               <div className="space-y-4">
                 <p className="text-xs sm:text-sm text-slate-600">
-                  Set a new password for your account. Once saved, your old password will be invalidated immediately across all sessions:
+                  Enter your new 6-digit numeric PIN:
                 </p>
 
                 <div>
-                  <label htmlFor="new-password-input" className="block text-xs font-black uppercase text-[#1a3a52] mb-1">
-                    New Password *
+                  <label htmlFor="new-pin-input" className="block text-xs font-black uppercase text-[#1a3a52] mb-1">
+                    New 6-Digit PIN *
                   </label>
                   <input
-                    id="new-password-input"
+                    id="new-pin-input"
                     type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="At least 4 characters"
-                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter new 6-digit PIN"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-[#1e293b] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="confirm-new-password-input" className="block text-xs font-black uppercase text-[#1a3a52] mb-1">
-                    Confirm New Password *
+                  <label htmlFor="confirm-new-pin-input" className="block text-xs font-black uppercase text-[#1a3a52] mb-1">
+                    Confirm New 6-Digit PIN *
                   </label>
                   <input
-                    id="confirm-new-password-input"
+                    id="confirm-new-pin-input"
                     type="password"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    placeholder="Re-enter new password"
-                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={confirmNewPin}
+                    onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Re-enter new 6-digit PIN"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-[#1e293b] outline-none"
                   />
                 </div>
 
                 <button
                   type="button"
-                  id="btn-forgot-save-password"
+                  id="btn-forgot-save-pin"
                   onClick={handleForgotResetSubmit}
                   disabled={isSubmitting}
                   className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm transition shadow-md cursor-pointer disabled:opacity-50"
                 >
-                  Save New Password &amp; Go to Login
+                  Save New PIN &amp; Go to Login
                 </button>
               </div>
             )}
@@ -2543,373 +2475,113 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
         )}
 
         {/* =========================================================================
-            MODE 3: SIGN UP (Compact Step-by-Step Flow with Zero Scrolling)
+            MODE 3: SIGN UP (Exact 5-Step Order with Progress Bar & Back Nav)
+            Step 1: Mobile Number -> Step 2: OTP -> Step 3: Username -> Step 4: Merchant Details -> Step 5: PIN
            ========================================================================= */}
         {authMode === 'signup' && (
-          <div className="bg-white rounded-3xl p-4 sm:p-6 border-2 border-slate-200 shadow-md space-y-4 max-w-lg mx-auto">
-            {/* Header / Single Thin Progress Bar */}
-            <div className="text-center space-y-1">
-              <div className="flex items-center justify-between text-xs font-extrabold text-[#1a3a52] pb-0.5">
-                <span>{signupTrans.merchantSignUp}</span>
-                <span>
-                  {signupSubStep === 1
-                    ? signupTrans.step1Title
-                    : signupSubStep === 2
-                    ? signupTrans.step2Title
-                    : signupSubStep === 3
-                    ? signupTrans.step3Title
-                    : signupTrans.step4Title}
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-5 max-w-lg mx-auto">
+            
+            {/* Progress Bar & Back Navigation Header */}
+            <div className="space-y-3 pb-3 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    sounds.playBidTick();
+                    setErrorMsg('');
+                    setSuccessMsg('');
+                    if (signupStep === 'phone') setAuthMode('login');
+                    else if (signupStep === 'otp') setSignupStep('phone');
+                    else if (signupStep === 'username') setSignupStep('otp');
+                    else if (signupStep === 'merchant_details') setSignupStep('username');
+                    else if (signupStep === 'pin') setSignupStep('merchant_details');
+                  }}
+                  className="flex items-center gap-1.5 text-xs font-black text-[#1a3a52] hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-[#d4af37]" />
+                  <span>Back</span>
+                </button>
+
+                <span className="text-xs font-black text-[#1a3a52] uppercase tracking-wider bg-[#eef3f7] px-3 py-1 rounded-full font-mono">
+                  {signupStep === 'phone' && 'Step 1 of 5'}
+                  {signupStep === 'otp' && 'Step 2 of 5'}
+                  {signupStep === 'username' && 'Step 3 of 5'}
+                  {signupStep === 'merchant_details' && 'Step 4 of 5'}
+                  {signupStep === 'pin' && 'Step 5 of 5'}
                 </span>
               </div>
 
-              {signupStep === 'details' && (
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-200">
-                  <div
-                    className="bg-[#1a3a52] h-full transition-all duration-300 rounded-full"
-                    style={{ width: `${(signupSubStep / 4) * 100}%` }}
-                  />
-                </div>
-              )}
-
-              <h2 className="text-lg sm:text-xl font-black text-[#1e293b] pt-1">
-                {signupStep === 'details'
-                  ? signupTrans.heading
-                  : signupStep === 'otp'
-                  ? signupTrans.otpHeading
-                  : signupTrans.commodityHeading}
-              </h2>
-
-              {(signupStep === 'otp' || signupStep === 'commodities') && (
-                <p className="text-xs text-slate-500 font-medium truncate">
-                  {signupStep === 'otp'
-                    ? signupTrans.otpSubtitle(signupPhone)
-                    : signupTrans.commoditySubtitle}
-                </p>
-              )}
+              {/* Visual Progress Line */}
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                <div
+                  className="bg-[#1a3a52] h-full transition-all duration-300 rounded-full"
+                  style={{
+                    width:
+                      signupStep === 'phone' ? '20%' :
+                      signupStep === 'otp' ? '40%' :
+                      signupStep === 'username' ? '60%' :
+                      signupStep === 'merchant_details' ? '80%' :
+                      '100%',
+                  }}
+                />
+              </div>
             </div>
 
-            {/* SIGN UP WIZARD (SHOWING 1 STEP AT A TIME) */}
-            {signupStep === 'details' && (
-              <div className="space-y-4">
-                {/* SUB-STEP 1: PERSONAL DETAILS */}
-                {signupSubStep === 1 && (
-                  <form onSubmit={handleStep1Next} className="space-y-3 animate-in fade-in duration-150">
-                    <div>
-                      <label htmlFor="signup-fullname-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.fullNameLabel}
-                      </label>
-                      <input
-                        id="signup-fullname-input"
-                        type="text"
-                        value={fullName}
-                        onChange={(e) => {
-                          setFullName(e.target.value);
-                          if (fieldErrors.fullName) setFieldErrors({ ...fieldErrors, fullName: undefined });
-                        }}
-                        placeholder={signupTrans.fullNamePlaceholder}
-                        className={`w-full px-3 py-2.5 rounded-xl border-2 font-semibold text-sm text-[#1e293b] outline-none bg-white ${
-                          fieldErrors.fullName ? 'border-red-400 bg-red-50/30' : 'border-slate-200 focus:border-[#1a3a52]'
-                        }`}
-                        autoFocus
-                      />
-                      {fieldErrors.fullName && (
-                        <p className="text-[11px] text-red-600 font-bold mt-1">{fieldErrors.fullName}</p>
-                      )}
-                    </div>
+            <div className="text-center space-y-1">
+              <h2 className="text-xl font-black text-[#1e293b]">
+                {signupStep === 'phone' && 'Step 1: Enter Mobile Number'}
+                {signupStep === 'otp' && 'Step 2: Verification OTP'}
+                {signupStep === 'username' && 'Step 3: Choose Username'}
+                {signupStep === 'merchant_details' && 'Step 4: Merchant Profile Details'}
+                {signupStep === 'pin' && 'Step 5: Set 6-Digit Security PIN'}
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">
+                {signupStep === 'phone' && 'Enter a 10-digit Indian mobile number to receive OTP'}
+                {signupStep === 'otp' && `Enter the 6-digit code sent to +91 ${signupPhone}`}
+                {signupStep === 'username' && 'Choose a unique handle (3–20 characters)'}
+                {signupStep === 'merchant_details' && 'Provide your trader, firm, mandi, and produce details'}
+                {signupStep === 'pin' && 'Create your secret 6-digit PIN for device login'}
+              </p>
+            </div>
 
-                    <div>
-                      <label htmlFor="signup-phone-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.mobileLabel}
-                      </label>
-                      <div className="relative flex items-center">
-                        <span className="absolute left-3 font-bold text-slate-500 text-sm">🇮🇳 +91</span>
-                        <input
-                          id="signup-phone-input"
-                          type="tel"
-                          maxLength={10}
-                          value={signupPhone}
-                          onChange={(e) => {
-                            let val = e.target.value.replace(/\D/g, '');
-                            if (val.length > 0 && !/[6-9]/.test(val[0])) {
-                              val = '';
-                            }
-                            setSignupPhone(val.slice(0, 10));
-                            if (fieldErrors.signupPhone) setFieldErrors({ ...fieldErrors, signupPhone: undefined });
-                          }}
-                          placeholder={signupTrans.mobilePlaceholder}
-                          className={`w-full pl-20 pr-3 py-2.5 rounded-xl border-2 font-mono font-bold text-sm text-[#1e293b] outline-none bg-white ${
-                            fieldErrors.signupPhone ? 'border-red-400 bg-red-50/30' : 'border-slate-200 focus:border-[#1a3a52]'
-                          }`}
-                        />
-                      </div>
-                      {fieldErrors.signupPhone && (
-                        <p className="text-[11px] text-red-600 font-bold mt-1">{fieldErrors.signupPhone}</p>
-                      )}
-                      {cleanIndianMobile(signupPhone).length === 10 &&
-                        registeredAccounts.some((a) => a.phoneNumber.replace(/\D/g, '').slice(-10) === cleanIndianMobile(signupPhone)) && (
-                          <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2 mt-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>This number is already signed up — Clicking Next will log you in directly!</span>
-                          </div>
-                        )}
-                    </div>
+            {/* STEP 1: MOBILE NUMBER */}
+            {signupStep === 'phone' && (
+              <form onSubmit={handleSignupSendOtp} className="space-y-4">
+                <div>
+                  <label htmlFor="signup-phone-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                    Mobile Number (10 Digits) *
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 font-bold text-slate-500 text-sm">🇮🇳 +91</span>
+                    <input
+                      id="signup-phone-input"
+                      type="tel"
+                      maxLength={10}
+                      value={signupPhone}
+                      onChange={(e) => setSignupPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="9849012345"
+                      className="w-full pl-20 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-sm text-[#1e293b] outline-none"
+                      autoFocus
+                      required
+                    />
+                  </div>
+                </div>
 
-                    
+                <button
+                  type="submit"
+                  id="btn-signup-send-otp"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Send OTP</span>
+                  <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+                </button>
 
-                    <div className="pt-1">
-                      <button
-                        type="submit"
-                        id="btn-signup-step1-next"
-                        className="w-full py-3 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
-                      >
-                        <span>{signupTrans.btnNext}</span>
-                        <ArrowRight className="w-4 h-4 text-[#d4af37]" />
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                {/* SUB-STEP 2: PASSWORD */}
-                {signupSubStep === 2 && (
-                  <form onSubmit={handleStep2Next} className="space-y-3 animate-in fade-in duration-150">
-                    <div>
-                      <label htmlFor="signup-password-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.passwordLabel}
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="signup-password-input"
-                          type={showSignupPassword ? 'text' : 'password'}
-                          value={signupPassword}
-                          onChange={(e) => {
-                            setSignupPassword(e.target.value);
-                            if (fieldErrors.signupPassword) setFieldErrors({ ...fieldErrors, signupPassword: undefined });
-                          }}
-                          placeholder={signupTrans.passwordPlaceholder}
-                          className={`w-full pl-3 pr-11 py-2.5 rounded-xl border-2 font-semibold text-sm text-[#1e293b] outline-none bg-white ${
-                            fieldErrors.signupPassword ? 'border-red-400 bg-red-50/30' : 'border-slate-200 focus:border-[#1a3a52]'
-                          }`}
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowSignupPassword(!showSignupPassword)}
-                          className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
-                        >
-                          {showSignupPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      {fieldErrors.signupPassword && (
-                        <p className="text-[11px] text-red-600 font-bold mt-1">{fieldErrors.signupPassword}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="signup-confirmpassword-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.confirmPasswordLabel}
-                      </label>
-                      <input
-                        id="signup-confirmpassword-input"
-                        type={showSignupPassword ? 'text' : 'password'}
-                        value={signupConfirmPassword}
-                        onChange={(e) => {
-                          setSignupConfirmPassword(e.target.value);
-                          if (fieldErrors.signupConfirmPassword) setFieldErrors({ ...fieldErrors, signupConfirmPassword: undefined });
-                        }}
-                        placeholder={signupTrans.confirmPasswordPlaceholder}
-                        className={`w-full px-3 py-2.5 rounded-xl border-2 font-semibold text-sm text-[#1e293b] outline-none bg-white ${
-                          fieldErrors.signupConfirmPassword || (signupConfirmPassword && signupPassword !== signupConfirmPassword)
-                            ? 'border-red-400 bg-red-50/30'
-                            : 'border-slate-200 focus:border-[#1a3a52]'
-                        }`}
-                      />
-                      {(fieldErrors.signupConfirmPassword || (signupConfirmPassword && signupPassword !== signupConfirmPassword)) && (
-                        <p className="text-[11px] text-red-600 font-bold mt-1">
-                          {fieldErrors.signupConfirmPassword || signupTrans.errPasswordMismatch}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleStepBack}
-                        className="px-4 py-3 rounded-xl border-2 border-slate-200 hover:bg-slate-100 text-slate-700 font-extrabold text-sm transition cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <ArrowLeft className="w-4 h-4 text-slate-600" />
-                        <span>{signupTrans.btnBack}</span>
-                      </button>
-
-                      <button
-                        type="submit"
-                        id="btn-signup-step2-next"
-                        className="flex-1 py-3 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
-                      >
-                        <span>{signupTrans.btnNext}</span>
-                        <ArrowRight className="w-4 h-4 text-[#d4af37]" />
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                {/* SUB-STEP 3: SHOP DETAILS */}
-                {signupSubStep === 3 && (
-                  <form onSubmit={handleStep3Next} className="space-y-3 animate-in fade-in duration-150">
-                    <div>
-                      <label htmlFor="signup-shopname-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.shopNameLabel}
-                      </label>
-                      <input
-                        id="signup-shopname-input"
-                        type="text"
-                        value={shopName}
-                        onChange={(e) => {
-                          setShopName(e.target.value);
-                          if (fieldErrors.shopName) setFieldErrors({ ...fieldErrors, shopName: undefined });
-                        }}
-                        placeholder={signupTrans.shopNamePlaceholder}
-                        className={`w-full px-3 py-2.5 rounded-xl border-2 font-semibold text-sm text-[#1e293b] outline-none bg-white ${
-                          fieldErrors.shopName ? 'border-red-400 bg-red-50/30' : 'border-slate-200 focus:border-[#1a3a52]'
-                        }`}
-                        autoFocus
-                      />
-                      {fieldErrors.shopName && (
-                        <p className="text-[11px] text-red-600 font-bold mt-1">{fieldErrors.shopName}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="signup-shopnumber-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.shopNumberLabel}
-                      </label>
-                      <input
-                        id="signup-shopnumber-input"
-                        type="text"
-                        value={shopNumber}
-                        onChange={(e) => setShopNumber(e.target.value)}
-                        placeholder={signupTrans.shopNumberPlaceholder}
-                        className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-semibold text-sm text-[#1e293b] outline-none bg-white"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleStepBack}
-                        className="px-4 py-3 rounded-xl border-2 border-slate-200 hover:bg-slate-100 text-slate-700 font-extrabold text-sm transition cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <ArrowLeft className="w-4 h-4 text-slate-600" />
-                        <span>{signupTrans.btnBack}</span>
-                      </button>
-
-                      <button
-                        type="submit"
-                        id="btn-signup-step3-next"
-                        className="flex-1 py-3 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
-                      >
-                        <span>{signupTrans.btnNext}</span>
-                        <ArrowRight className="w-4 h-4 text-[#d4af37]" />
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                {/* SUB-STEP 4: MARKET DETAILS */}
-                {signupSubStep === 4 && (
-                  <form onSubmit={handleStep4Submit} className="space-y-3 animate-in fade-in duration-150">
-                    <div>
-                      <label htmlFor="signup-state-select" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.stateLabel}
-                      </label>
-                      <select
-                        id="signup-state-select"
-                        value={selectedState}
-                        onChange={(e) => setSelectedState(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-bold text-sm text-[#1e293b] outline-none bg-white"
-                      >
-                        {INDIAN_STATES.map((st) => (
-                          <option key={st} value={st}>
-                            {st}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label htmlFor="signup-marketyard-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.marketYardLabel}
-                      </label>
-                      <input
-                        id="signup-marketyard-input"
-                        type="text"
-                        value={marketYard}
-                        onChange={(e) => {
-                          setMarketYard(e.target.value);
-                          if (fieldErrors.marketYard) setFieldErrors({ ...fieldErrors, marketYard: undefined });
-                        }}
-                        placeholder={signupTrans.marketYardPlaceholder}
-                        className={`w-full px-3 py-2.5 rounded-xl border-2 font-semibold text-sm text-[#1e293b] outline-none bg-white ${
-                          fieldErrors.marketYard ? 'border-red-400 bg-red-50/30' : 'border-slate-200 focus:border-[#1a3a52]'
-                        }`}
-                        autoFocus
-                      />
-                      {fieldErrors.marketYard && (
-                        <p className="text-[11px] text-red-600 font-bold mt-1">{fieldErrors.marketYard}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="signup-shopaddress-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                        {signupTrans.shopAddressLabel}
-                      </label>
-                      <input
-                        id="signup-shopaddress-input"
-                        type="text"
-                        value={shopAddress}
-                        onChange={(e) => {
-                          setShopAddress(e.target.value);
-                          if (fieldErrors.shopAddress) setFieldErrors({ ...fieldErrors, shopAddress: undefined });
-                        }}
-                        placeholder={signupTrans.shopAddressPlaceholder}
-                        className={`w-full px-3 py-2.5 rounded-xl border-2 font-semibold text-sm text-[#1e293b] outline-none bg-white ${
-                          fieldErrors.shopAddress ? 'border-red-400 bg-red-50/30' : 'border-slate-200 focus:border-[#1a3a52]'
-                        }`}
-                      />
-                      {fieldErrors.shopAddress && (
-                        <p className="text-[11px] text-red-600 font-bold mt-1">{fieldErrors.shopAddress}</p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleStepBack}
-                        className="px-4 py-3 rounded-xl border-2 border-slate-200 hover:bg-slate-100 text-slate-700 font-extrabold text-sm transition cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <ArrowLeft className="w-4 h-4 text-slate-600" />
-                        <span>{signupTrans.btnBack}</span>
-                      </button>
-
-                      <button
-                        type="submit"
-                        id="btn-signup-request-otp"
-                        disabled={isSubmitting}
-                        className="flex-1 py-3 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
-                      >
-                        <span>{signupTrans.btnGetOtp}</span>
-                        <ArrowRight className="w-4 h-4 text-[#d4af37]" />
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                {/* Already have an account? Log In footer link */}
-                <div className="text-center pt-2 border-t border-slate-200">
+                <div className="text-center pt-3 border-t border-slate-200">
                   <p className="text-xs text-slate-500 font-medium">
-                    {signupTrans.alreadyHaveAccount}{' '}
+                    Already have an account?{' '}
                     <button
                       type="button"
-                      id="switch-to-login-btn"
                       onClick={() => {
                         sounds.playBidTick();
                         setAuthMode('login');
@@ -2918,28 +2590,16 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                       }}
                       className="font-black text-[#1a3a52] hover:underline cursor-pointer ml-1"
                     >
-                      {signupTrans.loginLink}
+                      Log In
                     </button>
                   </p>
                 </div>
-              </div>
+              </form>
             )}
 
-            {/* SIGN UP STEP 2: ONE-TIME OTP CODE */}
+            {/* STEP 2: OTP VERIFICATION */}
             {signupStep === 'otp' && (
-              <div className="space-y-4 text-center animate-in fade-in duration-150">
-                <div className="p-3.5 rounded-2xl bg-blue-50 border-2 border-blue-200 text-[#1a3a52] text-xs space-y-1.5 text-left">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-[#1a3a52] shrink-0" />
-                    <p className="font-black text-sm">
-                      SMS Code Sent to <span className="font-mono text-blue-900 font-extrabold">+91 {signupPhone}</span>
-                    </p>
-                  </div>
-                  <p className="text-emerald-700 font-bold text-[11px]">
-                    ✓ 6-digit OTP dispatched via 2Factor SMS. Check your phone's SMS inbox.
-                  </p>
-                </div>
-
+              <div className="space-y-4 text-center">
                 <div className="flex justify-center gap-1.5 sm:gap-2 my-2">
                   {signupOtp.map((digit, idx) => (
                     <input
@@ -2949,7 +2609,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                       maxLength={1}
                       value={digit}
                       onChange={(e) => {
-                        const val = e.target.value;
+                        const val = e.target.value.replace(/\D/g, '');
                         const newOtp = [...signupOtp];
                         newOtp[idx] = val;
                         setSignupOtp(newOtp);
@@ -2965,26 +2625,21 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                 <div className="flex items-center justify-between px-1">
                   <button
                     type="button"
-                    onClick={handleResendSignupOtp}
+                    onClick={() => handleSignupSendOtp()}
                     disabled={otpResendTimer > 0 || isSubmitting}
                     className={`text-xs font-black cursor-pointer ${
-                      otpResendTimer > 0 || isSubmitting
-                        ? 'text-slate-400 cursor-not-allowed'
-                        : 'text-[#1a3a52] hover:underline'
+                      otpResendTimer > 0 ? 'text-slate-400 cursor-not-allowed' : 'text-[#1a3a52] hover:underline'
                     }`}
                   >
-                    {otpResendTimer > 0 ? `Resend SMS in ${otpResendTimer}s` : 'Resend OTP to Phone'}
+                    {otpResendTimer > 0 ? `Resend OTP in ${otpResendTimer}s` : 'Resend OTP'}
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setSignupStep('details');
-                      setSignupSubStep(1);
-                    }}
+                    onClick={() => setSignupStep('phone')}
                     className="text-xs font-bold text-slate-500 hover:text-[#1a3a52] cursor-pointer"
                   >
-                    Change Phone Number
+                    Change Phone
                   </button>
                 </div>
 
@@ -2993,72 +2648,346 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                   id="btn-signup-verify-otp"
                   onClick={handleSignupVerifyOtp}
                   disabled={isSubmitting}
-                  className="w-full py-3 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>{signupTrans.btnVerifyOtp}</span>
-                  <CheckCircle2 className="w-4 h-4 text-[#d4af37]" />
+                  <span>Verify OTP &amp; Continue</span>
+                  <ArrowRight className="w-4 h-4 text-[#d4af37]" />
                 </button>
               </div>
             )}
 
-            {/* SIGN UP STEP 3: COMMODITY SELECTION */}
-            {signupStep === 'commodities' && (
-              <div className="space-y-4 animate-in fade-in duration-150">
-                <p className="text-xs sm:text-sm text-slate-600 text-center">
-                  {signupTrans.commoditySubtitle}:
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {ALL_COMMODITIES.map((catKey) => {
-                    const cfg = COMMODITY_CONFIGS[catKey];
-                    if (!cfg) return null;
-                    const isSelected = selectedCommodities.includes(catKey);
-
-                    return (
-                      <button
-                        key={catKey}
-                        type="button"
-                        onClick={() => toggleCommodity(catKey)}
-                        className={`p-3 rounded-2xl border-2 text-left transition flex items-start gap-3 cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#1a3a52] text-white border-[#1a3a52] shadow-md scale-[1.01]'
-                            : 'bg-white text-slate-800 border-slate-200 hover:border-slate-400'
-                        }`}
-                      >
-                        <span className="text-2xl shrink-0">{cfg.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-black text-sm">{cfg.name}</h3>
-                            {isSelected && <CheckCircle2 className="w-4 h-4 text-[#d4af37] shrink-0" />}
-                          </div>
-                          <p className={`text-[11px] mt-0.5 truncate ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
-                            {cfg.varieties.map((v) => v.en.split(' ')[0]).join(', ')}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
+            {/* STEP 3: USERNAME SELECTION */}
+            {signupStep === 'username' && (
+              <form onSubmit={handleUsernameSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="signup-username-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                    Choose Unique Username *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-3.5 text-slate-400 font-bold">@</span>
+                    <input
+                      id="signup-username-input"
+                      type="text"
+                      value={signupUsername}
+                      onChange={(e) => {
+                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, '');
+                        setSignupUsername(val);
+                        setUsernameTaken(false);
+                        setErrorMsg('');
+                        setSuccessMsg('');
+                      }}
+                      placeholder="e.g. ramesh_trader"
+                      className={`w-full pl-9 pr-4 py-3 rounded-xl border-2 font-mono font-bold text-sm text-[#1e293b] outline-none ${
+                        usernameTaken ? 'border-red-400 bg-red-50/30' : 'border-slate-200 focus:border-[#1a3a52]'
+                      }`}
+                      autoFocus
+                      required
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                    3 to 20 characters (letters, numbers, underscore _, and dot . allowed)
+                  </p>
                 </div>
 
                 <button
-                  type="button"
-                  id="btn-signup-complete-enter"
-                  onClick={handleSignupComplete}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base transition shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                  type="submit"
+                  id="btn-signup-username-next"
+                  disabled={usernameChecking}
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                 >
-                  <span>{signupTrans.btnCompleteSignup}</span>
-                  <ArrowRight className="w-5 h-5 text-white" />
+                  <span>{usernameChecking ? 'Checking Username...' : 'Check Username & Continue'}</span>
+                  <ArrowRight className="w-4 h-4 text-[#d4af37]" />
                 </button>
-              </div>
+              </form>
+            )}
+
+            {/* STEP 4: MERCHANT DETAILS */}
+            {signupStep === 'merchant_details' && (
+              <form onSubmit={handleMerchantDetailsSubmit} className="space-y-3.5">
+                <div>
+                  <label htmlFor="signup-fullname-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                    Owner / Trader Name *
+                  </label>
+                  <input
+                    id="signup-fullname-input"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="signup-shopname-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                      Shop / Firm Name *
+                    </label>
+                    <input
+                      id="signup-shopname-input"
+                      type="text"
+                      value={shopName}
+                      onChange={(e) => setShopName(e.target.value)}
+                      placeholder="e.g. Sri Venkateswara Trading"
+                      className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="signup-marketyard-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                      Market or APMC Name *
+                    </label>
+                    <input
+                      id="signup-marketyard-input"
+                      type="text"
+                      value={marketYard}
+                      onChange={(e) => setMarketYard(e.target.value)}
+                      placeholder="e.g. Ghazipur APMC Mandi"
+                      className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="signup-city-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                      City *
+                    </label>
+                    <input
+                      id="signup-city-input"
+                      type="text"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="e.g. Hyderabad"
+                      className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="signup-state-select" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                      State *
+                    </label>
+                    <select
+                      id="signup-state-select"
+                      value={selectedState}
+                      onChange={(e) => setSelectedState(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none bg-white"
+                    >
+                      {INDIAN_STATES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Main Commodity Choice */}
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                    Main Commodity Produce *
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {ALL_COMMODITIES.map((catKey) => {
+                      const cfg = COMMODITY_CONFIGS[catKey];
+                      if (!cfg) return null;
+                      const isSelected = selectedCommodities.includes(catKey);
+
+                      return (
+                        <button
+                          key={catKey}
+                          type="button"
+                          onClick={() => {
+                            sounds.playBidTick();
+                            if (selectedCommodities.includes(catKey)) {
+                              if (selectedCommodities.length > 1) {
+                                setSelectedCommodities(selectedCommodities.filter((c) => c !== catKey));
+                              }
+                            } else {
+                              setSelectedCommodities([...selectedCommodities, catKey]);
+                            }
+                          }}
+                          className={`p-2.5 rounded-xl border-2 text-left transition flex items-center gap-2 cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#1a3a52] text-white border-[#1a3a52] shadow-xs'
+                              : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <span className="text-xl shrink-0">{cfg.icon}</span>
+                          <span className="font-bold text-xs truncate">{cfg.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="signup-license-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                    APMC License Number (Optional)
+                  </label>
+                  <input
+                    id="signup-license-input"
+                    type="text"
+                    value={licenseNumber}
+                    onChange={(e) => setLicenseNumber(e.target.value)}
+                    placeholder="e.g. APMC-LIC-9842"
+                    className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  id="btn-signup-merchant-details-next"
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer mt-2"
+                >
+                  <span>Continue to Set 6-Digit PIN</span>
+                  <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+                </button>
+              </form>
+            )}
+
+            {/* STEP 5: SET 6-DIGIT PIN */}
+            {signupStep === 'pin' && (
+              <form onSubmit={handlePinAndCompleteSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="signup-pin-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                    Set 6-Digit Security PIN *
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="signup-pin-input"
+                      type={showSignupPin ? 'text' : 'password'}
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={signupPin}
+                      onChange={(e) => setSignupPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Enter 6-digit numeric PIN"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-base text-[#1e293b] outline-none tracking-widest"
+                      required
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSignupPin(!showSignupPin)}
+                      className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showSignupPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="signup-confirmpin-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
+                    Confirm 6-Digit Security PIN *
+                  </label>
+                  <input
+                    id="signup-confirmpin-input"
+                    type={showSignupPin ? 'text' : 'password'}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={signupConfirmPin}
+                    onChange={(e) => setSignupConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Re-enter 6-digit numeric PIN"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-mono font-bold text-base text-[#1e293b] outline-none tracking-widest"
+                    required
+                  />
+                </div>
+
+                {/* Touch Numeric Keypad */}
+                <div className="bg-[#f8fafc] p-3 rounded-2xl border border-slate-200 space-y-2">
+                  <p className="text-[11px] font-bold text-[#1a3a52] uppercase tracking-wider text-center">
+                    Numeric Keypad
+                  </p>
+                  <div className="grid grid-cols-3 gap-1.5 max-w-xs mx-auto">
+                    {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((btn) => (
+                      <button
+                        key={btn}
+                        type="button"
+                        onClick={() => {
+                          sounds.playBidTick();
+                          if (btn === 'C') {
+                            setSignupPin('');
+                            setSignupConfirmPin('');
+                          } else if (btn === '⌫') {
+                            if (signupConfirmPin.length > 0) {
+                              setSignupConfirmPin((prev) => prev.slice(0, -1));
+                            } else {
+                              setSignupPin((prev) => prev.slice(0, -1));
+                            }
+                          } else {
+                            if (signupPin.length < 6) {
+                              setSignupPin((prev) => prev + btn);
+                            } else if (signupConfirmPin.length < 6) {
+                              setSignupConfirmPin((prev) => prev + btn);
+                            }
+                          }
+                        }}
+                        className="py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-[#1a3a52] hover:text-white font-mono font-black text-base transition text-[#1e293b] cursor-pointer shadow-2xs active:scale-95"
+                      >
+                        {btn}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  id="btn-signup-complete-enter"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                >
+                  <span>Create Account &amp; Enter Dashboard</span>
+                  <ArrowRight className="w-4 h-4 text-white" />
+                </button>
+              </form>
             )}
           </div>
         )}
       </main>
 
+      {/* Profile Removal Confirmation Modal */}
+      {profileToRemove && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 text-center border-2 border-slate-200 shadow-xl">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-[#1e293b]">Remove Profile?</h3>
+              <p className="text-xs text-slate-500 mt-1 font-medium">
+                Remove this profile from this device?
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5 italic">
+                (This only removes the saved card from this device, not your account)
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setProfileToRemove(null)}
+                className="w-1/2 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemoveProfile}
+                className="w-1/2 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs transition cursor-pointer"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="max-w-4xl w-full mx-auto text-center pt-4 border-t border-slate-200 text-xs text-slate-500">
         <p className="font-medium">
-          भारत MANDI Wholesale Form C Settlement System • Browser Local Storage Active
+          भारत MANDI Wholesale Form C Settlement System • Cloud Sync Active
         </p>
       </footer>
     </div>

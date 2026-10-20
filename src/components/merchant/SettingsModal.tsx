@@ -23,6 +23,10 @@ import {
   LogIn,
   Loader2,
   LogOut,
+  Lock,
+  Eye,
+  EyeOff,
+  KeyRound,
 } from 'lucide-react';
 import { CommodityCategory } from '../../types';
 import { getTodayDateString, COMMODITY_CONFIGS, DEFAULT_MARKET_YARD_NAME } from '../../data/initialData';
@@ -63,11 +67,53 @@ export const SettingsModal: React.FC = () => {
     clearTodayLotsForTesting,
     logoutCurrentUser,
     deleteCurrentAccount,
+    changeUserPin,
     t,
   } = useMandi();
 
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [cloudMsg, setCloudMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Change PIN State
+  const [currentPin, setCurrentPin] = useState<string>('');
+  const [newPin, setNewPin] = useState<string>('');
+  const [confirmNewPin, setConfirmNewPin] = useState<string>('');
+  const [showPin, setShowPin] = useState<boolean>(false);
+  const [isSubmittingPin, setIsSubmittingPin] = useState<boolean>(false);
+  const [pinChangeMsg, setPinChangeMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleChangePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinChangeMsg(null);
+
+    if (!currentPin) {
+      setPinChangeMsg({ type: 'error', text: 'Please enter your current 6-digit PIN.' });
+      return;
+    }
+    if (!newPin || newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+      setPinChangeMsg({ type: 'error', text: 'New PIN must be exactly 6 numeric digits.' });
+      return;
+    }
+    if (newPin !== confirmNewPin) {
+      setPinChangeMsg({ type: 'error', text: 'New PINs do not match.' });
+      return;
+    }
+
+    setIsSubmittingPin(true);
+    const res = await changeUserPin(currentPin, newPin);
+    setIsSubmittingPin(false);
+
+    if (res.success) {
+      sounds.playCashChime();
+      setPinChangeMsg({ type: 'success', text: 'Security PIN updated successfully!' });
+      setCurrentPin('');
+      setNewPin('');
+      setConfirmNewPin('');
+    } else {
+      sounds.playTrashSound?.();
+      setPinChangeMsg({ type: 'error', text: res.error || 'Failed to update PIN.' });
+    }
+  };
 
   const handleCloudBackup = async () => {
     setIsSyncing(true);
@@ -658,6 +704,111 @@ export const SettingsModal: React.FC = () => {
                 <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a3a52]"></div>
               </label>
             </div>
+          </div>
+
+          {/* Section: Change 6-Digit Security PIN */}
+          <div className="bg-white p-4 sm:p-5 rounded-xl border border-[#e2e8f0] shadow-2xs space-y-4">
+            <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#1a3a52] flex items-center gap-1.5">
+                <KeyRound className="w-4 h-4 text-[#1a3a52]" />
+                <span>Change 6-Digit Security PIN</span>
+              </h4>
+            </div>
+
+            {pinChangeMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                  pinChangeMsg.type === 'success'
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                    : 'bg-red-50 border border-red-200 text-red-800'
+                }`}
+              >
+                {pinChangeMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                )}
+                <span>{pinChangeMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePinSubmit} className="space-y-3">
+              <div>
+                <label htmlFor="settings-current-pin" className="block text-xs font-bold text-[#1e293b] mb-1">
+                  Current 6-Digit PIN *
+                </label>
+                <div className="relative">
+                  <input
+                    id="settings-current-pin"
+                    type={showPin ? 'text' : 'password'}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={currentPin}
+                    onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter current 6-digit PIN"
+                    className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] font-mono text-sm focus:border-[#1a3a52] outline-none"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="settings-new-pin" className="block text-xs font-bold text-[#1e293b] mb-1">
+                    New 6-Digit PIN *
+                  </label>
+                  <input
+                    id="settings-new-pin"
+                    type={showPin ? 'text' : 'password'}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="New 6-digit PIN"
+                    className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] font-mono text-sm focus:border-[#1a3a52] outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="settings-confirm-new-pin" className="block text-xs font-bold text-[#1e293b] mb-1">
+                    Confirm New 6-Digit PIN *
+                  </label>
+                  <input
+                    id="settings-confirm-new-pin"
+                    type={showPin ? 'text' : 'password'}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={confirmNewPin}
+                    onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Re-enter new PIN"
+                    className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] font-mono text-sm focus:border-[#1a3a52] outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                id="btn-settings-change-pin"
+                disabled={isSubmittingPin}
+                className="px-4 py-2 rounded-lg bg-[#1a3a52] hover:bg-[#122839] text-white text-xs font-bold transition shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                {isSubmittingPin ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Save className="w-3.5 h-3.5 text-[#d4af37]" />
+                )}
+                <span>Update Security PIN</span>
+              </button>
+            </form>
           </div>
 
           {/* Section: Firebase Cloud Storage & Database */}

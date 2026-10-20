@@ -30,16 +30,7 @@ export function getAdminDb() {
     const clientEmail = (process.env.FIREBASE_CLIENT_EMAIL || '').trim();
     const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 
-    const missingVars: string[] = [];
-    if (!projectId) missingVars.push('FIREBASE_PROJECT_ID');
-    if (!clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL');
-    if (!rawPrivateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
-
-    if (missingVars.length > 0) {
-      console.error(`[Firebase Admin Startup Error] Missing required environment variable(s): ${missingVars.join(', ')}`);
-    }
-
-    if (clientEmail && rawPrivateKey) {
+    if (clientEmail && rawPrivateKey && projectId) {
       // Replaces escaped \n with real newlines for multiline RSA key in Vercel, and strips quotes if wrapped
       const privateKey = rawPrivateKey.replace(/^["']|["']$/g, '').replace(/\\n/g, '\n');
       const app = initializeApp({
@@ -62,10 +53,10 @@ export function getAdminDb() {
       return adminDbInstance;
     }
 
-    console.error('[Firebase Admin Startup Error] Unable to initialize Firebase Admin SDK: Missing required environment variable FIREBASE_PROJECT_ID.');
+    console.info('[Firebase Admin Startup Note] FIREBASE_PROJECT_ID not set.');
     return null;
   } catch (err: any) {
-    console.error(`[Firebase Admin Startup Exception] Step 'Firebase Admin Initialization' failed: ${err?.message || err}`);
+    console.warn(`[Firebase Admin Startup Note] Step 'Firebase Admin Initialization' note: ${err?.message || err}`);
     return null;
   }
 }

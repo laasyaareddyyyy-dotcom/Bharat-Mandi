@@ -5,6 +5,7 @@ import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
 import {
   handleCheckUser,
+  handleCheckUsername,
   handleSendOtp,
   handleVerifyOtp,
   handleRegisterPassword,
@@ -101,6 +102,13 @@ export function mandiApiPlugin(): Plugin {
         // ==========================================
         // AUTHENTICATION ENDPOINTS (2FACTOR + BCRYPT)
         // ==========================================
+        if (pathname === '/api/auth/check-username' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const result = await handleCheckUsername(body);
+          res.statusCode = 200;
+          return res.end(JSON.stringify(result));
+        }
+
         if (pathname === '/api/auth/check-user' && req.method === 'POST') {
           const body = await readJsonBody(req);
           const result = await handleCheckUser(body);

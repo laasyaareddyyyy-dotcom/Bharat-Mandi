@@ -18,6 +18,7 @@ export interface FormCItem {
   commission?: number;
   misc?: number;
   farmerNetPayable?: number;
+  workerName?: string;
 }
 
 export interface FormCInvoiceData {
@@ -47,6 +48,7 @@ export interface FormCInvoiceData {
   paymentMode?: string;
   paymentStatus: string;
   notes?: string;
+  workerName?: string;
 }
 
 interface FormCInvoiceCanvasProps {
@@ -212,6 +214,7 @@ export const FormCInvoiceCanvas = forwardRef<HTMLDivElement, FormCInvoiceCanvasP
                             {item.boxesCount} {item.packagingType || 'Boxes'}
                           </span>
                         )}
+
                       </div>
                       <div className="col-span-1 text-center font-mono font-semibold text-slate-800 text-[11px]">
                         {item.quantity} {item.unit}
