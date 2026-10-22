@@ -533,22 +533,37 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [registeredAccounts, currentUserPhone]);
 
   const [portalMode, setPortalModeState] = useState<PortalMode>(() => {
+    const activePhone = localStorage.getItem(GLOBAL_STORAGE_KEYS.ACTIVE_USER_PHONE) ||
+      localStorage.getItem('bharatmandi_active_phone_v1') || '';
+    const cleanPhone = activePhone.replace(/\D/g, '').slice(-10);
+    if (cleanPhone === '9110387978') {
+      return 'admin';
+    }
     const saved = localStorage.getItem(GLOBAL_STORAGE_KEYS.PORTAL) as PortalMode;
+    if (saved === 'admin') return 'merchant';
     return saved || 'merchant';
   });
 
   // Keep portalMode strictly synchronized with the current active user role
   useEffect(() => {
+    if (currentUserPhone && currentUserPhone.endsWith('9110387978')) {
+      setPortalModeState('admin');
+      try {
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, 'admin');
+        localStorage.setItem(GLOBAL_STORAGE_KEYS.ACTIVE_ROLE, 'admin');
+      } catch {}
+      return;
+    }
     if (currentUserAccount?.role) {
-      const role = currentUserAccount.role;
-      if (role === 'merchant' || role === 'farmer' || role === 'admin') {
+      const role = currentUserAccount.role === 'admin' ? 'merchant' : currentUserAccount.role;
+      if (role === 'merchant' || role === 'farmer') {
         setPortalModeState(role as PortalMode);
         try {
           localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, role);
         } catch {}
       }
     }
-  }, [currentUserAccount?.role]);
+  }, [currentUserAccount?.role, currentUserPhone]);
 
   const [merchantTab, setMerchantTab] = useState<MerchantTab>('dashboard');
   const [dashboardTab, setDashboardTab] = useState<'summary' | 'ledger' | 'merchant-info' | 'tools-settings'>('summary');
@@ -2403,7 +2418,14 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const setPortalMode = (mode: PortalMode) => {
-    setPortalModeState(mode);
+    if (currentUserPhone && currentUserPhone.endsWith('9110387978')) {
+      setPortalModeState('admin');
+      try { localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, 'admin'); } catch {}
+      return;
+    }
+    const safeMode = mode === 'admin' ? 'merchant' : mode;
+    setPortalModeState(safeMode);
+    try { localStorage.setItem(GLOBAL_STORAGE_KEYS.PORTAL, safeMode); } catch {}
   };
 
   const updateMerchantProfile = (profile: Partial<MerchantProfile>) => {

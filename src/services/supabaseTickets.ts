@@ -75,6 +75,15 @@ export async function createTicketInSupabase(
   const updatedLocal = [newTicket, ...currentLocal];
   saveLocalTickets(updatedLocal);
 
+  // Firestore Cloud Database save
+  try {
+    const { doc, setDoc } = await import('firebase/firestore');
+    const { db } = await import('./firebase');
+    await setDoc(doc(db, 'global_tickets', newTicket.id), newTicket, { merge: true });
+  } catch (err) {
+    console.warn('Firestore create ticket notice:', err);
+  }
+
   if (!isSupabaseConfigured()) {
     return { success: true, ticket: newTicket };
   }
@@ -136,7 +145,30 @@ export async function createTicketInSupabase(
 export async function fetchTicketsFromSupabase(
   filterUserPhone?: string
 ): Promise<{ success: boolean; tickets: Ticket[]; error?: string }> {
-  const localList = getLocalTickets();
+  let localList = getLocalTickets();
+
+  // Query Firestore Cloud Database first for tickets
+  try {
+    const { collection, getDocs } = await import('firebase/firestore');
+    const { db } = await import('./firebase');
+    const snap = await getDocs(collection(db, 'global_tickets'));
+    if (!snap.empty) {
+      const fsTickets: Ticket[] = [];
+      snap.forEach((d) => {
+        if (d.exists()) {
+          fsTickets.push(d.data() as Ticket);
+        }
+      });
+      if (fsTickets.length > 0) {
+        const fsIds = new Set(fsTickets.map((t) => t.id));
+        const remainingLocal = localList.filter((t) => !fsIds.has(t.id));
+        localList = [...fsTickets, ...remainingLocal];
+        saveLocalTickets(localList);
+      }
+    }
+  } catch (err) {
+    console.warn('Firestore fetch tickets notice:', err);
+  }
 
   if (!isSupabaseConfigured()) {
     if (filterUserPhone) {
