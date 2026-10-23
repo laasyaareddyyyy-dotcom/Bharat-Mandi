@@ -67,7 +67,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           >
             <img
               src="/bharat_mandi_logo.png"
-              alt="PhoolMitra Logo"
+              alt="Mandi Ledger Logo"
               referrerPolicy="no-referrer"
               className="w-32 h-32 sm:w-40 sm:h-40 object-contain relative z-10"
             />
@@ -81,7 +81,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             className="space-y-2 mb-8"
           >
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#18364A]">
-              {language === 'hi' ? 'फूलमित्र फ्लावर मंडी लेजर' : 'PhoolMitra Flower Mandi Ledger'}
+              {language === 'hi' ? 'मंडी लेजर' : 'Mandi Ledger'}
             </h1>
             <div className="flex items-center justify-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[#B69A5A]" />
