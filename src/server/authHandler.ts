@@ -491,7 +491,10 @@ export async function handleSendOtp(reqBody: any, req?: any) {
   const now = Date.now();
 
   const active2FactorKey = (process.env.TWOFACTOR_API_KEY || TWOFACTOR_API_KEY || '').trim();
-  const activeTemplateName = (process.env.TWOFACTOR_TEMPLATE_NAME || TWOFACTOR_TEMPLATE_NAME || '').trim();
+  const rawTemplate = (process.env.TWOFACTOR_TEMPLATE_NAME || TWOFACTOR_TEMPLATE_NAME || '').trim();
+  // 'BHRMND' is a 6-letter Sender ID, NOT an OTP content template name.
+  // Passing 'BHRMND' as template name causes 2Factor DLT failure and triggers voice call failover.
+  const activeTemplateName = rawTemplate !== 'BHRMND' ? rawTemplate : '';
 
   // Enforce IP Rate Limiting
   const ipCheck = await checkIpRateLimit(req, 'send-otp');

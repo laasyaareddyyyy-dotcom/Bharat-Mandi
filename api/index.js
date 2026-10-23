@@ -451,7 +451,8 @@ async function handleSendOtp(reqBody, req) {
   const cleanPhone = phoneVal.cleanPhone;
   const now = Date.now();
   const active2FactorKey = (process.env.TWOFACTOR_API_KEY || TWOFACTOR_API_KEY || "").trim();
-  const activeTemplateName = (process.env.TWOFACTOR_TEMPLATE_NAME || TWOFACTOR_TEMPLATE_NAME || "").trim();
+  const rawTemplate = (process.env.TWOFACTOR_TEMPLATE_NAME || TWOFACTOR_TEMPLATE_NAME || "").trim();
+  const activeTemplateName = rawTemplate !== "BHRMND" ? rawTemplate : "";
   const ipCheck = await checkIpRateLimit(req, "send-otp");
   if (!ipCheck.allowed) {
     console.warn(`[AUTH LOG] [/api/auth/send-otp] IP rate limit exceeded for IP: ${extractClientIp(req)}`);
