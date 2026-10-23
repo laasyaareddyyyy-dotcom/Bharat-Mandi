@@ -8,7 +8,7 @@ import { getAdminDb } from './firebaseAdmin';
 const TWOFACTOR_API_KEY =
   (process.env.TWOFACTOR_API_KEY || '81f437aa-c9ff-11f1-af74-0200cd936042').trim();
 const TWOFACTOR_TEMPLATE_NAME =
-  (process.env.TWOFACTOR_TEMPLATE_NAME || 'BHRMND').trim();
+  (process.env.TWOFACTOR_TEMPLATE_NAME || '').trim();
 const JWT_SECRET =
   (process.env.JWT_SECRET || 'PhoolMitra_Mandi_Strict_JWT_Secret_Key_32Chars_V2026_Secure!').trim();
 

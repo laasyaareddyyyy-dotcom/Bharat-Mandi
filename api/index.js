@@ -91,7 +91,7 @@ function getAdminDb() {
 
 // src/server/authHandler.ts
 var TWOFACTOR_API_KEY = (process.env.TWOFACTOR_API_KEY || "81f437aa-c9ff-11f1-af74-0200cd936042").trim();
-var TWOFACTOR_TEMPLATE_NAME = (process.env.TWOFACTOR_TEMPLATE_NAME || "BHRMND").trim();
+var TWOFACTOR_TEMPLATE_NAME = (process.env.TWOFACTOR_TEMPLATE_NAME || "").trim();
 var JWT_SECRET = (process.env.JWT_SECRET || "PhoolMitra_Mandi_Strict_JWT_Secret_Key_32Chars_V2026_Secure!").trim();
 function getHealthStatus() {
   const firebaseProjectId = Boolean((process.env.FIREBASE_PROJECT_ID || firebaseAppConfig?.projectId || "").trim());
