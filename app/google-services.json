@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "337939491567",
+    "project_id": "phoolmitra-flower-mandi",
+    "storage_bucket": "phoolmitra-flower-mandi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:337939491567:android:4f58fb3e58fd4f8b65891a",
+        "android_client_info": {
+          "package_name": "com.example.markethub"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "337939491567-rk6v25bekksjue97puhr0g4b2s11q4p9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmmy2wG2yyuGZAxP02sVd3BmBEPNxIw9A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "337939491567-rk6v25bekksjue97puhr0g4b2s11q4p9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:337939491567:android:a1324a325f830faf65891a",
+        "android_client_info": {
+          "package_name": "com.example.phoolmitra"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "337939491567-rk6v25bekksjue97puhr0g4b2s11q4p9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmmy2wG2yyuGZAxP02sVd3BmBEPNxIw9A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "337939491567-rk6v25bekksjue97puhr0g4b2s11q4p9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

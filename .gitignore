@@ -13,6 +13,11 @@
 .externalNativeBuild
 .cxx
 local.properties
+node_modules
+dist
+
+# Environment variables & secrets (Never commit secrets to GitHub)
 .env
-.env.local
-.env.*.local
+.env.*
+.env.examples
+!.env.example
