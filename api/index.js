@@ -1434,9 +1434,8 @@ Output strict JSON with fields: varietyName, packagingCount, packagingType (Boxe
 app.use("/api", router);
 app.use(router);
 var app_default = app;
-
-// api/index.ts
-var index_default = app_default;
 export {
-  index_default as default
+  app,
+  app_default as default,
+  router
 };
