@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { firebaseAppConfig as firebaseConfig } from './firebaseConfig';
 
 let adminDbInstance: any = null;
 let initAttempted = false;

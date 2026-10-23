@@ -1,26 +1,16 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { firebaseAppConfig as firebaseConfig } from './firebaseConfig';
 import { getAdminDb } from './firebaseAdmin';
 
-// 2Factor.in API & Strict JWT Environment Variables
-const TWOFACTOR_API_KEY = process.env.TWOFACTOR_API_KEY || '';
-const TWOFACTOR_TEMPLATE_NAME = process.env.TWOFACTOR_TEMPLATE_NAME || '';
+// 2Factor.in API & Strict JWT Environment Variables (with active production defaults for Vercel deployment)
+const TWOFACTOR_API_KEY =
+  (process.env.TWOFACTOR_API_KEY || '81f437aa-c9ff-11f1-af74-0200cd936042').trim();
+const TWOFACTOR_TEMPLATE_NAME =
+  (process.env.TWOFACTOR_TEMPLATE_NAME || 'BHRMND').trim();
 const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  'PhoolMitra_Mandi_Strict_JWT_Secret_Key_32Chars_V2026_Secure!';
-
-// Diagnostic notices for environment configuration
-if (!process.env.TWOFACTOR_API_KEY) {
-  console.info('[Server Startup] TWOFACTOR_API_KEY not set. Using server/SMS fallback mode.');
-}
-if (!process.env.TWOFACTOR_TEMPLATE_NAME) {
-  console.info('[Server Startup] TWOFACTOR_TEMPLATE_NAME not set. Using server/SMS fallback mode.');
-}
-if (!process.env.JWT_SECRET) {
-  console.info('[Server Startup] JWT_SECRET not set. Using default secure key.');
-}
+  (process.env.JWT_SECRET || 'PhoolMitra_Mandi_Strict_JWT_Secret_Key_32Chars_V2026_Secure!').trim();
 
 /**
  * Lightweight Health Check helper returning environment variable presence

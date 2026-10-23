@@ -249,8 +249,9 @@ export async function sendOtpOnServer(
       headers: getAuthHeaders(),
       body: JSON.stringify({ phone: cleanPhone, purpose }),
     });
-    if (res.ok) {
-      return await res.json();
+    const data = await res.json().catch(() => null);
+    if (data) {
+      return data;
     }
   } catch (err) {
     console.warn('sendOtpOnServer network fallback to local OTP:', err);
@@ -279,8 +280,9 @@ export async function verifyOtpOnServer(
       headers: getAuthHeaders(),
       body: JSON.stringify({ phone: cleanPhone, sessionId, otp }),
     });
-    if (res.ok) {
-      return await res.json();
+    const data = await res.json().catch(() => null);
+    if (data) {
+      return data;
     }
   } catch (err) {
     console.warn('verifyOtpOnServer network fallback to local verification:', err);
