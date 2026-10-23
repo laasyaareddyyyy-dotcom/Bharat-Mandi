@@ -114,7 +114,7 @@ export async function checkIpRateLimit(
   const docId = `${action}_${sanitizedIpKey}`;
   const now = Date.now();
   const windowMs = 15 * 60 * 1000; // 15 minutes
-  const maxLimit = action === 'send-otp' ? 5 : 10;
+  const maxLimit = action === 'send-otp' ? 30 : 50;
 
   const db = getAdminDb();
   if (db) {
@@ -135,7 +135,7 @@ export async function checkIpRateLimit(
         const remainingSecs = Math.ceil((windowMs - (now - oldestInWindow)) / 1000);
         return {
           allowed: false,
-          error: `Too many ${action === 'send-otp' ? 'OTP' : 'login'} requests from this IP address (${clientIp}). Please wait ${Math.max(1, remainingSecs)} seconds before trying again.`,
+          error: `Too many ${action === 'send-otp' ? 'OTP' : 'login'} requests from this network. Please wait ${Math.max(1, remainingSecs)} seconds before trying again.`,
         };
       }
 
@@ -552,7 +552,7 @@ export async function handleSendOtp(reqBody: any, req?: any) {
     console.log(`[AUTH LOG] [/api/auth/send-otp] Dispatching HTTP GET to 2Factor API: ${sanitizedUrl}`);
 
     try {
-      let apiRes = await fetch(twoFactorUrl, { method: 'GET' });
+      let apiRes = await fetch(twoFactorUrl, { method: 'GET', signal: AbortSignal.timeout(4000) });
       let responseStatus = apiRes.status;
       let resData: any = {};
       try {
@@ -564,7 +564,7 @@ export async function handleSendOtp(reqBody: any, req?: any) {
       if ((responseStatus !== 200 || !resData || resData.Status !== 'Success') && templateParam) {
         console.warn(`[AUTH LOG] [/api/auth/send-otp] Custom template failed or unapproved on DLT. Retrying with default 2Factor SMS route.`);
         const fallbackUrl = `https://2factor.in/API/V1/${active2FactorKey}/SMS/${cleanPhone}/AUTOGEN`;
-        apiRes = await fetch(fallbackUrl, { method: 'GET' });
+        apiRes = await fetch(fallbackUrl, { method: 'GET', signal: AbortSignal.timeout(4000) });
         responseStatus = apiRes.status;
         try {
           resData = await apiRes.json();
@@ -692,7 +692,7 @@ export async function handleVerifyOtp(reqBody: any) {
     // 2. 2Factor.in Verification API
     const verifyUrl = `https://2factor.in/API/V1/${active2FactorKey}/SMS/VERIFY/${sessionId}/${cleanOtp}`;
     try {
-      const apiRes = await fetch(verifyUrl, { method: 'GET' });
+      const apiRes = await fetch(verifyUrl, { method: 'GET', signal: AbortSignal.timeout(4000) });
       const resData: any = await apiRes.json();
       if (resData && resData.Status === 'Success' && resData.Details === 'OTP Matched') {
         isMatch = true;

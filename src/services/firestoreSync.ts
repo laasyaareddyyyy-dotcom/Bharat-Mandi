@@ -133,6 +133,7 @@ export async function fetchFromFirestore(targetPhone?: string): Promise<{
       const res = await fetch('/api/data/fetch', {
         method: 'GET',
         headers,
+        signal: AbortSignal.timeout(5000),
       });
       const resJson = await res.json();
       if (resJson.success && resJson.data) {
@@ -250,26 +251,32 @@ export function subscribeToFirestore(
   }) => void
 ) {
   let active = true;
+  let isPolling = false;
 
   const poll = async () => {
-    if (!active) return;
-    const fetched = await fetchFromFirestore(targetPhone);
-    if (fetched && active) {
-      onUpdate({
-        profile: fetched.profile,
-        farmers: fetched.farmers,
-        lots: fetched.lots,
-        shipments: fetched.shipments,
-        payments: fetched.payments,
-        settlements: fetched.settlements,
-        stocks: fetched.stocks,
-        employees: fetched.employees,
-      });
+    if (!active || isPolling) return;
+    isPolling = true;
+    try {
+      const fetched = await fetchFromFirestore(targetPhone);
+      if (fetched && active) {
+        onUpdate({
+          profile: fetched.profile,
+          farmers: fetched.farmers,
+          lots: fetched.lots,
+          shipments: fetched.shipments,
+          payments: fetched.payments,
+          settlements: fetched.settlements,
+          stocks: fetched.stocks,
+          employees: fetched.employees,
+        });
+      }
+    } finally {
+      isPolling = false;
     }
   };
 
-  // Poll server data route every 12 seconds
-  const intervalId = setInterval(poll, 12000);
+  // Poll server data route every 15 seconds
+  const intervalId = setInterval(poll, 15000);
 
   return () => {
     active = false;
@@ -288,6 +295,7 @@ async function deleteItemViaServer(itemType: string, itemId: string): Promise<bo
         method: 'POST',
         headers,
         body: JSON.stringify({ itemType, itemId }),
+        signal: AbortSignal.timeout(5000),
       });
       const resJson = await res.json();
       return Boolean(resJson.success);

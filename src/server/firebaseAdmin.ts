@@ -46,14 +46,22 @@ export function getAdminDb() {
       return adminDbInstance;
     }
 
-    if (projectId) {
+    // Only use default GCP app if we are actually in a GCP environment (Cloud Run / App Engine)
+    // NEVER on Vercel or non-GCP environments without credentials, because attempting to query 169.254.169.254 hangs for 60 seconds!
+    const isGcp = Boolean(
+      (process.env.K_SERVICE || process.env.FUNCTION_NAME || process.env.GOOGLE_CLOUD_PROJECT) &&
+      !process.env.VERCEL &&
+      !process.env.NOW_REGION
+    );
+
+    if (projectId && isGcp) {
       const app = initializeApp({ projectId });
       adminDbInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
-      console.log(`[Firebase Admin] Initialized default app for project: ${projectId}`);
+      console.log(`[Firebase Admin] Initialized default app for project: ${projectId} on GCP`);
       return adminDbInstance;
     }
 
-    console.info('[Firebase Admin Startup Note] FIREBASE_PROJECT_ID not set.');
+    console.info('[Firebase Admin Startup Note] Service account credentials not present on Vercel/host. Using ultra-fast in-memory store.');
     return null;
   } catch (err: any) {
     console.warn(`[Firebase Admin Startup Note] Step 'Firebase Admin Initialization' note: ${err?.message || err}`);

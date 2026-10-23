@@ -72,13 +72,16 @@ function getAdminDb() {
       console.log(`[Firebase Admin] Successfully initialized with cert for project: ${projectId}`);
       return adminDbInstance;
     }
-    if (projectId) {
+    const isGcp = Boolean(
+      (process.env.K_SERVICE || process.env.FUNCTION_NAME || process.env.GOOGLE_CLOUD_PROJECT) && !process.env.VERCEL && !process.env.NOW_REGION
+    );
+    if (projectId && isGcp) {
       const app2 = initializeApp({ projectId });
       adminDbInstance = getFirestore(app2, firebaseAppConfig.firestoreDatabaseId || "(default)");
-      console.log(`[Firebase Admin] Initialized default app for project: ${projectId}`);
+      console.log(`[Firebase Admin] Initialized default app for project: ${projectId} on GCP`);
       return adminDbInstance;
     }
-    console.info("[Firebase Admin Startup Note] FIREBASE_PROJECT_ID not set.");
+    console.info("[Firebase Admin Startup Note] Service account credentials not present on Vercel/host. Using ultra-fast in-memory store.");
     return null;
   } catch (err) {
     console.warn(`[Firebase Admin Startup Note] Step 'Firebase Admin Initialization' note: ${err?.message || err}`);
@@ -143,7 +146,7 @@ async function checkIpRateLimit(req, action) {
   const docId = `${action}_${sanitizedIpKey}`;
   const now = Date.now();
   const windowMs = 15 * 60 * 1e3;
-  const maxLimit = action === "send-otp" ? 5 : 10;
+  const maxLimit = action === "send-otp" ? 30 : 50;
   const db = getAdminDb();
   if (db) {
     try {
@@ -161,7 +164,7 @@ async function checkIpRateLimit(req, action) {
         const remainingSecs = Math.ceil((windowMs - (now - oldestInWindow)) / 1e3);
         return {
           allowed: false,
-          error: `Too many ${action === "send-otp" ? "OTP" : "login"} requests from this IP address (${clientIp}). Please wait ${Math.max(1, remainingSecs)} seconds before trying again.`
+          error: `Too many ${action === "send-otp" ? "OTP" : "login"} requests from this network. Please wait ${Math.max(1, remainingSecs)} seconds before trying again.`
         };
       }
       timestamps.push(now);
@@ -495,7 +498,7 @@ async function handleSendOtp(reqBody, req) {
     const sanitizedUrl = `https://2factor.in/API/V1/[REDACTED_API_KEY]/SMS/${cleanPhone}/AUTOGEN${templateParam}`;
     console.log(`[AUTH LOG] [/api/auth/send-otp] Dispatching HTTP GET to 2Factor API: ${sanitizedUrl}`);
     try {
-      let apiRes = await fetch(twoFactorUrl, { method: "GET" });
+      let apiRes = await fetch(twoFactorUrl, { method: "GET", signal: AbortSignal.timeout(4e3) });
       let responseStatus = apiRes.status;
       let resData = {};
       try {
@@ -506,7 +509,7 @@ async function handleSendOtp(reqBody, req) {
       if ((responseStatus !== 200 || !resData || resData.Status !== "Success") && templateParam) {
         console.warn(`[AUTH LOG] [/api/auth/send-otp] Custom template failed or unapproved on DLT. Retrying with default 2Factor SMS route.`);
         const fallbackUrl = `https://2factor.in/API/V1/${active2FactorKey}/SMS/${cleanPhone}/AUTOGEN`;
-        apiRes = await fetch(fallbackUrl, { method: "GET" });
+        apiRes = await fetch(fallbackUrl, { method: "GET", signal: AbortSignal.timeout(4e3) });
         responseStatus = apiRes.status;
         try {
           resData = await apiRes.json();
@@ -605,7 +608,7 @@ async function handleVerifyOtp(reqBody) {
   } else if (active2FactorKey && active2FactorKey !== "YOUR_2FACTOR_API_KEY_HERE") {
     const verifyUrl = `https://2factor.in/API/V1/${active2FactorKey}/SMS/VERIFY/${sessionId}/${cleanOtp}`;
     try {
-      const apiRes = await fetch(verifyUrl, { method: "GET" });
+      const apiRes = await fetch(verifyUrl, { method: "GET", signal: AbortSignal.timeout(4e3) });
       const resData = await apiRes.json();
       if (resData && resData.Status === "Success" && resData.Details === "OTP Matched") {
         isMatch = true;

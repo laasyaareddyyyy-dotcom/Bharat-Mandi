@@ -1697,48 +1697,51 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     setIsSubmitting(true);
     sounds.playBidTick();
 
-    const res = await sendOtpOnServer(cleanPhone, 'signup');
-    setIsSubmitting(false);
+    try {
+      const res = await sendOtpOnServer(cleanPhone, 'signup');
+      if (!res.success) {
+        setErrorMsg(res.error || 'Could not send OTP. Please try again.');
+        return;
+      }
 
-    if (!res.success) {
-      setErrorMsg(res.error || 'Could not send OTP. Please try again.');
-      return;
+      setSignupSessionId(res.sessionId || '');
+      setOtpResendTimer(30);
+      setSignupOtp(['', '', '', '', '', '']);
+
+      // Check if phone already exists
+      const serverCheck = await checkUserOnServer(cleanPhone);
+      if (serverCheck && (serverCheck.exists || serverCheck.hasPassword)) {
+        setSuccessMsg(`Mobile +91 ${cleanPhone} is registered. Enter OTP to log in immediately.`);
+      }
+
+      setSignupStep('otp');
+      sounds.playCashChime();
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Network error while sending OTP. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setSignupSessionId(res.sessionId || '');
-    setOtpResendTimer(30);
-    setSignupOtp(['', '', '', '', '', '']);
-
-    // Check if phone already exists
-    const serverCheck = await checkUserOnServer(cleanPhone);
-    if (serverCheck && (serverCheck.exists || serverCheck.hasPassword)) {
-      setSuccessMsg(`Mobile +91 ${cleanPhone} is registered. Enter OTP to log in immediately.`);
-    }
-
-    setSignupStep('otp');
-    sounds.playCashChime();
   };
 
   // Step 2: Verify OTP Code
   const handleSignupVerifyOtp = async () => {
     const entered = signupOtp.join('');
-    if (entered.length < 6) {
-      setErrorMsg('Please enter the full 6-digit OTP code');
+    if (entered.length < 4) {
+      setErrorMsg('Please enter your verification OTP code');
       return;
     }
 
     const cleanPhone = cleanIndianMobile(signupPhone);
 
     setIsSubmitting(true);
-    const verifyRes = await verifyOtpOnServer(cleanPhone, signupSessionId, entered);
-    setIsSubmitting(false);
+    try {
+      const verifyRes = await verifyOtpOnServer(cleanPhone, signupSessionId, entered);
+      if (!verifyRes.success) {
+        setErrorMsg(verifyRes.error || 'Invalid OTP code. Please check and try again.');
+        return;
+      }
 
-    if (!verifyRes.success) {
-      setErrorMsg(verifyRes.error || 'Invalid OTP code. Please check and try again.');
-      return;
-    }
-
-    setSignupVerificationToken(verifyRes.verificationToken || '');
+      setSignupVerificationToken(verifyRes.verificationToken || '');
 
     // Check if user is already registered (skip sign up and log in)
     const serverCheck = await checkUserOnServer(cleanPhone);
@@ -1754,9 +1757,14 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       return;
     }
 
-    setErrorMsg('');
-    setSignupStep('username');
-    sounds.playCashChime();
+      setErrorMsg('');
+      setSignupStep('username');
+      sounds.playCashChime();
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Error verifying OTP. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Step 3: Validate Username (with 5-Second Timeout & Error Re-enable)
@@ -2570,11 +2578,20 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                 <button
                   type="submit"
                   id="btn-signup-send-otp"
-                  disabled={isSubmitting}
-                  className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={isSubmitting || signupPhone.length < 10}
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>Send OTP</span>
-                  <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Sending OTP...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Send OTP</span>
+                      <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+                    </>
+                  )}
                 </button>
 
                 <div className="text-center pt-3 border-t border-slate-200">
@@ -2648,10 +2665,19 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                   id="btn-signup-verify-otp"
                   onClick={handleSignupVerifyOtp}
                   disabled={isSubmitting}
-                  className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm transition shadow-md cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>Verify OTP &amp; Continue</span>
-                  <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Verifying OTP...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Verify OTP &amp; Continue</span>
+                      <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+                    </>
+                  )}
                 </button>
               </div>
             )}
