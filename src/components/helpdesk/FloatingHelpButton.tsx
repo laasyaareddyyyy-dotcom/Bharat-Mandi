@@ -57,7 +57,7 @@ export const FloatingHelpButton: React.FC = () => {
             <PlusCircle className="w-4 h-4 text-[#1a3a52]" />
             <div>
               <span className="block font-bold">Raise Support Ticket</span>
-              <span className="text-[10px] text-[#64748b] font-normal">Fast 2-hour APMC resolution</span>
+              <span className="text-[10px] text-[#64748b] font-normal">Fast 2-hour Mandi resolution</span>
             </div>
           </button>
 
@@ -126,7 +126,7 @@ export const FloatingHelpButton: React.FC = () => {
         type="button"
         onClick={() => setIsMenuOpen(!isMenuOpen)}
         className="group relative flex items-center gap-2 px-3.5 py-3 rounded-2xl bg-[#1a3a52] hover:bg-[#122839] text-white shadow-xl hover:shadow-2xl border-2 border-white transition-all transform hover:scale-105 cursor-pointer"
-        title="Need Help? APMC Mandi Support Desk"
+        title="Need Help? Mandi Support Desk"
       >
         <Headphones className="w-5 h-5 text-[#d4af37]" />
         <span className="font-bold text-xs tracking-wide">Help Desk</span>

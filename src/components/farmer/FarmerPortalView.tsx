@@ -204,7 +204,7 @@ export const FarmerPortalView: React.FC = () => {
     return farmerRequests.filter((r) => r.status === 'accepted');
   }, [farmerRequests]);
 
-  // Searchable Merchants across the APMC network
+  // Searchable Merchants across the Mandi network
   const networkMerchants = useMemo(() => {
     const list: {
       merchantId: string;
@@ -212,7 +212,7 @@ export const FarmerPortalView: React.FC = () => {
       ownerName: string;
       phoneNumber: string;
       shopNumber: string;
-      apmcMarketName: string;
+      marketYardName: string;
       photoUrl?: string;
       commissionRate: number;
     }[] = [];
@@ -228,11 +228,11 @@ export const FarmerPortalView: React.FC = () => {
           seenPhones.add(clean);
           list.push({
             merchantId: `MANDI-${clean.slice(-4)}`,
-            shopName: a.shopOrVillage || 'APMC Merchant',
+            shopName: a.shopOrVillage || 'Mandi Merchant',
             ownerName: a.fullName,
             phoneNumber: clean,
             shopNumber: a.shopNumber || '',
-            apmcMarketName: a.marketName || 'Gudimalkapur Flower Market Yard',
+            marketYardName: a.marketName || 'Gudimalkapur Flower Market Yard',
             photoUrl: a.photoUrl,
             commissionRate: 4,
           });
@@ -252,7 +252,7 @@ export const FarmerPortalView: React.FC = () => {
         ownerName: merchantProfile.ownerName || 'Commission Merchant',
         phoneNumber: cleanActivePhone,
         shopNumber: merchantProfile.shopNumber || '',
-        apmcMarketName: merchantProfile.apmcMarketName || 'Gudimalkapur Flower Market Yard',
+        marketYardName: merchantProfile.marketYardName || 'Gudimalkapur Flower Market Yard',
         photoUrl: merchantProfile.photoUrl,
         commissionRate: merchantProfile.defaultCommissionRate || 4,
       });
@@ -264,7 +264,7 @@ export const FarmerPortalView: React.FC = () => {
       (m) =>
         m.shopName.toLowerCase().includes(q) ||
         m.ownerName.toLowerCase().includes(q) ||
-        m.apmcMarketName.toLowerCase().includes(q) ||
+        m.marketYardName.toLowerCase().includes(q) ||
         m.phoneNumber.includes(q) ||
         m.shopNumber.toLowerCase().includes(q)
     );
@@ -573,7 +573,7 @@ export const FarmerPortalView: React.FC = () => {
                 </div>
                 <h3 className="text-lg sm:text-xl font-black">{merchantProfile.shopName || 'Mandi Commission Merchant'}</h3>
                 <p className="text-xs text-white/80 mt-0.5">
-                  Owner: <strong className="text-[#d4af37]">{merchantProfile.ownerName || 'Merchant'}</strong> {merchantProfile.shopNumber ? `• ${merchantProfile.shopNumber}` : ''} {merchantProfile.apmcMarketName ? `• ${merchantProfile.apmcMarketName}` : ''}
+                  Owner: <strong className="text-[#d4af37]">{merchantProfile.ownerName || 'Merchant'}</strong> {merchantProfile.shopNumber ? `• ${merchantProfile.shopNumber}` : ''} {merchantProfile.marketYardName ? `• ${merchantProfile.marketYardName}` : ''}
                 </p>
                 <div className="text-[11px] text-white/70 mt-0.5 font-mono">
                   Phone: {merchantProfile.phoneNumber ? `+91 ${merchantProfile.phoneNumber}` : 'Not configured'}
@@ -805,7 +805,7 @@ export const FarmerPortalView: React.FC = () => {
                 </span>
               </h3>
               <p className="text-xs text-[#64748b]">
-                Find licensed flower commission agents in Gudimalkapur, Shamshabad, or regional APMC yards. Send a connection request to link your passbook.
+                Find licensed flower commission agents in Gudimalkapur, Shamshabad, or regional Mandi yards. Send a connection request to link your passbook.
               </p>
             </div>
 
@@ -878,7 +878,7 @@ export const FarmerPortalView: React.FC = () => {
                           Owner: <strong>{m.ownerName}</strong>
                         </p>
                         <p className="text-[11px] text-[#64748b] mt-0.5">
-                          📍 {m.shopNumber}, {m.apmcMarketName}
+                          📍 {m.shopNumber}, {m.marketYardName}
                         </p>
                         <p className="text-[11px] font-mono text-[#1a3a52] font-bold mt-0.5">
                           📞 +91 {cleanPhone}
@@ -888,7 +888,7 @@ export const FarmerPortalView: React.FC = () => {
 
                     <div className="p-2.5 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] text-[11px] flex justify-between text-[#64748b]">
                       <span>Standard Commission:</span>
-                      <span className="font-bold text-[#1e293b]">{m.commissionRate}% APMC Mandi</span>
+                      <span className="font-bold text-[#1e293b]">{m.commissionRate}% Mandi</span>
                     </div>
                   </div>
 

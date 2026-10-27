@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.merchants (
   owner_uid TEXT NOT NULL,
   shop_name TEXT NOT NULL,
   shop_number TEXT,
-  apmc_market_name TEXT,
+  mandi_market_name TEXT,
   owner_name TEXT,
   phone_number TEXT NOT NULL,
   default_commission_percent NUMERIC DEFAULT 5.0,

@@ -1,4 +1,4 @@
-// Flower Mandi Service Worker for Offline APMC Ledger & PWA
+// Flower Mandi Service Worker for Offline Mandi Ledger & PWA
 const CACHE_NAME = 'flowermandi-cache-v1';
 const PRECACHE_ASSETS = [
   '/',

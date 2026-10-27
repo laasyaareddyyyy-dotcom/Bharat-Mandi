@@ -99,7 +99,7 @@ export const SupportView: React.FC = () => {
           <div className="page-header flex flex-col items-center justify-center text-center gap-2">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1a3a52] tracking-tight">Support &amp; Services</h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">APMC Help desk, mandi tools, and account services</p>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Mandi Help desk, mandi tools, and account services</p>
             </div>
             {merchantProfile && (
               <div className="flex items-center justify-center gap-2 mt-1">

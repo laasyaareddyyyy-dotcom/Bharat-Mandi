@@ -28,7 +28,7 @@ const QUICK_STAFF_REPLIES = [
   'Ledger statement verified. Payment voucher balance has been recalculated in the 15-day settlement.',
   'Bluetooth thermal printer format updated. Please re-print your 58mm/80mm parchi slip.',
   'Kisan WhatsApp synchronization refreshed. The farmer will now receive real-time auction SMS alerts.',
-  'Form C monthly market turnover summary has been regenerated and ready for APMC download.',
+  'Form C monthly market turnover summary has been regenerated and ready for Mandi download.',
 ];
 
 export const SupportAdminDashboard: React.FC = () => {
@@ -118,7 +118,7 @@ export const SupportAdminDashboard: React.FC = () => {
             <Headphones className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs sm:text-sm font-bold leading-tight">APMC Mandi Help Desk Control Center</h3>
+            <h3 className="text-xs sm:text-sm font-bold leading-tight">Mandi Help Desk Control Center</h3>
             <p className="text-[11px] text-white/80">Manage merchant & farmer tickets, assign mandi desk officers, and resolve SLA items</p>
           </div>
         </div>

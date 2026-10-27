@@ -28,6 +28,10 @@ import {
   ConnectionStatus,
   SyncedFarmerStatement,
   SyncedFarmerStatementItem,
+  MerchantSection,
+  Retailer,
+  RetailerSale,
+  RetailerPayment,
 } from '../types';
 import { translations } from '../translations';
 import { hashPassword, verifyPasswordHash } from '../utils/cryptoUtils';
@@ -79,6 +83,9 @@ import {
   initialHelpTickets,
   INITIAL_STOCKS,
   INITIAL_EMPLOYEES,
+  INITIAL_RETAILERS,
+  INITIAL_RETAILER_SALES,
+  INITIAL_RETAILER_PAYMENTS,
   generateInitialLots,
   generateInitialShipments,
   getTodayDateString,
@@ -184,6 +191,7 @@ interface MandiContextType {
   addFarmer: (farmer: Omit<Farmer, 'id' | 'createdAt'>) => Farmer;
   updateFarmer: (id: string, updated: Partial<Farmer>) => void;
   deleteFarmer: (id: string) => void;
+  archiveFarmer: (id: string) => void;
 
   lots: SaleLot[];
   todayLots: SaleLot[];
@@ -234,7 +242,25 @@ interface MandiContextType {
 
 
 
-  // Stock Management
+  // Merchant Section Switcher (Wholesaler vs Retailer)
+  merchantSection: MerchantSection;
+  setMerchantSection: (section: MerchantSection) => void;
+
+  // Retailer Sales & Ledgers
+  retailers: Retailer[];
+  addRetailer: (retailer: Omit<Retailer, 'id' | 'createdAt'>) => Retailer;
+  updateRetailer: (id: string, updated: Partial<Retailer>) => void;
+  deleteRetailer: (id: string) => void;
+
+  retailerSales: RetailerSale[];
+  addRetailerSale: (sale: Omit<RetailerSale, 'id' | 'parchiNumber' | 'time'>) => RetailerSale;
+  deleteRetailerSale: (id: string) => void;
+
+  retailerPayments: RetailerPayment[];
+  addRetailerPayment: (payment: Omit<RetailerPayment, 'id' | 'time'>) => RetailerPayment;
+  deleteRetailerPayment: (id: string) => void;
+
+  // Stocks & Inventory
   stocks: StockItem[];
   addStockItem: (item: Omit<StockItem, 'id' | 'lastUpdated'>) => StockItem;
   updateStockItem: (id: string, updated: Partial<StockItem>) => void;
@@ -384,7 +410,12 @@ interface MandiContextType {
   totalOutstandingDues: number;
   totalPaidToDate: number;
 
-  getFarmerStats: (farmerId: string, startDate?: string, endDate?: string) => {
+  getFarmerStats: (
+    farmerId: string,
+    startDate?: string,
+    endDate?: string,
+    commodityCategory?: CommodityCategory | 'all'
+  ) => {
     totalLots: number;
     totalVolume: number;
     totalTurnover: number;
@@ -905,14 +936,164 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const recordEmployeePayment = useCallback((id: string, amount: number) => {
     setEmployees((prev) =>
       prev.map((e) => {
-        if (e.id === id) {
-          const totalPaid = (e.totalPaid || 0) + amount;
-          const balanceDue = Math.max(0, (e.balanceDue || 0) - amount);
-          return { ...e, totalPaid, balanceDue };
-        }
-        return e;
+        if (e.id !== id) return e;
+        const newPaid = (e.totalPaid || 0) + amount;
+        const newDue = Math.max(0, (e.balanceDue || 0) - amount);
+        return { ...e, totalPaid: newPaid, balanceDue: newDue };
       })
     );
+  }, []);
+
+  // Merchant Section Switcher (Wholesaler vs Retailer)
+  const [merchantSection, setMerchantSectionState] = useState<MerchantSection>(() => {
+    try {
+      const saved = localStorage.getItem('bharatmandi_merchant_section');
+      if (saved === 'retailer') return 'retailer';
+    } catch {}
+    return 'wholesaler';
+  });
+
+  const setMerchantSection = (section: MerchantSection) => {
+    setMerchantSectionState(section);
+    try {
+      localStorage.setItem('bharatmandi_merchant_section', section);
+    } catch {}
+  };
+
+  // Retailer Sales & Ledgers State
+  const [retailers, setRetailers] = useState<Retailer[]>(() => {
+    try {
+      const saved = localStorage.getItem('bharatmandi_retailers_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (r) =>
+              r &&
+              r.id &&
+              !['RTL-001', 'RTL-002', 'RTL-003'].includes(r.id) &&
+              !r.name?.includes('Sri Sai Lakshmi') &&
+              !r.name?.includes('Venkateswara Retail') &&
+              !r.name?.includes('Jai Hind Garland')
+          );
+        }
+      }
+    } catch {}
+    return INITIAL_RETAILERS;
+  });
+
+  const [retailerSales, setRetailerSales] = useState<RetailerSale[]>(() => {
+    try {
+      const saved = localStorage.getItem('bharatmandi_retailer_sales_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (s) =>
+              s &&
+              s.id &&
+              !['RTL-SALE-20261024-001', 'RTL-SALE-20261024-002'].includes(s.id) &&
+              !['RTL-001', 'RTL-002', 'RTL-003'].includes(s.retailerId)
+          );
+        }
+      }
+    } catch {}
+    return INITIAL_RETAILER_SALES;
+  });
+
+  const [retailerPayments, setRetailerPayments] = useState<RetailerPayment[]>(() => {
+    try {
+      const saved = localStorage.getItem('bharatmandi_retailer_payments_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (p) =>
+              p &&
+              p.id &&
+              !['RTL-PAY-001'].includes(p.id) &&
+              !['RTL-001', 'RTL-002', 'RTL-003'].includes(p.retailerId)
+          );
+        }
+      }
+    } catch {}
+    return INITIAL_RETAILER_PAYMENTS;
+  });
+
+  // LocalStorage persistence for retailer data
+  useEffect(() => {
+    try {
+      localStorage.setItem('bharatmandi_retailers_v1', JSON.stringify(retailers));
+    } catch {}
+  }, [retailers]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('bharatmandi_retailer_sales_v1', JSON.stringify(retailerSales));
+    } catch {}
+  }, [retailerSales]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('bharatmandi_retailer_payments_v1', JSON.stringify(retailerPayments));
+    } catch {}
+  }, [retailerPayments]);
+
+  const addRetailer = useCallback((data: Omit<Retailer, 'id' | 'createdAt'>): Retailer => {
+    const newRetailer: Retailer = {
+      ...data,
+      id: `RTL-${Date.now().toString().slice(-4)}`,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setRetailers((prev) => [newRetailer, ...prev]);
+    return newRetailer;
+  }, []);
+
+  const updateRetailer = useCallback((id: string, updated: Partial<Retailer>) => {
+    setRetailers((prev) => prev.map((r) => (r.id === id ? { ...r, ...updated } : r)));
+  }, []);
+
+  const deleteRetailer = useCallback((id: string) => {
+    setRetailers((prev) => prev.filter((r) => r.id !== id));
+    setRetailerSales((prev) => prev.filter((s) => s.retailerId !== id));
+    setRetailerPayments((prev) => prev.filter((p) => p.retailerId !== id));
+  }, []);
+
+  const addRetailerSale = useCallback((data: Omit<RetailerSale, 'id' | 'parchiNumber' | 'time'>): RetailerSale => {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0].replace(/-/g, '');
+    const parchiNumber = `RT-${todayStr}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const newSale: RetailerSale = {
+      ...data,
+      id: `RTL-SALE-${Date.now()}`,
+      parchiNumber,
+      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: now.toISOString(),
+    };
+
+    setRetailerSales((prev) => [newSale, ...prev]);
+    return newSale;
+  }, []);
+
+  const deleteRetailerSale = useCallback((id: string) => {
+    setRetailerSales((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  const addRetailerPayment = useCallback((data: Omit<RetailerPayment, 'id' | 'time'>): RetailerPayment => {
+    const now = new Date();
+    const newPayment: RetailerPayment = {
+      ...data,
+      id: `RTL-PAY-${Date.now()}`,
+      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setRetailerPayments((prev) => [newPayment, ...prev]);
+    return newPayment;
+  }, []);
+
+  const deleteRetailerPayment = useCallback((id: string) => {
+    setRetailerPayments((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   // Connection Requests - globally synced across Mandi network
@@ -1480,7 +1661,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           ownerName: acct.fullName,
           photoUrl: acct.photoUrl || '',
           shopNumber: acct.shopNumber || '',
-          apmcMarketName: acct.marketName || DEFAULT_MARKET_YARD_NAME,
+          marketYardName: acct.marketName || DEFAULT_MARKET_YARD_NAME,
           merchantId: acct.merchantId || assignedMerchantId,
           phoneNumber: `+91 ${cleanPhone}`,
           licenseNumber: acct.licenseOrCrop || '',
@@ -2074,7 +2255,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         ownerName: accountData.fullName,
         photoUrl: accountData.photoUrl || '',
         shopNumber: accountData.shopNumber || 'Shop No. 1',
-        apmcMarketName: accountData.marketName || DEFAULT_MARKET_YARD_NAME,
+        marketYardName: accountData.marketName || DEFAULT_MARKET_YARD_NAME,
         merchantId: assignedMerchantId,
         phoneNumber: `+91 ${cleanPhone}`,
         licenseNumber: accountData.licenseOrCrop || 'Verified Adathiya',
@@ -2444,7 +2625,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 shopOrVillage: updated.shopName || a.shopOrVillage,
                 shopAddress: updated.address || a.shopAddress,
                 shopNumber: updated.shopNumber || a.shopNumber,
-                marketName: updated.apmcMarketName || a.marketName,
+                marketName: updated.marketYardName || a.marketName,
                 licenseOrCrop: updated.licenseNumber || a.licenseOrCrop,
                 photoUrl: updated.photoUrl || a.photoUrl,
               };
@@ -2462,22 +2643,36 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const normName = (farmerData.name || '').trim().toLowerCase();
     const normVillage = (farmerData.village || '').trim().toLowerCase();
 
-    const existing = farmers.find((f) => {
+    const existingIndex = farmers.findIndex((f) => {
       const fp = f.phone ? f.phone.replace(/\D/g, '').slice(-10) : '';
       if (cleanPhone && cleanPhone.length === 10 && cleanPhone !== '9876543210' && fp === cleanPhone) return true;
-      if (normName && f.name.trim().toLowerCase() === normName && normVillage && f.village?.trim().toLowerCase() === normVillage) return true;
+      if (normName && f.name?.trim().toLowerCase() === normName && normVillage && f.village?.trim().toLowerCase() === normVillage) return true;
       return false;
     });
 
-    if (existing) {
-      return existing;
+    if (existingIndex >= 0) {
+      const existing = farmers[existingIndex];
+      const updatedFarmer: Farmer = {
+        ...existing,
+        name: farmerData.name?.trim() || existing.name,
+        phone: (cleanPhone && cleanPhone.length === 10) ? cleanPhone : existing.phone,
+        village: farmerData.village?.trim() || existing.village,
+        photoUrl: farmerData.photoUrl?.trim() || existing.photoUrl,
+        primaryCrops: Array.isArray(farmerData.primaryCrops) && farmerData.primaryCrops.length > 0 ? farmerData.primaryCrops : existing.primaryCrops,
+        connectedMerchantIds: Array.from(
+          new Set([...(existing.connectedMerchantIds || []), ...(farmerData.connectedMerchantIds || []), merchantProfile.merchantId])
+        ),
+      };
+      setFarmers((prev) => prev.map((f, i) => (i === existingIndex ? updatedFarmer : f)));
+      syncFarmerToCloud(updatedFarmer).catch(() => {});
+      return updatedFarmer;
     }
 
     let nextNum = farmers.length + 1;
-    let newId = `FM-${String(nextNum).padStart(3, '0')}`;
+    let newId = `FRM-${String(nextNum).padStart(4, '0')}`;
     while (farmers.some((f) => f && f.id === newId)) {
       nextNum++;
-      newId = `FM-${String(nextNum).padStart(3, '0')}`;
+      newId = `FRM-${String(nextNum).padStart(4, '0')}`;
     }
     const currentMerchantId = merchantProfile.merchantId || `MANDI-${(currentUserPhone || '').slice(-4)}`;
 
@@ -2518,7 +2713,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         farmerPhone: cleanPhone,
         farmerVillage: farmerData.village || 'Mandi Grower Belt',
         merchantId: currentMerchantId,
-        merchantName: merchantProfile.shopName || 'APMC Merchant',
+        merchantName: merchantProfile.shopName || 'Mandi Merchant',
         merchantPhone: cleanMerchantPhone,
         merchantOwnerName: merchantProfile.ownerName,
         status: 'accepted',
@@ -2555,6 +2750,62 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
       return nextList;
     });
+
+    // Also update farmer fields across past lots and shipments
+    if (updated.name || updated.village || updated.phone) {
+      setLots((prev) =>
+        prev.map((l) => {
+          if (l.farmerId === id) {
+            return {
+              ...l,
+              farmerName: updated.name || l.farmerName,
+              farmerVillage: updated.village || l.farmerVillage,
+              farmerPhone: updated.phone || l.farmerPhone,
+            };
+          }
+          return l;
+        })
+      );
+      setShipments((prev) =>
+        prev.map((s) => {
+          if (s.farmerId === id) {
+            return {
+              ...s,
+              farmerName: updated.name || s.farmerName,
+              farmerVillage: updated.village || s.farmerVillage,
+              farmerPhone: updated.phone || s.farmerPhone,
+            };
+          }
+          return s;
+        })
+      );
+    }
+  };
+
+  const archiveFarmer = (id: string) => {
+    if (!id || id === 'undefined') return;
+    setFarmers((prev) =>
+      prev.map((f) => {
+        if (f.id === id) {
+          const updated: Farmer = {
+            ...f,
+            isArchived: true,
+            auditLogs: [
+              ...(f.auditLogs || []),
+              {
+                id: `log-${Date.now()}`,
+                action: 'archive',
+                timestamp: new Date().toISOString(),
+                details: 'Farmer archived from new entries',
+              },
+            ],
+          };
+          syncFarmerToCloud(updated).catch(() => {});
+          return updated;
+        }
+        return f;
+      })
+    );
   };
 
   const deleteFarmer = (id: string) => {
@@ -2601,7 +2852,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addSaleLot = (lotData: Omit<SaleLot, 'id' | 'parchiNumber' | 'time'>): SaleLot => {
     const lotYear = activeSessionDate.split('-')[0] || '2026';
     const nextNum = lots.length + 1;
-    const parchiNumber = `PAR-${lotYear}-${String(nextNum).padStart(4, '0')}`;
+    const parchiNumber = `FC-${lotYear}-${String(nextNum).padStart(4, '0')}`;
 
     const now = new Date();
     const time = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -2666,9 +2917,9 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Add Consolidated Multi-Variety Shipment (Hamali and Transport deducted ONCE)
   const addShipment = (shipmentData: Omit<Shipment, 'id' | 'shipmentNumber' | 'time'>): Shipment => {
-    const dateCompact = (shipmentData.date || activeSessionDate).replace(/-/g, '');
+    const lotYear = (shipmentData.date || activeSessionDate).split('-')[0] || '2026';
     const nextNum = shipments.length + 1;
-    const shipmentNumber = `SHP-${dateCompact}-${String(nextNum).padStart(3, '0')}`;
+    const shipmentNumber = `FC-${lotYear}-${String(nextNum).padStart(4, '0')}`;
     const now = new Date();
     const time = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
@@ -3708,13 +3959,19 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return result;
   }, [todayShipments, todayLots]);
 
-  // Stats for specific farmer (Scoped to active commodity and optional date range)
-  const getFarmerStats = (farmerId: string, startDate?: string, endDate?: string) => {
+  // Stats for specific farmer (Scoped to active commodity or optional category and date range)
+  const getFarmerStats = (
+    farmerId: string,
+    startDate?: string,
+    endDate?: string,
+    commodityCategory?: CommodityCategory | 'all'
+  ) => {
+    const filterCategory = commodityCategory !== undefined ? commodityCategory : activeCommodityFilter;
     const farmerLots = lots.filter((l) => {
       if (l.farmerId !== farmerId) return false;
-      if (activeCommodityFilter !== 'all') {
+      if (filterCategory !== 'all') {
         const lotCat = l.commodityCategory || 'flowers';
-        if (lotCat !== activeCommodityFilter) return false;
+        if (lotCat !== filterCategory) return false;
       }
       if (startDate && l.date < startDate) return false;
       if (endDate && l.date > endDate) return false;
@@ -3995,6 +4252,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         addFarmer,
         updateFarmer,
         deleteFarmer,
+        archiveFarmer,
         lots,
         todayLots,
         addSaleLot,
@@ -4123,6 +4381,18 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         updateEmployee,
         deleteEmployee,
         recordEmployeePayment,
+        merchantSection,
+        setMerchantSection,
+        retailers,
+        addRetailer,
+        updateRetailer,
+        deleteRetailer,
+        retailerSales,
+        addRetailerSale,
+        deleteRetailerSale,
+        retailerPayments,
+        addRetailerPayment,
+        deleteRetailerPayment,
         firebaseAutoSaveStatus: autoSaveStatus,
         isFirebaseAutoSyncEnabled: isAutoSyncEnabled,
       }}

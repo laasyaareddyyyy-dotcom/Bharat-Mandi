@@ -38,6 +38,8 @@ import { sounds } from '../../utils/audio';
 import { validateIndianMobile, cleanIndianMobile } from '../../utils/phoneValidation';
 import { checkCloudDuplicateFarmer } from '../../services/supabaseSync';
 
+import { NewFarmerRegistrationModal } from './NewFarmerRegistrationModal';
+
 export interface FarmersViewProps {
   initialTab?: 'connected' | 'incoming';
   onClose?: () => void;
@@ -54,7 +56,9 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
     addFarmer,
     updateFarmer,
     deleteFarmer,
+    archiveFarmer,
     lots,
+    shipments,
     getFarmerStats,
     setSelectedParchiLot,
     merchantProfile,
@@ -97,7 +101,7 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
     setTimeout(() => setNotificationMsg(null), 5000);
   };
 
-  // Delete Confirmation State
+  // Delete & Archive Confirmation State
   const [deleteModalConfig, setDeleteModalConfig] = useState<{
     isOpen: boolean;
     farmer: Farmer | null;
@@ -106,11 +110,47 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
     farmer: null,
   });
 
+  const [archiveModalConfig, setArchiveModalConfig] = useState<{
+    isOpen: boolean;
+    farmer: Farmer | null;
+    entriesCount: number;
+  }>({
+    isOpen: false,
+    farmer: null,
+    entriesCount: 0,
+  });
+
   const handleDeleteFarmerClick = (farmer: Farmer) => {
-    setDeleteModalConfig({
-      isOpen: true,
-      farmer,
-    });
+    const farmerLotsCount = lots.filter((l) => l.farmerId === farmer.id).length;
+    const farmerShipmentsCount = (shipments || []).filter((s) => s.farmerId === farmer.id).length;
+    const totalEntries = farmerLotsCount + farmerShipmentsCount;
+
+    if (totalEntries > 0) {
+      setArchiveModalConfig({
+        isOpen: true,
+        farmer,
+        entriesCount: totalEntries,
+      });
+    } else {
+      setDeleteModalConfig({
+        isOpen: true,
+        farmer,
+      });
+    }
+  };
+
+  const handleConfirmArchiveFarmer = () => {
+    if (archiveModalConfig.farmer) {
+      archiveFarmer(archiveModalConfig.farmer.id);
+      sounds.playTrashSound?.();
+      setNotificationMsg(`✓ Farmer "${archiveModalConfig.farmer.name}" archived from future entries.`);
+      setTimeout(() => setNotificationMsg(null), 3500);
+      if (editingFarmer?.id === archiveModalConfig.farmer.id) {
+        setIsAddModalOpen(false);
+        setEditingFarmer(null);
+      }
+    }
+    setArchiveModalConfig({ isOpen: false, farmer: null, entriesCount: 0 });
   };
 
   const handleConfirmDeleteFarmer = () => {
@@ -270,7 +310,7 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
     setFormError(null);
 
     const trimmedName = formName.trim();
-    const trimmedVillage = formVillage.trim() || 'Local Flower Belt';
+    const trimmedVillage = formVillage.trim();
 
     if (!trimmedName) {
       setFormError('Farmer name is required');
@@ -282,51 +322,30 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
       return;
     }
 
-    // Phone validation
-    const phoneVal = validateIndianMobile(formPhone);
-    if (!phoneVal.isValid) {
-      setFormError(phoneVal.error || 'Enter a valid 10-digit Indian mobile number');
-      return;
-    }
-    const cleanPhone = phoneVal.cleanNumber;
-
-    // Check duplicate phone locally
-    const duplicatePhoneFarmer = farmers.find(
+    // Duplicate check ignoring case and extra whitespace
+    const normalizedNewName = trimmedName.replace(/\s+/g, ' ').toLowerCase();
+    const isDuplicate = farmers.some(
       (f) =>
-        (!editingFarmer || f.id !== editingFarmer.id) &&
-        cleanIndianMobile(f.phone) === cleanPhone
+        f &&
+        f.id !== editingFarmer?.id &&
+        f.name &&
+        f.name.replace(/\s+/g, ' ').trim().toLowerCase() === normalizedNewName
     );
-    if (duplicatePhoneFarmer) {
-      setFormError(`A farmer with mobile number +91 ${cleanPhone} already exists (${duplicatePhoneFarmer.name}).`);
+    if (isDuplicate) {
+      setFormError('Already registered');
       return;
     }
 
-    // Check duplicate name + village locally
-    const duplicateNameVillageFarmer = farmers.find(
-      (f) =>
-        (!editingFarmer || f.id !== editingFarmer.id) &&
-        f.name.trim().toLowerCase() === trimmedName.toLowerCase() &&
-        f.village.trim().toLowerCase() === trimmedVillage.toLowerCase()
-    );
-    if (duplicateNameVillageFarmer) {
-      setFormError(`A farmer named "${trimmedName}" in village "${trimmedVillage}" already exists.`);
-      return;
-    }
-
-    // Check duplicate in cloud database
-    try {
-      const cloudCheck = await checkCloudDuplicateFarmer({
-        ownerUid: merchantProfile.merchantId || currentUserPhone,
-        phone: cleanPhone,
-        name: trimmedName,
-        village: trimmedVillage,
-        excludeFarmerId: editingFarmer?.id,
-      });
-      if (cloudCheck.isDuplicate) {
-        setFormError(cloudCheck.message || 'Farmer record already exists in database');
+    // Phone validation - optional
+    let cleanPhone = '';
+    if (formPhone.trim()) {
+      const phoneVal = validateIndianMobile(formPhone);
+      if (!phoneVal.isValid) {
+        setFormError(phoneVal.error || 'Enter a valid 10-digit Indian mobile number');
         return;
       }
-    } catch {}
+      cleanPhone = phoneVal.cleanNumber;
+    }
 
     if (editingFarmer) {
       updateFarmer(editingFarmer.id, {
@@ -336,8 +355,9 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
         primaryCrops: formCrops,
         photoUrl: formPhotoUrl.trim() || '',
       });
+      setNotificationMsg(`Farmer saved ✓ ${trimmedName}`);
     } else {
-      addFarmer({
+      const saved = addFarmer({
         name: trimmedName,
         phone: cleanPhone,
         village: trimmedVillage,
@@ -345,8 +365,10 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
         connectedMerchantIds: [merchantProfile.merchantId],
         photoUrl: formPhotoUrl.trim() || '',
       });
+      setNotificationMsg(`Farmer saved ✓ ${saved.name}`);
     }
 
+    setTimeout(() => setNotificationMsg(null), 4000);
     setIsAddModalOpen(false);
   };
 
@@ -390,28 +412,23 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
   }, [lots, selectedLedgerFarmer]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Top Header */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-[#e2e8f0] shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg sm:text-xl font-black text-[#1e293b] flex items-center gap-2">
-              <Users className="w-5 h-5 text-[#1a3a52]" />
-              <span>{t('farmersDirectoryTitle')}</span>
-            </h2>
-            <p className="text-xs text-[#64748b]">{t('farmersDirectorySubtitle')}</p>
-          </div>
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-[#e2e8f0] shadow-2xs space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg sm:text-xl font-black text-[#1e293b] flex items-center gap-2">
+            <Users className="w-5 h-5 text-[#1a3a52]" />
+            <span>Farmers</span>
+          </h2>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              id="open-add-farmer-modal-btn"
-              onClick={openAddModal}
-              className="px-4 py-2 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4 text-[#d4af37]" />
-              <span>{t('addFarmerBtn')}</span>
-            </button>
-          </div>
+          <button
+            id="open-add-farmer-modal-btn"
+            onClick={openAddModal}
+            className="px-4 py-2 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>+ Add Farmer</span>
+          </button>
         </div>
 
         {/* Global Notification Banner */}
@@ -427,35 +444,14 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-[#e2e8f0] pt-2 overflow-x-auto">
-          <button
-            type="button"
-            id="tab-connected-farmers"
-            onClick={() => setActiveTab('connected')}
-            className="px-4 py-2 text-xs font-bold border-b-2 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer border-[#1a3a52] text-[#1a3a52] bg-[#eef3f7]/50 rounded-t-xl"
-          >
-            <Users className="w-4 h-4 text-[#1a3a52]" />
-            <span>Connected Farmers ({filteredFarmers.length})</span>
-          </button>
-        </div>
-
-        {/* Data Privacy & Isolation Assurance Banner */}
-        <div className="p-3 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] text-xs text-[#64748b] flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-[#1a3a52] shrink-0" />
-          <span>
-            <strong>Secure Mandi Data Isolation:</strong> When connected, only that specific farmer&apos;s flower lots, parchis, and payment khata are shared. No other farmer&apos;s data is accessible.
-          </span>
-        </div>
-
-        {/* Search Input for Connected tab */}
+        {/* Search Input */}
         {activeTab === 'connected' && (
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#64748b]" />
             <input
               id="farmers-search-input"
               type="text"
-              placeholder="Search connected farmers by name, village, phone, crop..."
+              placeholder="Search farmers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#e2e8f0] text-xs focus:outline-hidden focus:border-[#1a3a52] bg-[#f8fafc]"
@@ -468,26 +464,23 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
       {activeTab === 'connected' && (
         <div>
           {filteredFarmers.length === 0 ? (
-            <div className="bg-white p-10 rounded-2xl border-2 border-dashed border-[#e2e8f0] text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-[#eef3f7] text-[#1a3a52] flex items-center justify-center mx-auto text-2xl">
-                🌱
-              </div>
-              <div className="max-w-md mx-auto space-y-1">
-                <h4 className="font-black text-base text-[#1e293b]">No Farmers in Khata Yet</h4>
-                <p className="text-xs text-[#64748b]">
-                  Register farmers in your yard to view their connected ledger and parchi records.
-                </p>
-              </div>
-              <div className="flex justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={openAddModal}
-                  className="px-5 py-2 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition inline-flex items-center gap-2 shadow-xs cursor-pointer"
-                >
-                  <UserPlus className="w-4 h-4 text-[#d4af37]" />
-                  <span>{t('addFarmerBtn')}</span>
-                </button>
-              </div>
+            <div className="bg-white p-8 rounded-2xl border border-[#e2e8f0] text-center space-y-3">
+              <p className="text-xs font-bold text-slate-500">
+                {searchQuery.trim() ? `No match found for "${searchQuery}"` : 'No farmers yet'}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (searchQuery.trim()) {
+                    setFormName(searchQuery.trim());
+                  }
+                  openAddModal();
+                }}
+                className="px-4 py-2 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <UserPlus className="w-4 h-4 text-blue-300" />
+                <span>No match. + Add new</span>
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch">
@@ -530,11 +523,11 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
                             </div>
                             <p className="text-xs text-[#64748b] flex items-center gap-1 mt-0.5 truncate">
                               <MapPin className="w-3 h-3 text-[#1a3a52] shrink-0" />
-                              <span className="truncate">{farmer.village}</span>
+                              <span className="truncate">{farmer.village && farmer.village.trim() ? farmer.village : '—'}</span>
                             </p>
                             <div className="flex items-center gap-1.5 text-xs text-[#1e293b] font-mono mt-0.5">
                               <Phone className="w-3 h-3 text-[#64748b] shrink-0" />
-                              <span>+91 {farmer.phone}</span>
+                              <span>{farmer.phone && farmer.phone.trim() ? `+91 ${farmer.phone}` : '—'}</span>
                             </div>
                           </div>
                         </div>
@@ -642,204 +635,19 @@ export const FarmersView: React.FC<FarmersViewProps> = ({
 
 
 
-      {/* Add / Edit Farmer Modal */}
-      {isAddModalOpen && (
-        <div
-          id="add-farmer-modal-overlay"
-          onClick={() => setIsAddModalOpen(false)}
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
-        >
-          <div
-            id="add-farmer-modal-dialog"
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#FFFFFF] rounded-2xl max-w-md w-full shadow-2xl border border-[#e2e8f0] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-          >
-            <div className="p-3 sm:p-4 bg-[#1a3a52] text-white flex items-center justify-between">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  aria-label="Go Back"
-                  className="w-11 h-11 min-w-[48px] min-h-[48px] rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 text-white flex items-center justify-center transition cursor-pointer shrink-0 shadow-xs"
-                  title="Go Back"
-                >
-                  <ArrowLeft className="w-5 h-5 text-white" />
-                </button>
-                <div className="w-9 h-9 rounded-xl bg-white/10 hidden sm:flex items-center justify-center text-[#d4af37] shrink-0">
-                  <UserPlus className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-sm sm:text-base">
-                  {editingFarmer ? 'Edit Farmer Profile' : t('addNewFarmerTitle')}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                aria-label="Close modal"
-                className="w-11 h-11 min-w-[48px] min-h-[48px] rounded-xl flex items-center justify-center text-white/90 hover:text-white hover:bg-white/10 active:bg-white/20 transition cursor-pointer shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveFarmer} className="p-5 space-y-4 bg-[#f8fafc] max-h-[80vh] overflow-y-auto">
-              {formError && (
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs font-semibold flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              {/* Photo of Farmer */}
-              <PhotoUploadPicker
-                label={language === 'te' ? 'రైతు ఫోటో' : 'Photo of Farmer'}
-                sublabel="Upload, snap with webcam, or choose authentic flower grower avatar"
-                currentPhotoUrl={formPhotoUrl}
-                onChange={(url) => setFormPhotoUrl(url)}
-                presetType="farmer"
-                idPrefix="farmers-view-modal"
-              />
-
-              <div>
-                <label className="block text-xs font-semibold text-[#1e293b] mb-1">
-                  {t('farmerFullName')} * (No numbers)
-                </label>
-                <input
-                  id="farmer-modal-name-input"
-                  type="text"
-                  required
-                  placeholder="e.g. Ramesh Reddy"
-                  value={formName}
-                  onKeyDown={(e) => {
-                    if (/[0-9]/.test(e.key)) {
-                      e.preventDefault();
-                    }
-                  }}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    const clean = e.clipboardData.getData('text').replace(/[0-9]/g, '');
-                    setFormName(clean);
-                  }}
-                  onChange={(e) => setFormName(e.target.value.replace(/[0-9]/g, ''))}
-                  className="w-full px-3 py-2 rounded-xl border border-[#e2e8f0] text-xs bg-white focus:outline-hidden focus:border-[#1a3a52]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#1e293b] mb-1">
-                  {t('farmerPhone')} * (10 digits only)
-                </label>
-                <input
-                  id="farmer-modal-phone-input"
-                  type="tel"
-                  required
-                  maxLength={10}
-                  inputMode="numeric"
-                  placeholder="e.g. 9848123456"
-                  value={formPhone}
-                  onKeyDown={(e) => {
-                    if (
-                      !/[0-9]/.test(e.key) &&
-                      e.key !== 'Backspace' &&
-                      e.key !== 'Delete' &&
-                      e.key !== 'ArrowLeft' &&
-                      e.key !== 'ArrowRight' &&
-                      e.key !== 'Tab' &&
-                      e.key !== 'Enter'
-                    ) {
-                      e.preventDefault();
-                    }
-                  }}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    const clean = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 10);
-                    setFormPhone(clean);
-                  }}
-                  onChange={(e) => setFormPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  className="w-full px-3 py-2 rounded-xl border border-[#e2e8f0] text-xs bg-white font-mono focus:outline-hidden focus:border-[#1a3a52]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#1e293b] mb-1">
-                  {t('farmerVillage')} *
-                </label>
-                <input
-                  id="farmer-modal-village-input"
-                  type="text"
-                  required
-                  placeholder="e.g. Shamshabad / Medchal"
-                  value={formVillage}
-                  onChange={(e) => setFormVillage(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[#e2e8f0] text-xs bg-white focus:outline-hidden focus:border-[#1a3a52]"
-                />
-              </div>
-
-              <div className="p-3 rounded-xl border border-slate-200 bg-slate-100/70 opacity-60 pointer-events-none space-y-2 cursor-not-allowed">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-slate-500">
-                    {t('primaryCropsLabel')}
-                  </label>
-                  <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-bold">Currently Disabled</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {flowerVarietiesData.map((v) => {
-                    const isChecked = formCrops.includes(v.en);
-                    const label = language === 'te' ? v.te : language === 'hi' ? v.hi : v.en;
-                    return (
-                      <button
-                        key={v.id}
-                        type="button"
-                        disabled
-                        onClick={() => toggleCrop(v.en)}
-                        className={`p-2 rounded-lg text-left text-xs font-medium border cursor-not-allowed ${
-                          isChecked
-                            ? 'bg-slate-300 text-slate-700 border-slate-400 font-bold'
-                            : 'bg-slate-200 text-slate-500 border-slate-300'
-                        }`}
-                      >
-                        {isChecked ? '✓ ' : '+ '} {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 pt-2">
-                {editingFarmer ? (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteFarmerClick(editingFarmer)}
-                    className="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold hover:bg-red-100 transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Farmer</span>
-                  </button>
-                ) : (
-                  <div />
-                )}
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-4 py-2 rounded-xl bg-white border border-[#e2e8f0] text-xs font-semibold text-[#1e293b]"
-                  >
-                    {t('cancel')}
-                  </button>
-                  <button
-                    type="submit"
-                    id="submit-farmer-btn"
-                    className="px-5 py-2 rounded-xl bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition shadow-xs"
-                  >
-                    {t('saveFarmer')}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* New Farmer Registration Modal */}
+      <NewFarmerRegistrationModal
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingFarmer(null);
+        }}
+        editingFarmer={editingFarmer}
+        onFarmerSaved={(savedFarmer) => {
+          setNotificationMsg(`✓ Farmer "${savedFarmer.name}" saved successfully (${savedFarmer.id})!`);
+          setTimeout(() => setNotificationMsg(null), 3500);
+        }}
+      />
 
       {/* Comprehensive Farmer Katha Statement Modal */}
       {selectedLedgerFarmer && (

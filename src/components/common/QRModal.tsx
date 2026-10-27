@@ -149,7 +149,7 @@ export const QRModal: React.FC = () => {
                 </div>
                 <h3 className="text-base sm:text-lg font-black text-[#1e293b]">{merchantProfile.shopName}</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {merchantProfile.shopNumber} • {merchantProfile.apmcMarketName}
+                  {merchantProfile.shopNumber} • {merchantProfile.marketYardName}
                 </p>
               </div>
 

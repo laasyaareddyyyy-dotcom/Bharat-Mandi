@@ -212,7 +212,7 @@ export const TicketDetailView: React.FC<TicketDetailViewProps> = ({
               <Clock className="w-3.5 h-3.5 text-[#1a3a52]" />
               <span>{new Date(ticket.createdAt).toLocaleDateString()} {new Date(ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
-            <span className="text-[11px] block text-emerald-700 font-medium">SLA: 2-Hour APMC Support</span>
+            <span className="text-[11px] block text-emerald-700 font-medium">SLA: 2-Hour Mandi Support</span>
           </div>
         </div>
 

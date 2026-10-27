@@ -16,9 +16,9 @@ export default defineConfig(() => {
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: '/',
-          name: 'PhoolMitra - Flower Mandi APMC Ledger',
+          name: 'PhoolMitra - Flower Mandi Mandi Ledger',
           short_name: 'PhoolMitra',
-          description: 'APMC Flower Mandi digital ledger for auctions, farmer parchis, commission accounting and settlements.',
+          description: 'Flower Mandi digital ledger for auctions, farmer parchis, commission accounting and settlements.',
           theme_color: '#1B4D3E',
           background_color: '#1B4D3E',
           display: 'standalone',

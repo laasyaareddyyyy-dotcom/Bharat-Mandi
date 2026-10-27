@@ -52,9 +52,9 @@ export function generateVectorParchiPdf(
   // Shop & Market
   doc.setFontSize(12);
   doc.setTextColor(17, 24, 39);
-  doc.text(`${merchant.shopName || 'APMC MANDI SHOP'} • Shop #${merchant.shopNumber || '01'}`, pageWidth / 2, 30, { align: 'center' });
+  doc.text(`${merchant.shopName || 'Mandi MANDI SHOP'} • Shop #${merchant.shopNumber || '01'}`, pageWidth / 2, 30, { align: 'center' });
   doc.setFontSize(9);
-  doc.text(`${merchant.apmcMarketName || 'APMC Yard'} • APMC Lic: ${merchant.licenseNumber || 'APMC-REG-2026'}`, pageWidth / 2, 36, { align: 'center' });
+  doc.text(`${merchant.marketYardName || 'Market Yard'} • Market Lic: ${merchant.licenseNumber || 'MND-REG-2026'}`, pageWidth / 2, 36, { align: 'center' });
 
   // Meta Info Table
   doc.setFontSize(10);
@@ -74,39 +74,43 @@ export function generateVectorParchiPdf(
   doc.text(`Payment Status: ${lot.paymentStatus || 'Unpaid'}`, rightX, startY + 12);
 
   // Table of Crop / Lot details
+  const commodity = lot.flowerVariety?.toLowerCase().includes('wheat') ? 'Grain' : 'Flower';
   autoTable(doc, {
     startY: startY + 18,
-    head: [['Crop / Variety', 'Quantity & Unit', 'Quality Grade', 'Rate (₹)', 'Gross Amount (₹)']],
+    head: [['Date', 'Commodity', 'Variety', 'Boxes', 'Qty (Kgs)', 'Rate (₹)', 'Gross (₹)', 'Hamali (₹)', 'Transport (₹)']],
     body: [
       [
+        lot.date || '',
+        commodity,
         lot.flowerVariety || 'Crop Lot',
-        `${lot.quantity} ${lot.unit}${lot.boxesCount ? ` (${lot.boxesCount} PKG)` : ''}`,
-        lot.flowerQuality || 'Standard',
-        `₹${lot.rate.toFixed(2)}`,
-        `₹${lot.grossTotal.toLocaleString('en-IN')}`,
+        lot.boxesCount ? String(lot.boxesCount) : '—',
+        `${lot.quantity || 0} ${lot.unit || 'Kgs'}`,
+        `₹${(Number(lot.rate) || 0).toFixed(2)}`,
+        `₹${(Number(lot.grossTotal) || 0).toLocaleString('en-IN')}`,
+        `₹${(Number(lot.ammaliCharges) || 0).toLocaleString('en-IN')}`,
+        `₹${(Number(lot.transportCharges) || 0).toLocaleString('en-IN')}`,
       ],
     ],
     theme: 'grid',
     headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: 'bold' },
-    styles: { fontSize: 10, cellPadding: 3 },
+    styles: { fontSize: 8, cellPadding: 2 },
   });
 
   const finalTableY = (doc as any).lastAutoTable.finalY + 8;
 
-  // Deductions Table
+  // NET AMOUNT CALCULATION Table
   const deductionsData = [
-    ['Gross Sale Total', `₹${lot.grossTotal.toLocaleString('en-IN')}`],
-    [`Commission (${lot.commissionPercent}%)`, `- ₹${lot.commissionAmount.toLocaleString('en-IN')}`],
-    ['Transport Charges', `- ₹${(lot.transportCharges || 0).toLocaleString('en-IN')}`],
-    ['Hamali / Coolie Charges', `- ₹${(lot.ammaliCharges || 0).toLocaleString('en-IN')}`],
-    ['Net Payable to Farmer', `₹${lot.farmerNetPayable.toLocaleString('en-IN')}`],
-    ['Amount Paid to Date', `₹${lot.amountPaid.toLocaleString('en-IN')}`],
-    ['Balance Dues', `₹${lot.balanceDue.toLocaleString('en-IN')}`],
+    ['Gross Total Sales', `= ₹${(Number(lot.grossTotal) || 0).toLocaleString('en-IN')}`],
+    ['Less: Hamali Charges', `= - ₹${(Number(lot.ammaliCharges) || 0).toLocaleString('en-IN')}`],
+    ['Less: Transport Charges', `= - ₹${(Number(lot.transportCharges) || 0).toLocaleString('en-IN')}`],
+    [`Less: Commission (${lot.commissionPercent || 0}%)`, `= - ₹${(Number(lot.commissionAmount) || 0).toLocaleString('en-IN')}`],
+    [`Less: Misc Expenses (${lot.otherExpenditures?.miscPercent || 0}%)`, `= - ₹${(Number(lot.otherExpenditures?.misc) || 0).toLocaleString('en-IN')}`],
+    ['NET FARMER AMOUNT', `= ₹${(Number(lot.farmerNetPayable) || 0).toLocaleString('en-IN')}`],
   ];
 
   autoTable(doc, {
     startY: finalTableY,
-    head: [['Financial Breakdown', 'Amount (₹)']],
+    head: [['NET AMOUNT CALCULATION', 'Amount (₹)']],
     body: deductionsData,
     theme: 'striped',
     headStyles: { fillColor: [31, 41, 55], textColor: 255, fontStyle: 'bold' },
@@ -128,7 +132,7 @@ export function generateVectorParchiPdf(
 
   // Disclaimer
   doc.setFontSize(8);
-  doc.text('This is an official computer-generated Mandi Parchi under APMC Bye-Laws.', pageWidth / 2, footerY + 18, { align: 'center' });
+  doc.text('This is an official computer-generated Mandi Parchi under Mandi Rules.', pageWidth / 2, footerY + 18, { align: 'center' });
 
   const filename = `FormC-Parchi-${lot.parchiNumber}.pdf`;
   if (options.autoDownload) {
@@ -172,7 +176,7 @@ export function generateVectorSettlementPdf(
 
   doc.setFontSize(11);
   doc.setTextColor(17, 24, 39);
-  doc.text(`${merchant.shopName || 'APMC Merchant Shop'} • Lic #${merchant.licenseNumber || 'APMC-01'}`, pageWidth / 2, 30, { align: 'center' });
+  doc.text(`${merchant.shopName || 'Mandi Merchant Shop'} • Lic #${merchant.licenseNumber || 'MND-01'}`, pageWidth / 2, 30, { align: 'center' });
 
   // Meta Info
   const startY = 48;

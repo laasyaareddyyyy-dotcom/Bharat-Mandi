@@ -26,6 +26,11 @@ export const FloatingActionButton: React.FC = () => {
     t,
   } = useMandi();
 
+  // Hide floating action button in merchant portal mode as per strict UX constraints
+  if (portalMode === 'merchant') {
+    return null;
+  }
+
   const handleNewSale = () => {
     setMerchantTab('new-sale');
     setIsOpen(false);
@@ -54,71 +59,20 @@ export const FloatingActionButton: React.FC = () => {
       {/* Expanded Speed-Dial Action Buttons */}
       {isOpen && (
         <div className="flex flex-col items-end gap-2 mb-1 animate-in fade-in slide-in-from-bottom-3 duration-200">
-          {portalMode === 'merchant' ? (
-            <>
-              {/* Option 1: Record New Auction Lot / Consignment */}
-              <button
-                type="button"
-                id="fab-action-new-sale"
-                onClick={handleNewSale}
-                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-full bg-white text-[#1a3a52] font-bold text-xs shadow-lg border border-slate-200 hover:bg-slate-50 transition min-touch-target cursor-pointer group"
-              >
-                <span className="text-[#1e293b] font-semibold text-xs">
-                  + New Sale / Parchi
-                </span>
-                <div className="w-8 h-8 rounded-full bg-[#1a3a52] text-white flex items-center justify-center group-hover:scale-105 transition">
-                  <PlusCircle className="w-4 h-4 text-[#d4af37]" />
-                </div>
-              </button>
-
-              {/* Option 2: Add New Farmer */}
-              <button
-                type="button"
-                id="fab-action-add-farmer"
-                onClick={handleAddFarmer}
-                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-full bg-white text-[#1a3a52] font-bold text-xs shadow-lg border border-slate-200 hover:bg-slate-50 transition min-touch-target cursor-pointer group"
-              >
-                <span className="text-[#1e293b] font-semibold text-xs">
-                  Add New Farmer
-                </span>
-                <div className="w-8 h-8 rounded-full bg-[#1a3a52] text-white flex items-center justify-center group-hover:scale-105 transition">
-                  <UserPlus className="w-4 h-4 text-[#d4af37]" />
-                </div>
-              </button>
-
-              {/* Option 3: Help Desk Support */}
-              <button
-                type="button"
-                id="fab-action-help-desk"
-                onClick={handleOpenHelpDesk}
-                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-full bg-white text-[#1a3a52] font-bold text-xs shadow-lg border border-slate-200 hover:bg-slate-50 transition min-touch-target cursor-pointer group"
-              >
-                <span className="text-[#1e293b] font-semibold text-xs">
-                  Mandi Support
-                </span>
-                <div className="w-8 h-8 rounded-full bg-[#1a3a52] text-white flex items-center justify-center group-hover:scale-105 transition">
-                  <Headphones className="w-4 h-4 text-white" />
-                </div>
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Farmer Mode FAB Options */}
-              <button
-                type="button"
-                id="fab-action-farmer-qr"
-                onClick={handleOpenQR}
-                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-full bg-white text-[#1a3a52] font-bold text-xs shadow-lg border border-slate-200 hover:bg-slate-50 transition min-touch-target cursor-pointer group"
-              >
-                <span className="text-[#1e293b] font-semibold text-xs">
-                  Scan Merchant QR
-                </span>
-                <div className="w-8 h-8 rounded-full bg-[#1a3a52] text-white flex items-center justify-center group-hover:scale-105 transition">
-                  <QrCode className="w-4 h-4 text-[#d4af37]" />
-                </div>
-              </button>
-            </>
-          )}
+          {/* Farmer Mode FAB Options */}
+          <button
+            type="button"
+            id="fab-action-farmer-qr"
+            onClick={handleOpenQR}
+            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-full bg-white text-[#1a3a52] font-bold text-xs shadow-lg border border-slate-200 hover:bg-slate-50 transition min-touch-target cursor-pointer group"
+          >
+            <span className="text-[#1e293b] font-semibold text-xs">
+              Scan Merchant QR
+            </span>
+            <div className="w-8 h-8 rounded-full bg-[#1a3a52] text-white flex items-center justify-center group-hover:scale-105 transition">
+              <QrCode className="w-4 h-4 text-blue-300" />
+            </div>
+          </button>
         </div>
       )}
 
@@ -134,7 +88,7 @@ export const FloatingActionButton: React.FC = () => {
             : 'bg-gradient-to-tr from-[#1a3a52] to-[#254f6e] text-white hover:shadow-2xl hover:scale-105'
         }`}
       >
-        <Plus className="w-7 h-7 text-[#d4af37]" />
+        <Plus className="w-7 h-7 text-white" />
       </button>
     </div>
   );

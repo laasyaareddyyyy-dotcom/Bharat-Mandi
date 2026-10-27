@@ -81,40 +81,6 @@ export const FarmerSignUpModal: React.FC<FarmerSignUpModalProps> = ({
     }
     const cleanPhone = phoneVal.cleanNumber;
 
-    // Check duplicate phone locally
-    const duplicatePhoneFarmer = farmers.find(
-      (f) => cleanIndianMobile(f.phone) === cleanPhone
-    );
-    if (duplicatePhoneFarmer) {
-      setErrorMessage(`A farmer with mobile number +91 ${cleanPhone} already exists (${duplicatePhoneFarmer.name}).`);
-      return;
-    }
-
-    // Check duplicate name + village locally
-    const duplicateNameVillageFarmer = farmers.find(
-      (f) =>
-        f.name.trim().toLowerCase() === trimmedName.toLowerCase() &&
-        f.village.trim().toLowerCase() === trimmedVillage.toLowerCase()
-    );
-    if (duplicateNameVillageFarmer) {
-      setErrorMessage(`A farmer named "${trimmedName}" in village "${trimmedVillage}" is already registered.`);
-      return;
-    }
-
-    // Check duplicate in cloud database
-    try {
-      const cloudCheck = await checkCloudDuplicateFarmer({
-        ownerUid: merchantProfile.merchantId || currentUserPhone,
-        phone: cleanPhone,
-        name: trimmedName,
-        village: trimmedVillage,
-      });
-      if (cloudCheck.isDuplicate) {
-        setErrorMessage(cloudCheck.message || 'Farmer record already exists in database');
-        return;
-      }
-    } catch {}
-
     setErrorMessage('');
     const newFarmer = addFarmer({
       name: trimmedName,

@@ -712,7 +712,7 @@ async function handleRegisterPassword(reqBody) {
     licenseOrCrop: licenseOrCrop || existingAcc?.licenseOrCrop || "Verified Trader",
     shopAddress: shopAddress || existingAcc?.shopAddress || "",
     shopNumber: shopNumber || existingAcc?.shopNumber || "",
-    marketName: marketName || existingAcc?.marketName || "APMC Market",
+    marketName: marketName || existingAcc?.marketName || "Mandi Market",
     selectedCommodities,
     role: reqBody.role || "merchant",
     passwordHash,

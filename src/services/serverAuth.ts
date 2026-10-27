@@ -95,7 +95,7 @@ export async function checkUserOnServer(phone: string): Promise<CheckUserResult>
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ phone: cleanPhone }),
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(800),
     });
     if (res.ok) {
       return await res.json();
@@ -249,7 +249,7 @@ export async function sendOtpOnServer(
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ phone: cleanPhone, purpose }),
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(1000),
     });
     const data = await res.json().catch(() => null);
     if (data) {
@@ -281,7 +281,7 @@ export async function verifyOtpOnServer(
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ phone: cleanPhone, sessionId, otp }),
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(1000),
     });
     const data = await res.json().catch(() => null);
     if (data) {

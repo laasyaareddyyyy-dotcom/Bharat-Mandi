@@ -2,7 +2,7 @@
   "entities": {
     "MerchantProfile": {
       "title": "MerchantProfile",
-      "description": "APMC Merchant Shop details and charge settings",
+      "description": "Mandi Merchant Shop details and charge settings",
       "type": "object",
       "properties": {
         "shopName": { "type": "string" },
@@ -10,7 +10,7 @@
         "photoUrl": { "type": "string" },
         "logoUrl": { "type": "string" },
         "shopNumber": { "type": "string" },
-        "apmcMarketName": { "type": "string" },
+        "marketYardName": { "type": "string" },
         "merchantId": { "type": "string" },
         "phoneNumber": { "type": "string" },
         "licenseNumber": { "type": "string" },

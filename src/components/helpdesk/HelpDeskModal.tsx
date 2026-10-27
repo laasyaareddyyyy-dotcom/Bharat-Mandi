@@ -83,7 +83,7 @@ export const HelpDeskModal: React.FC = () => {
                   {t('helpDesk')}
                 </h2>
                 <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 uppercase tracking-wider text-slate-100">
-                  2-Hour APMC SLA
+                  2-Hour Support SLA
                 </span>
               </div>
               <p className="text-xs text-slate-200/80 leading-none mt-0.5">
@@ -241,7 +241,7 @@ export const HelpDeskModal: React.FC = () => {
         {/* FIXED FOOTER */}
         <div className="flex-shrink-0 px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           <span className="text-xs text-slate-500 font-medium">
-            PhoolMitra APMC Mandi Help Desk &bull; 24x7 Assistance
+            PhoolMitra Mandi Help Desk &bull; 24x7 Assistance
           </span>
           <button
             type="button"

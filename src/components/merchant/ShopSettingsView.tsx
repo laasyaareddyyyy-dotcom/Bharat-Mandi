@@ -54,7 +54,7 @@ export const ShopSettingsView: React.FC = () => {
   const [shopName, setShopName] = useState(merchantProfile.shopName || '');
   const [ownerName, setOwnerName] = useState(merchantProfile.ownerName || '');
   const [shopNumber, setShopNumber] = useState(merchantProfile.shopNumber || '');
-  const [apmcMarketName, setApmcMarketName] = useState(merchantProfile.apmcMarketName || '');
+  const [marketYardName, setMarketYardName] = useState(merchantProfile.marketYardName || '');
   const [licenseNumber, setLicenseNumber] = useState(merchantProfile.licenseNumber || '');
   const [defaultCommissionRate, setDefaultCommissionRate] = useState<number>(
     merchantProfile.defaultCommissionRate ?? 4
@@ -89,7 +89,7 @@ export const ShopSettingsView: React.FC = () => {
       shopName,
       ownerName,
       shopNumber,
-      apmcMarketName,
+      marketYardName,
       licenseNumber,
       defaultCommissionRate: Number(defaultCommissionRate),
       defaultLoadingChargePerUnit: Number(defaultLoadingChargePerUnit),
@@ -119,7 +119,7 @@ export const ShopSettingsView: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-300">
-            {merchantProfile.shopName || 'APMC Commission Agency'} • License #{merchantProfile.licenseNumber || 'Verified'}
+            {merchantProfile.shopName || 'Mandi Commission Agency'} • License #{merchantProfile.licenseNumber || 'Verified'}
           </p>
         </div>
 
@@ -189,11 +189,11 @@ export const ShopSettingsView: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="apmc-license-input" className="block font-bold text-slate-700 mb-1">
+                <label htmlFor="market-license-input" className="block font-bold text-slate-700 mb-1">
                   License Number
                 </label>
                 <input
-                  id="apmc-license-input"
+                  id="market-license-input"
                   type="text"
                   value={licenseNumber}
                   onChange={(e) => setLicenseNumber(e.target.value)}
@@ -204,14 +204,14 @@ export const ShopSettingsView: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="apmc-market-input" className="block font-bold text-slate-700 mb-1">
+              <label htmlFor="market-market-input" className="block font-bold text-slate-700 mb-1">
                 Market Yard Name
               </label>
               <input
-                id="apmc-market-input"
+                id="market-market-input"
                 type="text"
-                value={apmcMarketName}
-                onChange={(e) => setApmcMarketName(e.target.value)}
+                value={marketYardName}
+                onChange={(e) => setMarketYardName(e.target.value)}
                 placeholder="e.g. Wholesale Market Yard"
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#1a3a52] focus:outline-hidden font-semibold text-slate-800"
               />
@@ -378,7 +378,7 @@ export const ShopSettingsView: React.FC = () => {
                 />
                 <span className="absolute right-3 top-2 text-slate-400 font-bold">%</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">Standard APMC commission is 4.0%</p>
+              <p className="text-[11px] text-slate-500 mt-1">Standard Mandi commission is 4.0%</p>
             </div>
 
             <div>

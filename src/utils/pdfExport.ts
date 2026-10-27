@@ -1,6 +1,15 @@
-import jsPDF from 'jspdf';
 import { toCanvas, toPng } from 'html-to-image';
-import html2canvas from 'html2canvas';
+
+// Helper to dynamically load heavy PDF libraries (jsPDF and html2canvas) on-demand
+async function loadPdfLibraries() {
+  const [jsPDFModule, html2canvasModule] = await Promise.all([
+    import('jspdf'),
+    import('html2canvas'),
+  ]);
+  const jsPDFClass = (jsPDFModule.jsPDF || jsPDFModule.default) as any;
+  const html2canvasFn = (html2canvasModule.default || html2canvasModule) as any;
+  return { jsPDF: jsPDFClass, html2canvas: html2canvasFn };
+}
 
 export interface PdfExportOptions {
   filename: string;
@@ -303,6 +312,7 @@ async function renderStagedElementToCanvas(
       console.warn('[PDF Export] Secondary toPng failed, falling back to html2canvas...', secondaryErr);
 
       // Strategy 3: html2canvas
+      const { html2canvas } = await loadPdfLibraries();
       const h2cCanvas = await html2canvas(element, {
         scale: pixelRatio,
         useCORS: true,
@@ -415,7 +425,8 @@ export async function exportElementToPdf(
     );
 
     // 3. Configure jsPDF document based on format
-    let pdf: jsPDF;
+    const { jsPDF } = await loadPdfLibraries();
+    let pdf: any;
 
     if (format === 'thermal-80mm') {
       // 80mm thermal receipt roll (72mm printable width) - 1 Continuous Full Roll

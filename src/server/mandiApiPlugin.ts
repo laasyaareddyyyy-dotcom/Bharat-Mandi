@@ -259,7 +259,7 @@ export function mandiApiPlugin(): Plugin {
         }
 
         // ==========================================
-        // MANDI APMC CORE ENDPOINTS
+        // MANDI Mandi CORE ENDPOINTS
         // ==========================================
 
         // 1. GET /api/farmer/parchi?view=daily|monthly&date=...

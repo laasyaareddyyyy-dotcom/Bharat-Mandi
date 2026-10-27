@@ -15,6 +15,7 @@ import {
   PlusCircle,
   Users,
   Store,
+  Building2,
   Settings,
   Headphones,
 } from 'lucide-react';
@@ -37,6 +38,8 @@ export const Navbar: React.FC = () => {
     merchantProfile,
     portalMode,
     setPortalMode,
+    merchantSection,
+    setMerchantSection,
     activeSessionDate,
     merchantTab,
     setMerchantTab,
@@ -56,6 +59,7 @@ export const Navbar: React.FC = () => {
     payments,
     settlements,
     helpTickets,
+    setIsOwnerSignUpOpen,
     t,
   } = useMandi();
 
@@ -142,7 +146,7 @@ export const Navbar: React.FC = () => {
   };
 
   const shopDisplayTitle = merchantProfile.shopName || merchantProfile.shopNumber
-    ? `${merchantProfile.shopName || merchantProfile.shopNumber}${merchantProfile.apmcMarketName ? ` - ${merchantProfile.apmcMarketName}` : ''}`
+    ? `${merchantProfile.shopName || merchantProfile.shopNumber}${merchantProfile.marketYardName ? ` - ${merchantProfile.marketYardName}` : ''}`
     : 'Mandi Merchant Ledger';
 
   return (
@@ -171,50 +175,63 @@ export const Navbar: React.FC = () => {
             <div className="flex flex-col text-left min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-bold text-sm sm:text-base md:text-lg tracking-tight text-white leading-tight">
-                  {t('appHeaderTitle')}
+                  {shopDisplayTitle}
                 </h1>
                 {portalMode === 'admin' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-semibold uppercase tracking-wider shadow-2xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-semibold uppercase tracking-wider shadow-2xs">
                     Admin Portal
                   </span>
                 )}
               </div>
-              <p className="text-[10px] sm:text-xs text-slate-200 font-normal leading-snug truncate sm:whitespace-normal">
-                {t('appHeaderSubtitle')}
-              </p>
             </div>
           </div>
 
-          {/* Right Side: Online Status */}
-          <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
-            {/* Online Status Indicator */}
+          {/* Center / Right: Merchant Profile Icon & Mode Switcher */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0 ml-auto sm:ml-0">
+            {/* Merchant Profile Icon Button */}
             <button
               type="button"
-              id="navbar-header-online-status-btn"
-              onClick={handleQuickCloudSync}
-              disabled={isSyncing}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-medium transition cursor-pointer ${
-                firebaseUser
-                  ? 'bg-emerald-500/20 text-emerald-100 border-emerald-400/40 hover:bg-emerald-500/30'
-                  : 'bg-white/10 text-slate-100 border-white/20 hover:bg-white/20'
-              }`}
-              title={
-                firebaseUser
-                  ? `Firebase Online Sync: Active (${lastSyncedAt || 'Live'}). Click to sync.`
-                  : 'Offline Storage Active. Click to connect Cloud Backup.'
-              }
+              id="topbar-merchant-profile-btn"
+              onClick={() => setIsOwnerSignUpOpen(true)}
+              className="p-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer border border-white/20 shadow-2xs"
+              title="Merchant Profile & Shop Settings"
             >
-              {isSyncing ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-              ) : firebaseUser ? (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              ) : (
-                <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-              )}
-              <span className="text-[11px] font-semibold">
-                {syncFeedback ? syncFeedback : firebaseUser ? 'Online' : 'Offline'}
+              <Store className="w-4 h-4 text-[#d4af37]" />
+              <span className="hidden sm:inline text-xs font-extrabold">
+                {merchantProfile.ownerName || 'Merchant Profile'}
               </span>
             </button>
+
+            {/* Wholesaler / Retailer Mode Switcher */}
+            <div className="bg-slate-900/60 p-1 rounded-xl border border-white/20 flex items-center gap-1">
+              <button
+                type="button"
+                id="mode-switch-wholesaler"
+                onClick={() => setMerchantSection('wholesaler')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  merchantSection === 'wholesaler'
+                    ? 'bg-white text-[#1a3a52] font-black shadow-xs'
+                    : 'text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                <span>Wholesaler Mandi</span>
+              </button>
+
+              <button
+                type="button"
+                id="mode-switch-retailer"
+                onClick={() => setMerchantSection('retailer')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  merchantSection === 'retailer'
+                    ? 'bg-white text-[#1a3a52] font-black shadow-xs'
+                    : 'text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Store className="w-3.5 h-3.5 text-blue-600" />
+                <span>Retailer Sales Section</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -282,7 +299,7 @@ export const Navbar: React.FC = () => {
                     <span className="text-sm leading-none shrink-0">{config.icon}</span>
                     <span className="shrink-0">{label}</span>
                     {isActive && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37] shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                     )}
                   </button>
                 );
@@ -349,13 +366,13 @@ export const Navbar: React.FC = () => {
               id="desktop-nav-farmers"
               onClick={() => setMerchantTab('farmers')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                merchantTab === 'farmers'
+                merchantTab === 'farmers' || merchantTab === 'retailers'
                   ? 'bg-[#1a3a52] text-white shadow-2xs'
                   : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
-              <span>{t('tabFarmers')}</span>
+              <span>{merchantSection === 'retailer' ? 'Retail Customers' : t('tabFarmers')}</span>
             </button>
 
 

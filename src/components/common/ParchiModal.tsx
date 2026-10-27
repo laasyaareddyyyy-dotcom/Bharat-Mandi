@@ -171,7 +171,7 @@ export const ParchiModal: React.FC = () => {
   const getWhatsAppMessage = () => {
     const text = `*FLOWER MANDI PARCHI* 🌸
 *${merchantProfile.shopName}*
-Shop: ${merchantProfile.shopNumber}, ${merchantProfile.apmcMarketName}
+Shop: ${merchantProfile.shopNumber}, ${merchantProfile.marketYardName}
 Phone: ${merchantProfile.phoneNumber}
 --------------------------------
 *Parchi No:* ${lot.parchiNumber}
@@ -276,7 +276,7 @@ _Generated via भारत MANDI Ledger_`;
             >
               <ArrowLeft className="w-5 h-5 text-white" />
             </button>
-            <div className="w-9 h-9 rounded-xl bg-white/10 hidden sm:flex items-center justify-center text-[#d4af37] shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-white/10 hidden sm:flex items-center justify-center text-blue-300 shrink-0">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
@@ -355,10 +355,10 @@ _Generated via भारत MANDI Ledger_`;
               type="button"
               id="edit-parchi-btn"
               onClick={() => openEditParchiModal(lot)}
-              className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
               title="Edit rates, quantity, farmer or deductions for this parchi"
             >
-              <Edit3 className="w-3.5 h-3.5 text-amber-800" />
+              <Edit3 className="w-3.5 h-3.5 text-blue-800" />
               <span>Edit Parchi</span>
             </button>
           </div>
@@ -368,7 +368,7 @@ _Generated via भारत MANDI Ledger_`;
         {toastMessage && (
           <div className="no-print bg-[#1a3a52] text-white text-xs px-4 py-2 font-bold flex items-center justify-between animate-in fade-in slide-in-from-top-1">
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-[#d4af37]" />
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
               <span>{toastMessage}</span>
             </div>
             <button onClick={() => setToastMessage('')} className="text-white/80 hover:text-white">
@@ -488,7 +488,7 @@ _Generated via भारत MANDI Ledger_`;
                   merchantProfile.shopNumber.toLowerCase().includes('shop')
                     ? merchantProfile.shopNumber
                     : `Shop No. ${merchantProfile.shopNumber}`
-                ) : 'Shop No. 1'} • {merchantProfile.apmcMarketName}
+                ) : 'Shop No. 1'} • {merchantProfile.marketYardName}
               </p>
               <p className="text-[10px] text-slate-500 font-mono">
                 Adathiya: {merchantProfile.ownerName || 'Merchant'} | Ph: {merchantProfile.phoneNumber}

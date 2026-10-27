@@ -1,52 +1,52 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Receipt,
   Search,
   UserPlus,
-  ChevronDown,
-  ChevronUp,
   Coins,
   CheckCircle2,
   Printer,
-  Sparkles,
-  Calculator,
   Plus,
-  ArrowRight,
-  Info,
   Calendar,
   Trash2,
-  Clock,
   RotateCcw,
-  Wallet,
-  Banknote,
-  Smartphone,
-  QrCode,
-  Building,
-  AlertCircle,
   CreditCard,
   FileText,
-  Truck,
-  DollarSign,
   Layers,
-  Percent,
-  Edit3,
+  Store,
   X,
   User,
+  Phone,
+  MapPin,
+  AlertCircle,
+  Percent,
+  Check,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
-import { WeightUnit, PaymentStatus, PaymentMode, Expenditures, FlowerQuality, SaleLot, CommodityCategory, Farmer } from '../../types';
+import {
+  WeightUnit,
+  PaymentStatus,
+  PaymentMode,
+  FlowerQuality,
+  SaleLot,
+  CommodityCategory,
+  Farmer,
+  Retailer,
+  RetailerSaleItem,
+} from '../../types';
 import {
   formatDisplayDate,
   formatDateDMY,
   getTodayDateString,
-  getPastDateString,
   COMMODITY_CONFIGS,
 } from '../../data/initialData';
 import { PhotoUploadPicker } from '../common/PhotoUploadPicker';
 import { GeneratePdfModal } from '../common/GeneratePdfModal';
-import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
+import { RetailerPdfModal } from './RetailerPdfModal';
 import { CustomVarietyInput } from '../common/CustomVarietyInput';
+import { NewFarmerRegistrationModal } from './NewFarmerRegistrationModal';
 import { sounds } from '../../utils/audio';
+import { generateVectorParchiPdf } from '../../utils/vectorPdf';
 
 export interface ConsignmentVarietyRow {
   id: string;
@@ -61,7 +61,11 @@ export interface ConsignmentVarietyRow {
   rate: number | '';
 }
 
-// Safe commodity config retriever to guarantee zero runtime crashes
+interface NewSaleViewProps {
+  mode?: 'wholesaler' | 'retailer';
+  targetMerchantId?: string;
+}
+
 const getSafeCommodityConfig = (cat?: string) => {
   if (cat && COMMODITY_CONFIGS[cat as CommodityCategory]) {
     return COMMODITY_CONFIGS[cat as CommodityCategory];
@@ -69,24 +73,21 @@ const getSafeCommodityConfig = (cat?: string) => {
   return COMMODITY_CONFIGS.flowers;
 };
 
-export const NewSaleView: React.FC<{ targetMerchantId?: string }> = ({ targetMerchantId }) => {
+export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId }) => {
   const {
+    merchantSection,
     farmers,
     addFarmer,
     updateFarmer,
     addSaleLot,
     addShipment,
-    deleteSaleLot,
     lots,
     shipments,
     setSelectedParchiLot,
-    openEditParchiModal,
     merchantProfile,
     registeredAccounts,
-    currentUserAccount,
     activeSessionDate,
     setActiveSessionDate,
-    setIsDateSwitcherOpen,
     setMerchantTab,
     openPdfModalForLot,
     userCommodities,
@@ -94,1564 +95,1788 @@ export const NewSaleView: React.FC<{ targetMerchantId?: string }> = ({ targetMer
     addCustomVarietyName,
     language,
     t,
+    retailers,
+    addRetailer,
+    addRetailerSale,
+    retailerSales,
+    retailerPayments,
+    stocks,
+    updateStockItem,
+    getFarmerStats,
+    setIsOwnerSignUpOpen,
   } = useMandi();
 
-  // Trading Date for this consignment entry (defaults to active session date)
-  const [saleDate, setSaleDate] = useState<string>(activeSessionDate);
+  const activeMode = mode || merchantSection || 'wholesaler';
+  const isRetailerMode = activeMode === 'retailer';
+
+  // Trading Date for this consignment entry
+  const [saleDate, setSaleDate] = useState<string>(activeSessionDate || getTodayDateString());
 
   useEffect(() => {
-    setSaleDate(activeSessionDate);
+    setSaleDate(activeSessionDate || getTodayDateString());
   }, [activeSessionDate]);
 
-  // Form State
-  const [selectedFarmerId, setSelectedFarmerId] = useState<string>(farmers[0]?.id || '');
+  // Ref for farmer section scrolling
+  const farmerSectionRef = useRef<HTMLDivElement>(null);
+
+  // Wholesaler Farmer Selection State (Starts empty on every new entry)
+  const [selectedFarmerId, setSelectedFarmerId] = useState<string>('');
   const [farmerSearch, setFarmerSearch] = useState<string>('');
   const [isFarmerDropdownOpen, setIsFarmerDropdownOpen] = useState(false);
   const [showInlineAddFarmer, setShowInlineAddFarmer] = useState(false);
+  const [isFarmerModalOpen, setIsFarmerModalOpen] = useState(false);
+  const [farmerFieldError, setFarmerFieldError] = useState<string | null>(null);
+  const [isChangeFarmerConfirmOpen, setIsChangeFarmerConfirmOpen] = useState<boolean>(false);
 
-  // New Inline Farmer Form State
-  const [editingFarmer, setEditingFarmer] = useState<Farmer | null>(null);
+  // Inline Farmer Form State
   const [newFarmerName, setNewFarmerName] = useState('');
   const [newFarmerPhone, setNewFarmerPhone] = useState('');
   const [newFarmerVillage, setNewFarmerVillage] = useState('');
   const [newFarmerPhotoUrl, setNewFarmerPhotoUrl] = useState('');
 
-  // Primary commodity for initial variety row (synced with active commodity)
+  // Retailer Customer Selection State (Starts empty on every new entry)
+  const [selectedRetailerId, setSelectedRetailerId] = useState<string>('');
+  const [customerSearch, setCustomerSearch] = useState<string>('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [showInlineAddCustomer, setShowInlineAddCustomer] = useState(false);
+  const [customerFieldError, setCustomerFieldError] = useState<string | null>(null);
+
+  // Inline Retail Customer Form State
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [newCustomerShop, setNewCustomerShop] = useState('');
+
+  // Primary commodity for initial variety row
   const initialCategory: CommodityCategory = (
     activeCommodityFilter && activeCommodityFilter !== 'all'
       ? activeCommodityFilter
       : userCommodities[0] || 'flowers'
   ) as CommodityCategory;
   const initialConfig = getSafeCommodityConfig(initialCategory);
-  const initialVariety = initialConfig.varieties[0]?.en || 'Standard';
   const initialUnit = (initialConfig.allowedUnits[0] as WeightUnit) || 'Kgs';
-  const initialRate = initialConfig.varieties[0]?.defaultRate || 40;
 
-  // Consignment Details: Supports grouping multiple varieties across commodities in ONE shipment
-  const [varietyRows, setVarietyRows] = useState<ConsignmentVarietyRow[]>([
-    {
-      id: 'var-1',
-      commodityCategory: initialCategory,
+  // Load saved draft so item entries are never lost when adding farmers or switching tabs
+  const loadDraftObj = () => {
+    try {
+      const saved = localStorage.getItem(`bharatmandi_draft_sale_${activeMode}_v1`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.varietyRows) && parsed.varietyRows.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  };
+
+  const initialDraft = useMemo(() => loadDraftObj(), [activeMode]);
+
+  // Multi-Variety Rows
+  const [varietyRows, setVarietyRows] = useState<ConsignmentVarietyRow[]>(() => {
+    if (initialDraft?.varietyRows && Array.isArray(initialDraft.varietyRows) && initialDraft.varietyRows.length > 0) {
+      return initialDraft.varietyRows;
+    }
+    return [
+      {
+        id: 'var-1',
+        commodityCategory: initialCategory,
+        flowerVariety: '',
+        customVariety: '',
+        quantity: '',
+        unit: initialUnit,
+        boxesCount: '',
+        packagingType: initialCategory === 'grains' ? 'Bags' : 'Boxes',
+        flowerQuality: 'Good',
+        rate: '',
+      },
+    ];
+  });
+
+  // Wholesaler Charges State (Deductions)
+  const [ammaliCharge, setAmmaliCharge] = useState<number | ''>(() => initialDraft?.ammaliCharge ?? '');
+  const [transportCharge, setTransportCharge] = useState<number | ''>(() => initialDraft?.transportCharge ?? '');
+  const [commissionRate, setCommissionRate] = useState<number | ''>(() => initialDraft?.commissionRate ?? '');
+  const [miscCommissionRate, setMiscCommissionRate] = useState<number | ''>(() => initialDraft?.miscCommissionRate ?? '');
+
+  // Retailer Payment & Advance State
+  const [amountPaidNow, setAmountPaidNow] = useState<string>(() => initialDraft?.amountPaidNow ?? '');
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>(() => initialDraft?.paymentMode ?? 'Cash');
+  const [notes, setNotes] = useState<string>(() => initialDraft?.notes ?? '');
+  const [deductStock, setDeductStock] = useState<boolean>(true);
+  const [allowAdvance, setAllowAdvance] = useState<boolean>(false);
+  const [showDueDetailsModal, setShowDueDetailsModal] = useState<boolean>(false);
+
+  // Auto-persist draft so typed items are never lost on adding farmer or navigating
+  useEffect(() => {
+    try {
+      const draftObj = {
+        varietyRows,
+        ammaliCharge,
+        transportCharge,
+        commissionRate,
+        miscCommissionRate,
+        amountPaidNow,
+        paymentMode,
+        notes,
+        selectedFarmerId,
+        selectedRetailerId,
+      };
+      localStorage.setItem(`bharatmandi_draft_sale_${activeMode}_v1`, JSON.stringify(draftObj));
+    } catch {}
+  }, [
+    varietyRows,
+    ammaliCharge,
+    transportCharge,
+    commissionRate,
+    miscCommissionRate,
+    amountPaidNow,
+    paymentMode,
+    notes,
+    selectedFarmerId,
+    selectedRetailerId,
+    activeMode,
+  ]);
+
+  // Wholesaler PDF Modal State
+  const [isWholesalerPdfOpen, setIsWholesalerPdfOpen] = useState<boolean>(false);
+  const [wholesalerPdfLot, setWholesalerPdfLot] = useState<SaleLot | null>(null);
+
+  // Retailer PDF Modal State
+  const [isRetailerPdfOpen, setIsRetailerPdfOpen] = useState<boolean>(false);
+  const [selectedRetailerForPdf, setSelectedRetailerForPdf] = useState<Retailer | null>(null);
+
+  // Action Notification Feedback
+  const [actionFeedbackMsg, setActionFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isPdfPreparing, setIsPdfPreparing] = useState<boolean>(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // Selected Farmer (returns null if selectedFarmerId is empty)
+  const selectedFarmer = useMemo(() => {
+    if (!selectedFarmerId) return null;
+    return farmers.find((f) => f.id === selectedFarmerId) || null;
+  }, [farmers, selectedFarmerId]);
+
+  // Selected Farmer Current Dues (total across all commodities)
+  const selectedFarmerDues = useMemo(() => {
+    if (!selectedFarmer) return 0;
+    const stats = getFarmerStats(selectedFarmer.id, undefined, undefined, 'all');
+    return stats?.pendingDues || 0;
+  }, [selectedFarmer, getFarmerStats]);
+
+  // 5 Most Recently Created/Used Farmers for quick chips (sorted by creation timestamp descending)
+  const recentFarmers = useMemo(() => {
+    return farmers
+      .filter((f) => !f.isArchived)
+      .slice()
+      .sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      })
+      .slice(0, 5);
+  }, [farmers]);
+
+  // Check if item entries are filled
+  const hasFilledItemEntries = useMemo(() => {
+    return varietyRows.some(
+      (r) =>
+        r.quantity !== '' ||
+        r.rate !== '' ||
+        (r.customVariety && r.customVariety.trim() !== '') ||
+        (r.flowerVariety && r.flowerVariety.trim() !== '')
+    );
+  }, [varietyRows]);
+
+  const clearFarmerSelection = () => {
+    setSelectedFarmerId('');
+    setFarmerSearch('');
+    setIsFarmerDropdownOpen(false);
+    setIsChangeFarmerConfirmOpen(false);
+    setFarmerFieldError(null);
+  };
+
+  const handleRequestChangeFarmer = () => {
+    if (hasFilledItemEntries) {
+      setIsChangeFarmerConfirmOpen(true);
+    } else {
+      clearFarmerSelection();
+    }
+  };
+
+  // Selected Retailer (returns null if selectedRetailerId is empty)
+  const selectedRetailer = useMemo(() => {
+    if (!selectedRetailerId) return null;
+    return retailers.find((r) => r.id === selectedRetailerId) || null;
+  }, [retailers, selectedRetailerId]);
+
+  // Retailer Previous Due (Carry-forward balance prior to this sale)
+  const previousDue = useMemo(() => {
+    if (!selectedRetailer || !isRetailerMode) return 0;
+    const sales = retailerSales.filter((s) => s.retailerId === selectedRetailer.id);
+    const payments = retailerPayments.filter((p) => p.retailerId === selectedRetailer.id);
+    const totalBilled = sales.reduce((sum, s) => sum + (s.grossTotal || 0), 0);
+    const paidAtSales = sales.reduce((sum, s) => sum + (s.amountPaid || 0), 0);
+    const directPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    return Math.max(0, totalBilled - (paidAtSales + directPaid));
+  }, [selectedRetailer, retailerSales, retailerPayments, isRetailerMode]);
+
+  // Row Manipulation Handlers
+  const handleAddVarietyRow = () => {
+    sounds.playBidTick?.();
+    const lastRow = varietyRows[varietyRows.length - 1];
+    const cat = lastRow ? lastRow.commodityCategory : initialCategory;
+    const cfg = getSafeCommodityConfig(cat);
+    const newRow: ConsignmentVarietyRow = {
+      id: `var-${Date.now()}-${varietyRows.length + 1}`,
+      commodityCategory: cat,
       flowerVariety: '',
       customVariety: '',
       quantity: '',
-      unit: initialUnit,
+      unit: (cfg.allowedUnits[0] as WeightUnit) || 'Kgs',
       boxesCount: '',
-      packagingType: initialCategory === 'grains' ? 'Bags' : 'Boxes',
+      packagingType: cat === 'grains' ? 'Bags' : 'Boxes',
       flowerQuality: 'Good',
       rate: '',
-    },
-  ]);
-  const [activeRowId, setActiveRowId] = useState<string>('var-1');
+    };
+    setVarietyRows([...varietyRows, newRow]);
+  };
 
-  // Sync category when activeCommodityFilter changes
-  useEffect(() => {
-    if (activeCommodityFilter && activeCommodityFilter !== 'all') {
-      const targetConfig = getSafeCommodityConfig(activeCommodityFilter);
-      setVarietyRows((prev) =>
-        prev.map((r) => ({
-          ...r,
-          commodityCategory: activeCommodityFilter,
-          flowerVariety: '',
-          customVariety: '',
-          unit: (targetConfig.allowedUnits[0] as WeightUnit) || 'Kgs',
-          packagingType: activeCommodityFilter === 'grains' ? 'Bags' : 'Boxes',
-          rate: '',
-        }))
-      );
+  const handleRemoveVarietyRow = (id: string) => {
+    if (varietyRows.length === 1) {
+      alert('At least one item line is required.');
+      return;
     }
-  }, [activeCommodityFilter]);
-
-  // Interactive Tools & PDF Modal State
-  const [showDigitalScale, setShowDigitalScale] = useState<boolean>(false);
-  const [showRateNegotiator, setShowRateNegotiator] = useState<boolean>(false);
-  const [isDraftPdfOpen, setIsDraftPdfOpen] = useState<boolean>(false);
-  const [selectedLotForPdf, setSelectedLotForPdf] = useState<SaleLot | null>(null);
-
-  // Charges State: Deductions per transaction (Hamali, Transport, Mandi Commission, and Misleene Commission)
-  const [ammaliCharge, setAmmaliCharge] = useState<number | ''>(''); // Hamali / Loading (₹)
-  const [transportCharge, setTransportCharge] = useState<number | ''>(''); // Transport / Freight (₹)
-  const [commissionRate, setCommissionRate] = useState<number | ''>(''); // Mandi Commission Rate (%)
-  const [miscCommissionRate, setMiscCommissionRate] = useState<number | ''>(''); // Misleene Commission Rate (%)
-
-  // Payment Options & Settlement State
-  const [paymentChoice, setPaymentChoice] = useState<'pay_now' | 'pay_later'>('pay_now');
-  const [payPortion, setPayPortion] = useState<'full' | 'partial'>('full');
-  const [amountPaidNow, setAmountPaidNow] = useState<number | ''>('');
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
-  const [paymentReference, setPaymentReference] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-
-  // Action Notification State
-  const [actionFeedbackMsg, setActionFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Unified Delete Confirmation State
-  const [deleteModalConfig, setDeleteModalConfig] = useState<{
-    isOpen: boolean;
-    type: 'lot' | 'varietyRow';
-    lot?: SaleLot;
-    varietyRowId?: string;
-    varietyName?: string;
-    rowDetails?: string;
-  }>({
-    isOpen: false,
-    type: 'lot',
-  });
-
-  const handleDeleteVarietyRowClick = (row: ConsignmentVarietyRow) => {
-    const vName = row.customVariety.trim() || row.flowerVariety;
-    setDeleteModalConfig({
-      isOpen: true,
-      type: 'varietyRow',
-      varietyRowId: row.id,
-      varietyName: vName,
-      rowDetails: `Packaging: ${row.boxesCount || 0} ${row.packagingType || 'Boxes'} • Quantity: ${row.quantity || 0} ${row.unit} • Rate: ₹${row.rate || 0}/${row.unit} • Quality: ${row.flowerQuality || 'Good'}`,
-    });
+    sounds.playBidTick?.();
+    setVarietyRows(varietyRows.filter((r) => r.id !== id));
   };
 
-  const handleDeleteLotClick = (lot: SaleLot) => {
-    setDeleteModalConfig({
-      isOpen: true,
-      type: 'lot',
-      lot,
-    });
+  const handleRowChange = (id: string, field: keyof ConsignmentVarietyRow, value: any) => {
+    setVarietyRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) return row;
+        if (field === 'commodityCategory') {
+          const cfg = getSafeCommodityConfig(value as CommodityCategory);
+          return {
+            ...row,
+            commodityCategory: value as CommodityCategory,
+            flowerVariety: '',
+            customVariety: '',
+            unit: (cfg.allowedUnits[0] as WeightUnit) || 'Kgs',
+            packagingType: value === 'grains' ? 'Bags' : 'Boxes',
+          };
+        }
+        return { ...row, [field]: value };
+      })
+    );
   };
 
-  const handleConfirmDelete = () => {
-    if (deleteModalConfig.type === 'varietyRow' && deleteModalConfig.varietyRowId) {
-      const rowId = deleteModalConfig.varietyRowId;
-      const vName = deleteModalConfig.varietyName || 'Flower variety';
-      setVarietyRows((prev) => prev.filter((r) => r.id !== rowId));
-      if (activeRowId === rowId) {
-        const remaining = varietyRows.filter((r) => r.id !== rowId);
-        if (remaining[0]) setActiveRowId(remaining[0].id);
-      }
-      sounds.playTrashSound?.();
-      setActionFeedbackMsg({ type: 'success', text: `✓ Variety "${vName}" removed from consignment list.` });
-      setTimeout(() => setActionFeedbackMsg(null), 3000);
-    } else if (deleteModalConfig.type === 'lot' && deleteModalConfig.lot) {
-      const lotNumber = deleteModalConfig.lot.parchiNumber;
-      deleteSaleLot(deleteModalConfig.lot.id);
-      sounds.playTrashSound?.();
-      setActionFeedbackMsg({ type: 'success', text: `✓ Consignment lot ${lotNumber} permanently deleted.` });
-      setTimeout(() => setActionFeedbackMsg(null), 3000);
-    }
-    setDeleteModalConfig({ isOpen: false, type: 'lot' });
-  };
-
-  // Selected Farmer details
-  const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
-
-  // Real-time Calculations for all varieties in the shipment
-  const computedVarietyRows = useMemo(() => {
+  // Calculated Row Totals
+  const calculatedRows = useMemo(() => {
     return varietyRows.map((row) => {
-      const q = typeof row.quantity === 'number' ? row.quantity : 0;
-      const b = typeof row.boxesCount === 'number' ? row.boxesCount : 0;
-      const pType = row.packagingType || (row.commodityCategory === 'grains' ? 'Bags' : 'Boxes');
-      const r = typeof row.rate === 'number' ? row.rate : 0;
-      const lineGross = Math.round(q * r);
-      const displayName = row.customVariety.trim() || row.flowerVariety;
+      const q = typeof row.quantity === 'number' ? row.quantity : parseFloat(row.quantity) || 0;
+      const r = typeof row.rate === 'number' ? row.rate : parseFloat(row.rate) || 0;
+      const resolvedVariety = row.customVariety.trim() || row.flowerVariety || 'Standard Quality';
+      const lineTotal = q * r;
       return {
         ...row,
-        numericQuantity: q,
-        numericBoxes: b,
-        packagingType: pType,
-        numericRate: r,
-        lineGross,
-        displayName,
+        numQuantity: q,
+        numRate: r,
+        resolvedVariety,
+        lineTotal,
       };
     });
   }, [varietyRows]);
 
-  const grossTotal = useMemo(() => {
-    return computedVarietyRows.reduce((sum, r) => sum + r.lineGross, 0);
-  }, [computedVarietyRows]);
+  const totalGrossAmount = useMemo(() => {
+    return calculatedRows.reduce((sum, r) => sum + r.lineTotal, 0);
+  }, [calculatedRows]);
 
-  const totalQuantity = useMemo(() => {
-    return computedVarietyRows.reduce((sum, r) => sum + r.numericQuantity, 0);
-  }, [computedVarietyRows]);
+  // Wholesaler Deductions Calculation
+  const numericAmmali = typeof ammaliCharge === 'number' ? ammaliCharge : parseFloat(ammaliCharge) || 0;
+  const numericTransport = typeof transportCharge === 'number' ? transportCharge : parseFloat(transportCharge) || 0;
+  const numericCommissionRate = typeof commissionRate === 'number' ? commissionRate : parseFloat(commissionRate) || 0;
+  const numericMiscRate = typeof miscCommissionRate === 'number' ? miscCommissionRate : parseFloat(miscCommissionRate) || 0;
 
-  const totalBoxes = useMemo(() => {
-    return computedVarietyRows.reduce((sum, r) => sum + r.numericBoxes, 0);
-  }, [computedVarietyRows]);
+  const commissionAmount = Math.round(totalGrossAmount * (numericCommissionRate / 100));
+  const miscCommissionAmount = Math.round(totalGrossAmount * (numericMiscRate / 100));
+  const totalDeductions = numericAmmali + numericTransport + commissionAmount + miscCommissionAmount;
+  const farmerNetPayable = Math.max(0, totalGrossAmount - totalDeductions);
 
-  // Backward compatibility convenience for single item / active row
-  const activeRow = computedVarietyRows.find((r) => r.id === activeRowId) || computedVarietyRows[0];
-  const flowerVariety = activeRow?.flowerVariety || 'Rose';
-  const numericQuantity = activeRow?.numericQuantity || 0;
-  const numericBoxes = activeRow?.numericBoxes || 0;
-  const numericRate = activeRow?.numericRate || 0;
-  const unit = activeRow?.unit || 'Kgs';
+  // Retailer Balance & Grand Total Calculation
+  const grandTotalPayable = totalGrossAmount + previousDue;
+  const numAmountPaid = parseFloat(amountPaidNow) || 0;
+  const remainingBalance = grandTotalPayable - numAmountPaid;
 
-  // Itemized numerical deductions (Hamali, Transport, Mandi Commission & Misleene Commission per sale transaction)
-  const numericAmmali = typeof ammaliCharge === 'number' ? ammaliCharge : 0;
-  const numericTransport = typeof transportCharge === 'number' ? transportCharge : 0;
-  const numericCommissionRate = typeof commissionRate === 'number' ? Math.max(0, commissionRate) : 0;
-  const numericCommissionAmount = numericCommissionRate > 0 ? Math.round((grossTotal * numericCommissionRate) / 100) : 0;
-  const numericMiscCommissionRate = typeof miscCommissionRate === 'number' ? Math.max(0, miscCommissionRate) : 0;
-  const numericMiscCommissionAmount = numericMiscCommissionRate > 0 ? Math.round((grossTotal * numericMiscCommissionRate) / 100) : 0;
+  const isPaymentOverLimit = isRetailerMode && numAmountPaid > grandTotalPayable && !allowAdvance;
+  const isPaymentNegative = numAmountPaid < 0;
+  const paymentValidationError = isPaymentNegative
+    ? 'Amount paid cannot be negative.'
+    : isPaymentOverLimit
+    ? `Amount paid cannot exceed Grand Total Payable (₹${grandTotalPayable.toLocaleString('en-IN')}) unless advance payment is enabled.`
+    : null;
 
-  // Total Deductions per transaction = Hamali + Transport + Mandi Commission + Misleene Commission
-  const totalDeductions = useMemo(() => {
-    return numericAmmali + numericTransport + numericCommissionAmount + numericMiscCommissionAmount;
-  }, [numericAmmali, numericTransport, numericCommissionAmount, numericMiscCommissionAmount]);
+  // Preset Handlers
+  const payableBase = isRetailerMode ? grandTotalPayable : farmerNetPayable;
+  const handlePresetPayFull = () => setAmountPaidNow(String(payableBase));
+  const handlePresetPayHalf = () => setAmountPaidNow(String(Math.round(payableBase / 2)));
+  const handlePresetPayTodaysOnly = () => setAmountPaidNow(String(totalGrossAmount));
+  const handlePresetCustom = () => setAmountPaidNow('');
 
-  // Net Amount to Farmer after transaction deductions
-  const farmerNetPayable = useMemo(() => {
-    return Math.max(0, grossTotal - totalDeductions);
-  }, [grossTotal, totalDeductions]);
-
-  // Derived effective payment amounts and status
-  const numericPaid = useMemo(() => {
-    if (paymentChoice === 'pay_later') return 0;
-    if (typeof amountPaidNow === 'number') return Math.max(0, Math.min(farmerNetPayable, amountPaidNow));
-    return 0;
-  }, [paymentChoice, amountPaidNow, farmerNetPayable]);
-
-  const paymentStatus = useMemo<PaymentStatus>(() => {
-    if (paymentChoice === 'pay_later') return 'Unpaid';
-    if (numericPaid >= farmerNetPayable && farmerNetPayable > 0) return 'Paid';
-    if (numericPaid > 0 && numericPaid < farmerNetPayable) return 'Partial';
-    return 'Unpaid';
-  }, [paymentChoice, numericPaid, farmerNetPayable]);
-
-  const balanceDue = useMemo(() => {
-    return Math.max(0, farmerNetPayable - numericPaid);
-  }, [farmerNetPayable, numericPaid]);
-
-  // Keep amountPaidNow in sync when net payable changes or when pay options switch
-  useEffect(() => {
-    if (paymentChoice === 'pay_now') {
-      if (payPortion === 'full') {
-        setAmountPaidNow(farmerNetPayable);
-      } else if (amountPaidNow === '') {
-        setAmountPaidNow(Math.round(farmerNetPayable / 2));
-      }
-    } else {
-      setAmountPaidNow(0);
-    }
-  }, [farmerNetPayable, paymentChoice, payPortion]);
-
-  // Filtered farmers for dropdown
-  const filteredFarmers = farmers.filter(
-    (f) =>
-      f.name.toLowerCase().includes(farmerSearch.toLowerCase()) ||
-      f.village.toLowerCase().includes(farmerSearch.toLowerCase()) ||
-      f.phone.includes(farmerSearch)
-  );
-
-  // Handle Inline Add/Edit Farmer
-  const handleSaveInlineFarmer = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFarmerName.trim()) {
-      alert('Please enter farmer name');
-      return;
-    }
-
-    if (/[0-9]/.test(newFarmerName)) {
-      alert(language === 'te' ? 'రైతు పేరులో అంకెలు ఉండకూడదు' : 'Farmer name cannot contain numbers');
-      return;
-    }
-
-    const cleanPhone = newFarmerPhone.replace(/\D/g, '').slice(-10);
-    if (newFarmerPhone.trim() && cleanPhone.length !== 10) {
-      alert('Phone number must contain only numbers (exactly 10 digits)');
-      return;
-    }
-
-    if (editingFarmer) {
-      updateFarmer(editingFarmer.id, {
-        name: newFarmerName.trim(),
-        phone: cleanPhone || editingFarmer.phone,
-        village: newFarmerVillage.trim() || editingFarmer.village,
-        photoUrl: newFarmerPhotoUrl.trim() || editingFarmer.photoUrl,
-      });
-      setSelectedFarmerId(editingFarmer.id);
-      setEditingFarmer(null);
-    } else {
-      const created = addFarmer({
-        name: newFarmerName.trim(),
-        phone: cleanPhone || '',
-        village: newFarmerVillage.trim() || 'Local Mandi Belt',
-        primaryCrops: [flowerVariety],
-        connectedMerchantIds: [merchantProfile.merchantId],
-        photoUrl: newFarmerPhotoUrl.trim() || '',
-      });
-      setSelectedFarmerId(created.id);
-    }
-
-    setNewFarmerName('');
-    setNewFarmerPhone('');
-    setNewFarmerVillage('');
-    setNewFarmerPhotoUrl('');
-    setShowInlineAddFarmer(false);
-  };
-
-  // Submit Sale Shipment & Generate Parchi
-  const handleSaveLot = (e?: React.FormEvent) => {
-    if (e && typeof e.preventDefault === 'function') {
-      e.preventDefault();
-    }
-
-    let targetFarmer = selectedFarmer;
-
-    if (!targetFarmer) {
-      if (farmerSearch.trim()) {
-        const query = farmerSearch.trim().toLowerCase();
-        const extractedDigits = farmerSearch.replace(/\D/g, '').slice(-10);
-
-        // 1. Search existing farmers list by name or phone digits
-        const found = farmers.find((f) => {
-          const fPhone = f.phone ? f.phone.replace(/\D/g, '').slice(-10) : '';
-          if (extractedDigits && extractedDigits.length === 10 && fPhone === extractedDigits) return true;
-          return f.name.toLowerCase() === query || f.phone.includes(query);
-        });
-
-        if (found) {
-          const cleanFPhone = found.phone ? found.phone.replace(/\D/g, '').slice(-10) : '';
-          if (extractedDigits && extractedDigits.length === 10 && cleanFPhone !== extractedDigits) {
-            updateFarmer(found.id, { phone: extractedDigits });
-            targetFarmer = { ...found, phone: extractedDigits };
-          } else {
-            targetFarmer = found;
-          }
-          setSelectedFarmerId(found.id);
-        } else {
-          // 2. Check if a farmer account is registered in the app with extracted phone
-          const registeredAcc = registeredAccounts.find(
-            (a) => a.role === 'farmer' && extractedDigits && extractedDigits.length === 10 && a.phoneNumber.replace(/\D/g, '').slice(-10) === extractedDigits
-          );
-
-          const farmerTextName = farmerSearch.replace(/[0-9]/g, '').trim();
-          const finalFarmerName = registeredAcc?.fullName || farmerTextName || (extractedDigits ? `Farmer (+91 ${extractedDigits})` : farmerSearch.trim());
-          const finalFarmerVillage = registeredAcc?.shopOrVillage || 'Mandi Area';
-          const finalFarmerPhone = extractedDigits.length === 10 ? extractedDigits : '';
-
-          const created = addFarmer({
-            name: finalFarmerName,
-            village: finalFarmerVillage,
-            phone: finalFarmerPhone,
-            primaryCrops: userCommodities,
-            connectedMerchantIds: [merchantProfile.merchantId],
-          });
-          targetFarmer = created;
-          setSelectedFarmerId(created.id);
-        }
-      } else if (farmers.length > 0) {
-        targetFarmer = farmers[0];
-        setSelectedFarmerId(farmers[0].id);
-      } else {
-        // Auto-create default Mandi farmer if farmers list is completely empty
-        const created = addFarmer({
-          name: 'General Mandi Farmer',
-          village: 'Mandi Yard',
-          phone: '',
-          primaryCrops: userCommodities,
-          connectedMerchantIds: [merchantProfile.merchantId],
-        });
-        targetFarmer = created;
-        setSelectedFarmerId(created.id);
-      }
-    }
-
-    if (!targetFarmer) {
-      setActionFeedbackMsg({
-        type: 'error',
-        text: 'Please select or enter a farmer name to record the consignment.',
-      });
-      setTimeout(() => setActionFeedbackMsg(null), 4000);
-      return;
-    }
-
-    if (computedVarietyRows.length === 0) {
-      setActionFeedbackMsg({
-        type: 'error',
-        text: 'Please add at least one crop variety line item.',
-      });
-      setTimeout(() => setActionFeedbackMsg(null), 4000);
-      return;
-    }
-
-    // Check Merchant Type Rule: ensure all items belong to user's selected commodities
-    const invalidMerchantTypeItem = computedVarietyRows.find(
-      (r) => !userCommodities.includes(r.commodityCategory || 'flowers')
-    );
-    if (invalidMerchantTypeItem) {
-      const allowedNames = userCommodities.map((c) => getSafeCommodityConfig(c)?.name || c).join(', ');
-      setActionFeedbackMsg({
-        type: 'error',
-        text: `Cannot save: Selected category "${getSafeCommodityConfig(invalidMerchantTypeItem.commodityCategory || 'flowers')?.name}" is not enabled for your merchant profile. Allowed types: ${allowedNames}.`,
-      });
-      setTimeout(() => setActionFeedbackMsg(null), 6000);
-      return;
-    }
-
-    const invalidItem = computedVarietyRows.find((r) => r.numericQuantity <= 0 || r.numericRate <= 0);
-    if (invalidItem) {
-      setActionFeedbackMsg({
-        type: 'error',
-        text: `Please enter a valid Quantity (> 0) and Rate (> 0) for ${invalidItem.displayName || 'the item'}.`,
-      });
-      setTimeout(() => setActionFeedbackMsg(null), 4000);
-      return;
-    }
-
-    // Register custom variety names for suggestion dropdowns across the app
-    computedVarietyRows.forEach((r) => {
-      if (r.displayName) {
-        addCustomVarietyName(r.displayName, r.commodityCategory);
-      }
-    });
-
-    // Call addShipment to group all varieties into ONE shipment and deduct Hamali & Transport ONCE
-    const newShipment = addShipment({
-      date: saleDate,
-      farmerId: targetFarmer.id,
-      farmerName: targetFarmer.name,
-      farmerVillage: targetFarmer.village,
-      farmerPhone: targetFarmer.phone,
-      merchantId: merchantProfile.merchantId,
-      merchantName: merchantProfile.shopName || 'Flower Mandi',
-      items: computedVarietyRows.map((r) => ({
-        id: r.id,
-        commodityCategory: r.commodityCategory || userCommodities[0] || 'flowers',
-        flowerVariety: r.displayName,
-        quantity: r.numericQuantity,
-        unit: r.unit,
-        rate: r.numericRate,
-        grossTotal: r.lineGross,
-        boxesCount: r.numericBoxes > 0 ? r.numericBoxes : undefined,
-        packagingType: r.packagingType || (r.commodityCategory === 'grains' ? 'Bags' : 'Boxes'),
-        flowerQuality: r.flowerQuality,
-      })),
-      grossTotal,
-      transportCharge: numericTransport,
-      hamaliCharge: numericAmmali,
-      commissionPercent: numericCommissionRate,
-      commissionAmount: numericCommissionAmount,
-      netAmountAfterDailyCuts: farmerNetPayable,
-      paymentStatus,
-      amountPaid: numericPaid,
-      balanceDue,
-      notes: notes.trim(),
-    });
-
-    // Play cash chime sound effect
+  const resetForm = () => {
     try {
-      sounds.playCashChime();
-    } catch {
-      // Audio autoplay safe
-    }
-
-    // Prepare consolidated Parchi slip for instant printing/WhatsApp
-    const varietySummary = computedVarietyRows.map((r) => `${r.displayName} (${r.numericQuantity} ${r.unit})`).join(', ');
-    const primaryCommodity: CommodityCategory = (computedVarietyRows[0]?.commodityCategory || userCommodities[0] || 'flowers') as CommodityCategory;
-    const primaryPackaging = computedVarietyRows[0]?.packagingType || (primaryCommodity === 'grains' ? 'Bags' : 'Boxes');
-    const primaryConfig = getSafeCommodityConfig(primaryCommodity);
-
-    const parchiLot: SaleLot = {
-      id: newShipment.id,
-      commodityCategory: primaryCommodity,
-      parchiNumber: newShipment.shipmentNumber,
-      date: newShipment.date,
-      time: newShipment.time,
-      farmerId: newShipment.farmerId,
-      farmerName: newShipment.farmerName,
-      farmerVillage: newShipment.farmerVillage,
-      farmerPhone: newShipment.farmerPhone,
-      flowerVariety: varietySummary,
-      quantity: totalQuantity,
-      unit: computedVarietyRows[0]?.unit || 'Kgs',
-      boxesCount: totalBoxes > 0 ? totalBoxes : undefined,
-      packagingType: primaryPackaging,
-      flowerQuality: computedVarietyRows[0]?.flowerQuality || 'Good',
-      rate: totalQuantity > 0 ? Math.round(grossTotal / totalQuantity) : 0,
-      grossTotal,
-      commissionPercent: numericCommissionRate,
-      commissionAmount: numericCommissionAmount,
-      transportCharges: numericTransport,
-      ammaliCharges: numericAmmali,
-      otherExpenditures: {
-        transport: numericTransport,
-        hamali: numericAmmali,
-        kanta: 0,
-        mandiCess: 0,
-        packingCharges: 0,
-        misc: numericMiscCommissionAmount,
-        miscPercent: numericMiscCommissionRate,
-        miscNote: 'Miscellaneous Charges',
-      },
-      totalOtherExpenditures: numericTransport + numericAmmali + numericCommissionAmount + numericMiscCommissionAmount,
-      farmerNetPayable,
-      paymentStatus,
-      amountPaid: numericPaid,
-      balanceDue,
-      paymentMode: numericPaid > 0 ? paymentMode : undefined,
-      paymentReference: numericPaid > 0 ? paymentReference.trim() : undefined,
-      notes: notes.trim(),
-      shipmentId: newShipment.id,
-    };
-
-    // Open Mandi Parchi Modal immediately for printing / WhatsApp
-    setSelectedParchiLot(parchiLot);
-
-    setActionFeedbackMsg({
-      type: 'success',
-      text: `✓ Form C Parchi #${newShipment.shipmentNumber} generated successfully for ${targetFarmer.name}!`,
-    });
-    setTimeout(() => setActionFeedbackMsg(null), 4000);
-
-    // Reset Form for next shipment safely
+      localStorage.removeItem(`bharatmandi_draft_sale_${activeMode}_v1`);
+    } catch {}
     setVarietyRows([
       {
         id: `var-${Date.now()}`,
-        commodityCategory: primaryCommodity,
+        commodityCategory: initialCategory,
         flowerVariety: '',
         customVariety: '',
         quantity: '',
-        unit: (primaryConfig.allowedUnits[0] as WeightUnit) || 'Kgs',
+        unit: initialUnit,
         boxesCount: '',
-        packagingType: primaryCommodity === 'grains' ? 'Bags' : 'Boxes',
+        packagingType: initialCategory === 'grains' ? 'Bags' : 'Boxes',
         flowerQuality: 'Good',
         rate: '',
       },
     ]);
-    setActiveRowId(`var-${Date.now()}`);
+    setSelectedFarmerId('');
+    setFarmerSearch('');
+    setSelectedRetailerId('');
+    setCustomerSearch('');
+    setFarmerFieldError(null);
+    setCustomerFieldError(null);
     setAmmaliCharge('');
     setTransportCharge('');
     setCommissionRate('');
     setMiscCommissionRate('');
-    setNotes('');
-    setPaymentReference('');
     setAmountPaidNow('');
+    setPaymentMode('Cash');
+    setNotes('');
+    setAllowAdvance(false);
   };
 
-  const todayStr = getTodayDateString();
-  const yesterdayStr = getPastDateString(1);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
 
-  // Compute consignments recorded specifically for this saleDate (Scoped to active commodity)
-  const dateLots = useMemo(() => {
-    return lots.filter((l) => {
-      if (l.date !== saleDate) return false;
-      if (activeCommodityFilter !== 'all') {
-        const lotCat = l.commodityCategory || 'flowers';
-        if (lotCat !== activeCommodityFilter) return false;
-      }
-      return true;
+  // Add Inline Farmer Handler
+  const handleSaveInlineFarmer = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = newFarmerName.trim();
+    if (!trimmedName) {
+      alert('Please enter farmer name');
+      return;
+    }
+    const created = addFarmer({
+      name: trimmedName,
+      phone: newFarmerPhone.replace(/\D/g, '').slice(-10),
+      village: newFarmerVillage.trim(),
+      primaryCrops: userCommodities,
+      connectedMerchantIds: [merchantProfile.merchantId],
+      photoUrl: newFarmerPhotoUrl.trim(),
     });
-  }, [lots, saleDate, activeCommodityFilter]);
+    setSelectedFarmerId(created.id);
+    setShowInlineAddFarmer(false);
+    setNewFarmerName('');
+    setNewFarmerPhone('');
+    setNewFarmerVillage('');
+    setNewFarmerPhotoUrl('');
+    setActionFeedbackMsg({
+      type: 'success',
+      text: `Farmer saved ✓ ${created.name}`,
+    });
+    setTimeout(() => setActionFeedbackMsg(null), 3000);
+  };
 
-  const dateTurnover = useMemo(() => {
-    return dateLots.reduce((sum, l) => sum + l.grossTotal, 0);
-  }, [dateLots]);
+  // Add Inline Retailer Handler
+  const handleSaveInlineCustomer = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = newCustomerName.trim();
+    if (!trimmedName) {
+      alert('Please enter retail customer name');
+      return;
+    }
+    const created = addRetailer({
+      name: trimmedName,
+      phone: newCustomerPhone.replace(/\D/g, '').slice(-10),
+      shopOrMarket: newCustomerShop.trim(),
+    });
+    setSelectedRetailerId(created.id);
+    setShowInlineAddCustomer(false);
+    setNewCustomerName('');
+    setNewCustomerPhone('');
+    setNewCustomerShop('');
+    setActionFeedbackMsg({
+      type: 'success',
+      text: `Customer saved ✓ ${created.name}`,
+    });
+    setTimeout(() => setActionFeedbackMsg(null), 3000);
+  };
 
-  const dateNetPayable = useMemo(() => {
-    return dateLots.reduce((sum, l) => sum + l.farmerNetPayable, 0);
-  }, [dateLots]);
+  // Search Input Keyboard Navigation Handler (Enter, Up, Down, Esc)
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isRetailerMode) {
+      const query = farmerSearch.trim().toLowerCase();
+      const filtered = farmers.filter((f) => {
+        if (f.isArchived) return false;
+        if (!query) return true;
+        const nameMatch = (f.name || '').toLowerCase().includes(query);
+        const villageMatch = (f.village || '').toLowerCase().includes(query);
+        const phoneMatch = (f.phone || '').includes(query);
+        const idMatch = (f.id || '').toLowerCase().includes(query);
+        return nameMatch || villageMatch || phoneMatch || idMatch;
+      });
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setIsFarmerDropdownOpen(true);
+        if (filtered.length > 0) {
+          setHighlightedIndex((prev) => (prev + 1) % filtered.length);
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setIsFarmerDropdownOpen(true);
+        if (filtered.length > 0) {
+          setHighlightedIndex((prev) => (prev - 1 + filtered.length) % filtered.length);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsFarmerDropdownOpen(false);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filtered.length > 0) {
+          const selected = filtered[highlightedIndex] || filtered[0];
+          if (selected) {
+            setSelectedFarmerId(selected.id);
+            setIsFarmerDropdownOpen(false);
+            setFarmerSearch('');
+            setFarmerFieldError(null);
+          }
+        } else {
+          setIsFarmerModalOpen(true);
+          setIsFarmerDropdownOpen(false);
+        }
+      }
+    } else {
+      const filtered = retailers.filter(
+        (r) =>
+          (r.name || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
+          (r.shopOrMarket || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
+          (r.phone || '').includes(customerSearch)
+      );
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setIsCustomerDropdownOpen(true);
+        if (filtered.length > 0) {
+          setHighlightedIndex((prev) => (prev + 1) % filtered.length);
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setIsCustomerDropdownOpen(true);
+        if (filtered.length > 0) {
+          setHighlightedIndex((prev) => (prev - 1 + filtered.length) % filtered.length);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsCustomerDropdownOpen(false);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filtered.length > 0) {
+          const selected = filtered[highlightedIndex] || filtered[0];
+          if (selected) {
+            setSelectedRetailerId(selected.id);
+            setIsCustomerDropdownOpen(false);
+            setCustomerSearch('');
+          }
+        } else {
+          setNewCustomerName(customerSearch);
+          setShowInlineAddCustomer(true);
+          setIsCustomerDropdownOpen(false);
+        }
+      }
+    }
+  };
+
+  // MAIN SAVE HANDLER (supports "Save Parchi" and "Save & Generate Form C PDF")
+  const handleSaveSale = (andPrintPdf: boolean = false) => {
+    // 0. Profile validation for PDF generation
+    if (andPrintPdf) {
+      if (!merchantProfile.shopName?.trim() || !merchantProfile.ownerName?.trim() || !merchantProfile.address?.trim()) {
+        setActionFeedbackMsg({
+          type: 'error',
+          text: 'Please fill your shop details first',
+        });
+        setIsOwnerSignUpOpen(true);
+        return;
+      }
+    }
+
+    // 1. Validation
+    if (calculatedRows.some((r) => !r.numQuantity || r.numQuantity <= 0)) {
+      alert('Please enter a valid quantity (> 0) for all item rows.');
+      return;
+    }
+
+    if (isRetailerMode && paymentValidationError) {
+      alert(paymentValidationError);
+      return;
+    }
+
+    setIsPdfPreparing(true);
+    setPdfError(null);
+
+    // Save custom variety names
+    calculatedRows.forEach((r) => {
+      if (r.resolvedVariety.trim()) {
+        addCustomVarietyName(r.resolvedVariety.trim(), r.commodityCategory);
+      }
+    });
+
+    if (isRetailerMode) {
+      // --- RETAILER MODE SAVE ---
+      let activeCustomerToUse = selectedRetailer;
+      const trimmedCustomerSearch = customerSearch.trim();
+      if (trimmedCustomerSearch) {
+        const found = retailers.find(
+          (r) =>
+            r.name.toLowerCase() === trimmedCustomerSearch.toLowerCase() ||
+            (r.phone && r.phone.includes(trimmedCustomerSearch))
+        );
+        if (found) {
+          activeCustomerToUse = found;
+          setSelectedRetailerId(found.id);
+        } else {
+          const newCreated = addRetailer({
+            name: trimmedCustomerSearch,
+            phone: '9876543210',
+            shopOrMarket: 'Retail Market',
+          });
+          activeCustomerToUse = newCreated;
+          setSelectedRetailerId(newCreated.id);
+        }
+      }
+
+      if (!activeCustomerToUse) {
+        alert('Please select or type a retail customer name.');
+        setIsPdfPreparing(false);
+        return;
+      }
+
+      const saleItems: RetailerSaleItem[] = calculatedRows.map((r) => ({
+        id: `item-${Date.now()}-${Math.random()}`,
+        commodityCategory: r.commodityCategory,
+        varietyName: r.resolvedVariety,
+        quantity: r.numQuantity,
+        unit: r.unit,
+        rate: r.numRate,
+        amount: r.lineTotal,
+        packagingType: r.packagingType,
+        packagingCount: typeof r.boxesCount === 'number' ? r.boxesCount : parseInt(String(r.boxesCount), 10) || 0,
+      }));
+
+      // Stock Subtraction
+      if (deductStock && stocks && stocks.length > 0) {
+        saleItems.forEach((item) => {
+          const matchingStock = stocks.find(
+            (s) => s.name.toLowerCase().trim() === item.varietyName.toLowerCase().trim()
+          );
+          if (matchingStock) {
+            const newQty = Math.max(0, matchingStock.quantityOnHand - item.quantity);
+            updateStockItem(matchingStock.id, {
+              quantityOnHand: newQty,
+              lastUpdated: new Date().toISOString(),
+            });
+          }
+        });
+      }
+
+      const createdSale = addRetailerSale({
+        date: saleDate,
+        retailerId: activeCustomerToUse.id,
+        retailerName: activeCustomerToUse.name,
+        retailerPhone: activeCustomerToUse.phone,
+        retailerShop: activeCustomerToUse.shopOrMarket,
+        items: saleItems,
+        grossTotal: totalGrossAmount,
+        previousDue,
+        grandTotalPayable,
+        amountPaid: numAmountPaid,
+        balanceDue: remainingBalance,
+        paymentStatus: remainingBalance <= 0 ? 'Paid' : numAmountPaid > 0 ? 'Partial' : 'Unpaid',
+        paymentMode,
+        notes: notes.trim() || undefined,
+      });
+
+      sounds.playScaleBeep?.();
+
+      if (andPrintPdf) {
+        setSelectedRetailerForPdf(activeCustomerToUse);
+        setIsRetailerPdfOpen(true);
+        setActionFeedbackMsg({
+          type: 'success',
+          text: `✓ Retail Parchi ${createdSale.parchiNumber} saved & PDF generated!`,
+        });
+      } else {
+        setActionFeedbackMsg({
+          type: 'success',
+          text: `✓ Retail Parchi ${createdSale.parchiNumber} saved successfully for ${activeCustomerToUse.name}!`,
+        });
+      }
+
+      setCustomerSearch('');
+      resetForm();
+      setIsPdfPreparing(false);
+      setTimeout(() => setActionFeedbackMsg(null), 3000);
+    } else {
+      // --- WHOLESALER MODE SAVE ---
+      if (!selectedFarmer) {
+        setFarmerFieldError('Select a farmer first');
+        farmerSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+        setIsPdfPreparing(false);
+        return;
+      }
+
+      const activeFarmerToUse = selectedFarmer;
+
+      const newShipment = addShipment({
+        date: saleDate,
+        farmerId: activeFarmerToUse.id,
+        farmerName: activeFarmerToUse.name,
+        farmerVillage: activeFarmerToUse.village,
+        farmerPhone: activeFarmerToUse.phone,
+        merchantId: merchantProfile.merchantId,
+        merchantName: merchantProfile.shopName || 'Produce Mandi',
+        items: calculatedRows.map((r) => ({
+          id: r.id,
+          commodityCategory: r.commodityCategory,
+          flowerVariety: r.resolvedVariety,
+          quantity: r.numQuantity,
+          unit: r.unit,
+          rate: r.numRate,
+          grossTotal: r.lineTotal,
+          boxesCount: typeof r.boxesCount === 'number' ? r.boxesCount : undefined,
+          packagingType: r.packagingType,
+          flowerQuality: r.flowerQuality,
+        })),
+        grossTotal: totalGrossAmount,
+        transportCharge: numericTransport,
+        hamaliCharge: numericAmmali,
+        commissionPercent: numericCommissionRate,
+        commissionAmount,
+        netAmountAfterDailyCuts: farmerNetPayable,
+        paymentStatus: 'Unpaid',
+        amountPaid: 0,
+        balanceDue: farmerNetPayable,
+        notes: notes.trim() || undefined,
+      });
+
+      const totalQty = calculatedRows.reduce((sum, r) => sum + r.numQuantity, 0);
+      const parchiLot: SaleLot = {
+        id: newShipment.id,
+        commodityCategory: calculatedRows[0]?.commodityCategory || 'flowers',
+        parchiNumber: newShipment.shipmentNumber,
+        date: newShipment.date,
+        time: newShipment.time,
+        farmerId: newShipment.farmerId,
+        farmerName: newShipment.farmerName,
+        farmerVillage: newShipment.farmerVillage,
+        farmerPhone: newShipment.farmerPhone,
+        flowerVariety: calculatedRows.map((r) => `${r.resolvedVariety} (${r.numQuantity} ${r.unit})`).join(', '),
+        quantity: totalQty,
+        unit: calculatedRows[0]?.unit || 'Kgs',
+        rate: totalQty > 0 ? Math.round(totalGrossAmount / totalQty) : 0,
+        grossTotal: totalGrossAmount,
+        commissionPercent: numericCommissionRate,
+        commissionAmount,
+        transportCharges: numericTransport,
+        ammaliCharges: numericAmmali,
+        otherExpenditures: {
+          transport: numericTransport,
+          hamali: numericAmmali,
+          misc: miscCommissionAmount,
+          miscPercent: numericMiscRate,
+        },
+        totalOtherExpenditures: totalDeductions,
+        farmerNetPayable,
+        paymentStatus: 'Unpaid',
+        amountPaid: 0,
+        balanceDue: farmerNetPayable,
+        notes: notes.trim() || undefined,
+        shipmentId: newShipment.id,
+      };
+
+      sounds.playScaleBeep?.();
+
+      if (andPrintPdf) {
+        try {
+          generateVectorParchiPdf(parchiLot, merchantProfile, { autoDownload: true });
+        } catch (e) {
+          console.error('[Vector PDF Download Error]', e);
+        }
+        setWholesalerPdfLot(parchiLot);
+        setIsWholesalerPdfOpen(true);
+        setSelectedParchiLot(parchiLot);
+        setActionFeedbackMsg({
+          type: 'success',
+          text: `✓ Form C Wholesaler Parchi ${newShipment.shipmentNumber} saved & PDF generated!`,
+        });
+      } else {
+        setSelectedParchiLot(parchiLot);
+        setActionFeedbackMsg({
+          type: 'success',
+          text: `✓ Form C Wholesaler Parchi ${newShipment.shipmentNumber} saved for ${activeFarmerToUse.name}!`,
+        });
+      }
+
+      setFarmerSearch('');
+      resetForm();
+      setIsPdfPreparing(false);
+      setTimeout(() => setActionFeedbackMsg(null), 3000);
+    }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Title & Header */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-[#e2e8f0] shadow-2xs space-y-3">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg sm:text-xl font-black text-[#1e293b] flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-[#1a3a52]" />
-              <span>{t('newSaleTitle')}</span>
-            </h2>
-          </div>
-
-          {/* Mandi Trading Date Selector */}
-          <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
-            <label htmlFor="sale-date-input" className="text-xs font-bold text-[#1e293b] flex items-center gap-1 shrink-0 cursor-pointer">
-              <Calendar className="w-4 h-4 text-[#1a3a52]" />
-              <span>Mandi Trading Date:</span>
-            </label>
-            <input
-              id="sale-date-input"
-              type="date"
-              value={saleDate}
-              onChange={(e) => {
-                const newDate = e.target.value;
-                setSaleDate(newDate);
-                setActiveSessionDate(newDate);
-              }}
-              className="px-2.5 py-1 rounded-lg border border-[#e2e8f0] bg-white text-xs font-mono font-bold text-[#1a3a52] focus:outline-hidden focus:border-[#1a3a52] cursor-pointer shadow-2xs"
-            />
-            <span className="text-xs font-bold text-[#1a3a52] bg-emerald-100/80 px-2 py-0.5 rounded-md font-mono border border-emerald-200" title="Format: DD/MM/YYYY">
-              {formatDateDMY(saleDate)}
-            </span>
-          </div>
+    <div className="space-y-4 animate-in fade-in duration-200 pb-28 sm:pb-32">
+      {/* Compact Header Box */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Store className="w-4 h-4 text-[#1a3a52]" />
+          <h1 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
+            {isRetailerMode ? 'New Retailer Sale Entry' : 'New Wholesaler Consignment Entry'}
+          </h1>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+          <Calendar className="w-3.5 h-3.5 text-slate-500" />
+          <span>Date: {formatDisplayDate(saleDate)}</span>
         </div>
       </div>
 
-      {/* Main Form */}
-      <form onSubmit={handleSaveLot} className="space-y-6">
-        {/* Step 1: Farmer Selection with Search & Inline Add */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-[#e2e8f0] shadow-2xs space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-[#1a3a52] flex items-center gap-1.5">
-              <span>1. {t('selectFarmer')}</span>
-            </label>
-            <button
-              type="button"
-              id="inline-add-farmer-btn"
-              onClick={() => setShowInlineAddFarmer(!showInlineAddFarmer)}
-              className="text-xs font-bold text-[#1a3a52] hover:underline flex items-center gap-1"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{showInlineAddFarmer ? 'Cancel Add Farmer' : t('addNewFarmerInline')}</span>
-            </button>
-          </div>
-
-          {/* Inline Add Farmer Form */}
-          {showInlineAddFarmer && (
-            <div className="p-4 rounded-xl bg-[#FEF8ED] border border-[#d4af37]/40 space-y-4">
-              <h4 className="text-xs font-bold text-[#1e293b] uppercase tracking-wider flex items-center gap-1.5">
-                <UserPlus className="w-4 h-4 text-[#1a3a52]" />
-                <span>Instant Farmer Registration with Photo</span>
-              </h4>
-
-              <PhotoUploadPicker
-                label={language === 'te' ? 'రైతు ఫోటో' : 'Photo of Farmer'}
-                sublabel="Upload from phone/PC, capture with webcam, or choose a preset"
-                currentPhotoUrl={newFarmerPhotoUrl}
-                onChange={(url) => setNewFarmerPhotoUrl(url)}
-                presetType="farmer"
-                idPrefix="newsale-inline-farmer"
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <input
-                  id="inline-farmer-name"
-                  type="text"
-                  placeholder="Farmer Full Name (no numbers) *"
-                  value={newFarmerName}
-                  onKeyDown={(e) => {
-                    if (/[0-9]/.test(e.key)) {
-                      e.preventDefault();
-                    }
-                  }}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    const clean = e.clipboardData.getData('text').replace(/[0-9]/g, '');
-                    setNewFarmerName(clean);
-                  }}
-                  onChange={(e) => setNewFarmerName(e.target.value.replace(/[0-9]/g, ''))}
-                  className="px-3 py-2 rounded-lg bg-white border border-[#e2e8f0] text-xs focus:outline-hidden focus:border-[#1a3a52]"
-                />
-                <input
-                  id="inline-farmer-phone"
-                  type="tel"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={10}
-                  placeholder="Mobile Number (10 digits)"
-                  value={newFarmerPhone}
-                  onKeyDown={(e) => {
-                    if (
-                      !/[0-9]/.test(e.key) &&
-                      e.key !== 'Backspace' &&
-                      e.key !== 'Delete' &&
-                      e.key !== 'ArrowLeft' &&
-                      e.key !== 'ArrowRight' &&
-                      e.key !== 'Tab' &&
-                      e.key !== 'Enter'
-                    ) {
-                      e.preventDefault();
-                    }
-                  }}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    const clean = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 10);
-                    setNewFarmerPhone(clean);
-                  }}
-                  onChange={(e) => setNewFarmerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  className="px-3 py-2 rounded-lg bg-white border border-[#e2e8f0] text-xs focus:outline-hidden focus:border-[#1a3a52]"
-                />
-                <input
-                  id="inline-farmer-village"
-                  type="text"
-                  placeholder="Village / Area"
-                  value={newFarmerVillage}
-                  onChange={(e) => setNewFarmerVillage(e.target.value)}
-                  className="px-3 py-2 rounded-lg bg-white border border-[#e2e8f0] text-xs focus:outline-hidden focus:border-[#1a3a52]"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowInlineAddFarmer(false)}
-                  className="px-3 py-1.5 rounded-lg bg-white border border-[#e2e8f0] text-xs text-[#64748b]"
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  type="button"
-                  id="save-inline-farmer-btn"
-                  onClick={handleSaveInlineFarmer}
-                  className="px-4 py-1.5 rounded-lg bg-[#1a3a52] text-white font-bold text-xs hover:bg-[#122839] shadow-2xs"
-                >
-                  Save & Select Farmer
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Farmer Selection Dropdown / Search */}
-          <div className="relative">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#64748b]" />
-                <input
-                  id="search-farmer-input"
-                  type="text"
-                  placeholder={t('searchFarmerPlaceholder')}
-                  value={farmerSearch}
-                  onFocus={() => setIsFarmerDropdownOpen(true)}
-                  onChange={(e) => {
-                    setFarmerSearch(e.target.value);
-                    setIsFarmerDropdownOpen(true);
-                  }}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#e2e8f0] text-xs focus:outline-hidden focus:border-[#1a3a52] bg-[#f8fafc]"
-                />
-              </div>
-            </div>
-
-            {/* Dropdown Options */}
-            {isFarmerDropdownOpen && (
-              <div className="absolute z-20 top-full mt-1 left-0 right-0 max-h-56 overflow-y-auto bg-white rounded-xl border border-[#e2e8f0] shadow-lg p-1 space-y-1">
-                {filteredFarmers.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-[#64748b]">
-                    No farmer found. Use &quot;+ Add New Farmer&quot; above to register instantly.
-                  </div>
-                ) : (
-                  filteredFarmers.map((f) => (
-                    <button
-                      key={f.id}
-                      type="button"
-                      id={`select-farmer-option-${f.id}`}
-                      onClick={() => {
-                        setSelectedFarmerId(f.id);
-                        setFarmerSearch(f.name);
-                        setIsFarmerDropdownOpen(false);
-                      }}
-                      className={`w-full text-left p-2 rounded-lg text-xs flex items-center justify-between transition ${
-                        selectedFarmerId === f.id
-                          ? 'bg-[#eef3f7] text-[#1a3a52] font-bold'
-                          : 'hover:bg-[#f8fafc] text-[#1e293b]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full overflow-hidden border border-[#1a3a52] bg-[#f8fafc] shrink-0">
-                          {f.photoUrl ? (
-                            <img
-                              src={f.photoUrl}
-                              alt={f.name}
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center font-bold text-[#1a3a52] text-[10px]">
-                              {f.name.charAt(0)}
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <span className="font-bold block">{f.name}</span>
-                          <span className="text-[11px] text-[#64748b]">
-                            📍 {f.village} • Ph: {f.phone}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="font-mono text-[10px] text-[#64748b] bg-white px-2 py-0.5 rounded border border-[#e2e8f0]">
-                        {f.id}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Selected Farmer Badge */}
-          {selectedFarmer && (
-            <div className="p-3 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-[#1a3a52] bg-white shrink-0 shadow-2xs">
-                  {selectedFarmer.photoUrl ? (
-                    <img
-                      src={selectedFarmer.photoUrl}
-                      alt={selectedFarmer.name}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-[#eef3f7] text-[#1a3a52] font-black text-xs">
-                      {selectedFarmer.name.charAt(0)}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <span className="text-[10px] text-[#64748b] uppercase font-bold block">
-                    Active Consignor
-                  </span>
-                  <span className="font-black text-sm text-[#1e293b]">
-                    {selectedFarmer.name}
-                  </span>
-                  <span className="text-[#64748b] ml-2 font-medium">📍 {selectedFarmer.village}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <span className="text-[10px] text-[#64748b] block">Mobile for Parchi</span>
-                  <span className="font-mono font-bold text-[#1a3a52]">+91 {selectedFarmer.phone}</span>
-                </div>
-                <button
-                  type="button"
-                  id="newsale-edit-consignor-btn"
-                  onClick={() => {
-                    setEditingFarmer(selectedFarmer);
-                    setNewFarmerName(selectedFarmer.name);
-                    setNewFarmerPhone(selectedFarmer.phone);
-                    setNewFarmerVillage(selectedFarmer.village);
-                    setNewFarmerPhotoUrl(selectedFarmer.photoUrl || '');
-                    setShowInlineAddFarmer(true);
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#1a3a52] text-white text-xs font-bold hover:bg-[#122839] transition flex items-center gap-1 cursor-pointer shadow-2xs shrink-0"
-                  title="Edit this farmer's details"
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-[#d4af37]" />
-                  <span>Edit</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Step 2 & 3: Consignment Varieties & Rates */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-[#e2e8f0] shadow-2xs space-y-5">
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-[#1a3a52] block">
-              {language === 'te'
-                ? '2 & 3. పువ్వుల రకాలు & ధరలు'
-                : '2 & 3. Item Varieties & Rates'}
-            </label>
-          </div>
-
-          {/* Variety Rows List */}
-          <div className="space-y-4">
-            {varietyRows.map((row, index) => {
-              const isActive = row.id === activeRowId;
-              const numericQ = typeof row.quantity === 'number' ? row.quantity : 0;
-              const numericR = typeof row.rate === 'number' ? row.rate : 0;
-              const numericB = typeof row.boxesCount === 'number' ? row.boxesCount : 0;
-              const rowGross = Math.round(numericQ * numericR);
-
-              return (
-                <div
-                  key={row.id}
-                  onClick={() => setActiveRowId(row.id)}
-                  className={`p-4 rounded-xl border transition space-y-3 ${
-                    isActive
-                      ? 'border-[#1a3a52] bg-[#f8fafc] shadow-xs'
-                      : 'border-[#e2e8f0] bg-white hover:border-[#D0C8BD]'
-                  }`}
-                >
-                  {/* Variety Card Top Bar */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-[#1a3a52] text-white text-xs font-black flex items-center justify-center">
-                        {index + 1}
-                      </span>
-                      <span className="font-bold text-sm text-[#1e293b]">
-                        {row.customVariety.trim() || row.flowerVariety}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-[#1e293b] bg-white px-2.5 py-1 rounded-lg border border-[#e2e8f0]">
-                        ₹{rowGross.toLocaleString('en-IN')}
-                      </span>
-
-                      {varietyRows.length > 1 && (
-                        <button
-                          type="button"
-                          id={`remove-variety-row-btn-${row.id}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteVarietyRowClick(row);
-                          }}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                          title="Remove this variety from shipment"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Category Selection Tabs per Item (Only accessible for user's selected commodities) */}
-                  {userCommodities.length <= 1 ? (
-                    <div className="flex items-center gap-2 pb-1 border-b border-[#e2e8f0]">
-                      <span className="text-[11px] font-bold text-[#64748b]">Commodity:</span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#1a3a52] text-white shadow-2xs">
-                        <span>{getSafeCommodityConfig(userCommodities[0] || 'flowers')?.icon || '🌸'}</span>
-                        <span>{getSafeCommodityConfig(userCommodities[0] || 'flowers')?.name || 'Flowers'}</span>
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-1.5 pb-1 border-b border-[#e2e8f0]">
-                      <span className="text-[11px] font-bold text-[#64748b] mr-1">Commodity Type:</span>
-                      {userCommodities.map((cat) => {
-                        const cfg = getSafeCommodityConfig(cat);
-                        const isCatSelected = (row.commodityCategory || userCommodities[0]) === cat;
-                        return (
-                          <button
-                            key={cat}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const newDefaultUnit = (cfg.allowedUnits[0] as WeightUnit) || 'Kgs';
-                              setVarietyRows((prev) =>
-                                prev.map((r) =>
-                                  r.id === row.id
-                                    ? {
-                                        ...r,
-                                        commodityCategory: cat,
-                                        flowerVariety: '',
-                                        customVariety: '',
-                                        unit: newDefaultUnit,
-                                        rate: '',
-                                      }
-                                    : r
-                                )
-                              );
-                              setActiveRowId(row.id);
-                            }}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                              isCatSelected
-                                ? 'bg-[#1a3a52] text-white shadow-2xs'
-                                : 'bg-white text-[#1e293b] border border-[#e2e8f0] hover:bg-[#f1f5f9]'
-                            }`}
-                          >
-                            <span>{cfg.icon}</span>
-                            <span>{cfg.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Custom Variety Input with typed suggestions dropdown */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[#1e293b] mb-1">
-                      {language === 'hi' ? 'किस्म / वस्तु का नाम *' : 'Variety / Item Name *'}
-                    </label>
-                    <CustomVarietyInput
-                      category={row.commodityCategory || 'flowers'}
-                      value={row.customVariety || row.flowerVariety}
-                      onChange={(val) => {
-                        setVarietyRows((prev) =>
-                          prev.map((r) => (r.id === row.id ? { ...r, customVariety: val, flowerVariety: val } : r))
-                        );
-                      }}
-                      placeholder={language === 'hi' ? 'किस्म या नाम दर्ज करें (उदा. गुलाब, गेंदा, गेहूं...)' : `Type custom ${getSafeCommodityConfig(row.commodityCategory || 'flowers').name} name...`}
-                    />
-                  </div>
-
-                  {/* Inputs: 1. Packaging Count & Type, 2. Quantity / Weight *, 3. Rate (₹ per unit) *, 4. Quality * */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
-                    {/* 1. Bags / Boxes / Crates (Packaging Count & Type) */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-[#1e293b] mb-1">
-                        {language === 'hi' ? 'पैकिंग संख्या एवं प्रकार' : 'Packaging Count & Type'}
-                      </label>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          placeholder="e.g. 2"
-                          value={row.boxesCount}
-                          onChange={(e) => {
-                            const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
-                            setVarietyRows((prev) =>
-                              prev.map((r) => (r.id === row.id ? { ...r, boxesCount: val } : r))
-                            );
-                          }}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-[#e2e8f0] text-xs font-bold focus:outline-hidden focus:border-[#1a3a52] bg-white min-w-[50px]"
-                        />
-                        <select
-                          value={row.packagingType || (row.commodityCategory === 'grains' ? 'Bags' : 'Boxes')}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setVarietyRows((prev) =>
-                              prev.map((r) => (r.id === row.id ? { ...r, packagingType: val } : r))
-                            );
-                          }}
-                          className="px-2 py-1.5 rounded-lg border border-[#e2e8f0] text-[11px] font-bold focus:outline-hidden focus:border-[#1a3a52] bg-white shrink-0"
-                        >
-                          <option value="Boxes">Boxes</option>
-                          <option value="Bags">Bags</option>
-                          <option value="Crates">Crates</option>
-                          <option value="Baskets">Baskets</option>
-                          <option value="Packets">Packets</option>
-                          <option value="Bunches">Bunches</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* 2. Quantity / Weight * */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-[#1e293b] mb-1">
-                        Quantity / Weight *
-                      </label>
-                      <div className="flex gap-1.5">
-                        <input
-                          type="number"
-                          min="0.1"
-                          step="any"
-                          placeholder="50"
-                          value={row.quantity}
-                          onChange={(e) => {
-                            const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                            setVarietyRows((prev) =>
-                              prev.map((r) => (r.id === row.id ? { ...r, quantity: val } : r))
-                            );
-                          }}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-[#e2e8f0] text-xs font-bold focus:outline-hidden focus:border-[#1a3a52] bg-white"
-                        />
-                        <select
-                          value={row.unit}
-                          onChange={(e) => {
-                            const val = e.target.value as WeightUnit;
-                            setVarietyRows((prev) =>
-                              prev.map((r) => (r.id === row.id ? { ...r, unit: val } : r))
-                            );
-                          }}
-                          className="px-2 py-1.5 rounded-lg border border-[#e2e8f0] text-[11px] font-bold focus:outline-hidden focus:border-[#1a3a52] bg-white"
-                        >
-                          {getSafeCommodityConfig(row.commodityCategory || 'flowers').allowedUnits.map((u) => (
-                            <option key={u} value={u}>
-                              {u}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* 3. Rate (₹ per unit) * */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-[#1e293b] mb-1">
-                        Rate (₹ per {row.unit}) *
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-2.5 top-1.5 text-xs text-gray-500 font-bold">₹</span>
-                        <input
-                          type="number"
-                          min="0.1"
-                          step="any"
-                          placeholder="40"
-                          value={row.rate}
-                          onChange={(e) => {
-                            const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                            setVarietyRows((prev) =>
-                              prev.map((r) => (r.id === row.id ? { ...r, rate: val } : r))
-                            );
-                          }}
-                          className="w-full pl-6 pr-2.5 py-1.5 rounded-lg border border-[#e2e8f0] text-xs font-bold focus:outline-hidden focus:border-[#1a3a52] bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* 4. Flower Quality * */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-[#1e293b] mb-1">
-                        Quality *
-                      </label>
-                      <div className="grid grid-cols-3 gap-1 h-[32px]">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setVarietyRows((prev) =>
-                              prev.map((r) => (r.id === row.id ? { ...r, flowerQuality: 'Good' } : r))
-                            );
-                          }}
-                          className={`rounded-lg text-[10px] font-bold transition flex items-center justify-center border ${
-                            row.flowerQuality === 'Good'
-                              ? 'bg-emerald-600 text-white border-emerald-700'
-                              : 'bg-white text-emerald-800 border-[#e2e8f0]'
-                          }`}
-                        >
-                          Good
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setVarietyRows((prev) =>
-                              prev.map((r) => (r.id === row.id ? { ...r, flowerQuality: 'Average' } : r))
-                            );
-                          }}
-                          className={`rounded-lg text-[10px] font-bold transition flex items-center justify-center border ${
-                            row.flowerQuality === 'Average'
-                              ? 'bg-amber-600 text-white border-amber-700'
-                              : 'bg-white text-amber-800 border-[#e2e8f0]'
-                          }`}
-                        >
-                          Avg
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setVarietyRows((prev) =>
-                              prev.map((r) => (r.id === row.id ? { ...r, flowerQuality: 'Bad' } : r))
-                            );
-                          }}
-                          className={`rounded-lg text-[10px] font-bold transition flex items-center justify-center border ${
-                            row.flowerQuality === 'Bad'
-                              ? 'bg-red-600 text-white border-red-700'
-                              : 'bg-white text-red-800 border-[#e2e8f0]'
-                          }`}
-                        >
-                          Bad
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Item Subtotal Calculation Line */}
-                  <div className="text-[11px] text-[#64748b] bg-white p-2 rounded-lg border border-[#e2e8f0] flex items-center justify-between">
-                    <span>
-                      Subtotal: {numericB > 0 ? `${numericB} ${row.packagingType || 'Boxes'} • ` : ''}{numericQ} {row.unit} × ₹{numericR}/{row.unit} ({row.flowerQuality || 'Good'} Quality)
-                    </span>
-                    <span className="font-bold text-[#1e293b]">
-                      = ₹{rowGross.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Add Variety Button */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-            <button
-              type="button"
-              id="add-variety-to-shipment-btn"
-              onClick={() => {
-                const newId = `var-${Date.now()}`;
-                const addCat = (userCommodities[0] || 'flowers') as CommodityCategory;
-                const addCfg = getSafeCommodityConfig(addCat);
-                const addUnit = (addCfg.allowedUnits[0] as WeightUnit) || 'Kgs';
-
-                setVarietyRows((prev) => [
-                  ...prev,
-                  {
-                    id: newId,
-                    commodityCategory: addCat,
-                    flowerVariety: '',
-                    customVariety: '',
-                    quantity: '',
-                    unit: addUnit,
-                    boxesCount: '',
-                    packagingType: addCat === 'grains' ? 'Bags' : 'Boxes',
-                    flowerQuality: 'Good',
-                    rate: '',
-                  },
-                ]);
-                setActiveRowId(newId);
-              }}
-              className="px-4 py-2 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-            >
-              <Plus className="w-4 h-4 text-[#d4af37]" />
-              <span>+ Add Another Variety to this Shipment (Same Truck)</span>
-            </button>
-
-            {/* Consignment Grand Total Badge */}
-            <div className="p-2.5 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] flex items-center gap-3 text-xs">
-              <span className="text-[#64748b]">
-                Total ({varietyRows.length} varieties, {totalQuantity} {varietyRows[0]?.unit || 'Kgs'}):
-              </span>
-              <span className="text-base font-black text-[#1e293b]">
-                ₹{grossTotal.toLocaleString('en-IN')}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Step 4: Deductions per Transaction (Hamali & Transport) */}
-        <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-2xs overflow-hidden">
-          {/* Header */}
-          <div className="p-4 sm:p-5 bg-[#f8fafc] border-b border-[#e2e8f0] select-none">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-[#1a3a52] flex items-center gap-1.5">
-                  <Receipt className="w-4 h-4 text-[#1a3a52]" />
-                  <span>{language === 'te' ? '4. తగ్గింపు ఛార్జీలు (హమాలీ & రవాణా)' : '4. Deductions per Transaction (Hamali & Transport)'}</span>
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-black text-red-700 bg-red-100 px-3 py-1 rounded-full border border-red-300 shadow-2xs">
-                  − ₹{totalDeductions.toLocaleString('en-IN')} Total Deductions
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Body: Hamali and Transport Inputs */}
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* 1. Hamali / Loading Charges (₹) */}
-              <div className="p-4 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1e293b] flex items-center gap-1.5">
-                    <Receipt className="w-4 h-4 text-amber-600" />
-                    <span>{language === 'te' ? 'హమాలీ (₹)' : 'Hamali / Labor (₹)'}</span>
-                  </span>
-                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
-                    Labor
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-[#64748b] mb-1">
-                    {language === 'te' ? 'హమాలీ మొత్తం (₹)' : 'Hamali Amount (₹)'}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-500">₹</span>
-                    <input
-                      id="lot-ammali-input"
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="0"
-                      value={ammaliCharge}
-                      onChange={(e) => {
-                        setAmmaliCharge(e.target.value === '' ? '' : parseFloat(e.target.value));
-                      }}
-                      className="w-full pl-8 pr-3 py-2 rounded-lg border border-[#e2e8f0] text-xs font-bold bg-white focus:outline-hidden focus:border-[#1a3a52]"
-                    />
-                  </div>
-                </div>
-                <div className="text-[10px] text-gray-500 italic">
-                  Loading / unloading labor fee
-                </div>
-              </div>
-
-              {/* 2. Transport / Freight Charges (₹) */}
-              <div className="p-4 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1e293b] flex items-center gap-1.5">
-                    <Truck className="w-4 h-4 text-blue-700" />
-                    <span>{language === 'te' ? 'రవాణా (₹)' : 'Transport (₹)'}</span>
-                  </span>
-                  <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                    Vehicle
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-[#64748b] mb-1">
-                    {language === 'te' ? 'రవాణా మొత్తం (₹)' : 'Freight Amount (₹)'}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-500">₹</span>
-                    <input
-                      id="lot-transport-input"
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="0"
-                      value={transportCharge}
-                      onChange={(e) => {
-                        setTransportCharge(e.target.value === '' ? '' : parseFloat(e.target.value));
-                      }}
-                      className="w-full pl-8 pr-3 py-2 rounded-lg border border-[#e2e8f0] text-xs font-bold bg-white focus:outline-hidden focus:border-[#1a3a52]"
-                    />
-                  </div>
-                </div>
-                <div className="text-[10px] text-gray-500 italic">
-                  Vehicle / truck freight charge
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Farmer Net Payable Highlight Banner */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl border-2 border-[#1a3a52]/40 shadow-xs space-y-4">
-          <div className="p-4 rounded-xl bg-gradient-to-r from-[#1a3a52] to-[#122839] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-sm">
-            <div>
-              <span className="text-[11px] uppercase tracking-wider text-[#d4af37] font-bold block">
-                {language === 'te' ? 'రైతుకు నికర మొత్తం' : 'Net Amount to Farmer'}
-              </span>
-              <span className="text-xs text-white/80">
-                Gross Amount (₹{grossTotal.toLocaleString('en-IN')}) − All Deductions (₹{totalDeductions.toLocaleString('en-IN')})
-              </span>
-            </div>
-            <span className="text-2xl sm:text-3xl font-black font-mono text-white">
-              ₹{farmerNetPayable.toLocaleString('en-IN')}
-            </span>
-          </div>
-        </div>
-
-        {/* Submit & Generate Mandi Parchi & PDF Actions */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2">
-          <div className="text-xs text-[#64748b] space-y-0.5 max-w-lg">
-            <p className="font-medium text-[#1e293b]">
-              Generates Form C Mandi Parchi with thermal printer support and WhatsApp share.
-            </p>
-            <p className="text-[11px] text-[#1a3a52] font-semibold">
-              ✓ Ready to finalize? Click <strong>Generate PDF</strong> to select commission &amp; itemized deductions.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-            <button
-              type="button"
-              id="newsale-generate-formc-pdf-btn"
-              onClick={() => {
-                setSelectedLotForPdf(null);
-                setIsDraftPdfOpen(true);
-              }}
-              className="w-full sm:w-auto px-4 py-3.5 rounded-xl border-2 border-[#1a3a52] text-[#1a3a52] bg-blue-50/80 hover:bg-blue-100 font-extrabold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-xs hover:shadow-md cursor-pointer whitespace-nowrap shrink-0"
-              title="Generate official Form C PDF invoice with APMC commission & itemized deductions"
-            >
-              <FileText className="w-4 h-4 text-[#1a3a52] shrink-0" />
-              <span>Form C PDF</span>
-            </button>
-
-            <button
-              type="button"
-              id="save-and-generate-parchi-btn"
-              onClick={(e) => handleSaveLot(e)}
-              className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-[#1a3a52] text-white font-black text-xs sm:text-sm hover:bg-[#122839] active:scale-95 transition flex items-center justify-center gap-2 shadow-md hover:shadow-lg cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <Printer className="w-4 h-4 text-[#d4af37] shrink-0" />
-              <span>{t('saveAndGenerateParchi')}</span>
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* Consignments Recorded for Selected Date Section */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-[#e2e8f0] shadow-2xs space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e2e8f0] pb-3">
-          <div>
-            <h3 className="text-sm sm:text-base font-bold text-[#1e293b] flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#1a3a52]" />
-              <span>Sales &amp; Parchi Records Recorded on {formatDisplayDate(saleDate)}</span>
-              <span className="px-2 py-0.5 rounded-full bg-[#eef3f7] text-[#1a3a52] font-mono text-xs font-bold">
-                {dateLots.length}
-              </span>
-            </h3>
-            <p className="text-xs text-[#64748b]">
-              Live parchi records for the active date. Every day starts fresh &amp; empty for new morning sales.
-            </p>
-          </div>
-
-          {dateLots.length > 0 && (
-            <div className="flex items-center gap-3 text-xs">
-              <div className="bg-[#f8fafc] px-2.5 py-1 rounded-lg border border-[#e2e8f0]">
-                <span className="text-[#64748b]">Turnover: </span>
-                <strong className="text-[#1e293b] font-mono font-bold">₹{dateTurnover.toLocaleString('en-IN')}</strong>
-              </div>
-              <div className="bg-[#f8fafc] px-2.5 py-1 rounded-lg border border-[#e2e8f0]">
-                <span className="text-[#64748b]">Farmer Net: </span>
-                <strong className="text-[#1a3a52] font-mono font-bold">₹{dateNetPayable.toLocaleString('en-IN')}</strong>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {dateLots.length === 0 ? (
-          <div className="p-6 text-center space-y-2.5 bg-[#f8fafc] rounded-xl border border-dashed border-[#e2e8f0]">
-            <div className="w-10 h-10 mx-auto rounded-full bg-amber-50 text-[#d4af37] flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-            <h4 className="text-sm font-bold text-[#1e293b]">
-              No sales or parchi recorded for {formatDisplayDate(saleDate)} yet
-            </h4>
-            <p className="text-xs text-[#64748b] max-w-md mx-auto">
-              New sales is refreshed and stays empty at the start of each morning. Use the form above to record your first sale. All previous dates remain accessible in Hisab &amp; Settlements.
-            </p>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setIsDateSwitcherOpen(true)}
-                className="text-xs font-bold text-[#1a3a52] hover:underline inline-flex items-center gap-1"
-              >
-                <span>Switch Trading Date in Date Switcher</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {dateLots.map((lot) => (
-              <div
-                key={lot.id}
-                className="p-3.5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] hover:bg-white hover:border-[#1a3a52]/30 transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-[#1a3a52] bg-[#eef3f7] px-2 py-0.5 rounded text-[11px]">
-                      {lot.parchiNumber}
-                    </span>
-                    <span className="text-[#64748b]">{lot.time}</span>
-                  </div>
-                  <div className="font-bold text-[#1e293b] text-sm flex items-center gap-2">
-                    <span>{lot.farmerName}</span>
-                    <span className="text-xs font-normal text-[#64748b]">({lot.farmerVillage})</span>
-                  </div>
-                  <div className="text-[#64748b] flex items-center gap-2 flex-wrap">
-                    <span className="text-[#1e293b] font-semibold">{lot.flowerVariety}</span>
-                    <span>•</span>
-                    <span>{lot.quantity} {lot.unit} @ ₹{lot.rate}/{lot.unit}</span>
-                    <span>•</span>
-                    <span>Gross: <strong className="text-[#1e293b]">₹{lot.grossTotal.toLocaleString('en-IN')}</strong></span>
-                    <span>•</span>
-                    <span>Net to Farmer: <strong className="text-[#1a3a52]">₹{lot.farmerNetPayable.toLocaleString('en-IN')}</strong></span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedParchiLot(lot)}
-                    className="px-3 py-1.5 rounded-lg bg-[#1a3a52] text-white font-bold text-xs hover:bg-[#122839] transition flex items-center gap-1 shadow-2xs"
-                  >
-                    <Printer className="w-3.5 h-3.5 text-[#d4af37]" />
-                    <span>Print Parchi</span>
-                  </button>
-                  <button
-                    type="button"
-                    id={`formc-pdf-lot-btn-${lot.id}`}
-                    onClick={() => {
-                      setSelectedLotForPdf(lot);
-                      setIsDraftPdfOpen(true);
-                    }}
-                    className="px-3 py-1.5 rounded-lg border border-[#1a3a52]/30 bg-blue-50/80 hover:bg-blue-100 text-[#1a3a52] font-bold text-xs transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                    title="Generate & view official Form C PDF invoice for this parchi"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-[#1a3a52]" />
-                    <span>Form C PDF</span>
-                  </button>
-                  <button
-                    type="button"
-                    id={`edit-recent-lot-btn-${lot.id}`}
-                    onClick={() => openEditParchiModal(lot)}
-                    className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 font-bold text-xs transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                    title="Edit details for this parchi"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-amber-800" />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    type="button"
-                    id={`delete-recent-lot-btn-${lot.id}`}
-                    onClick={() => handleDeleteLotClick(lot)}
-                    className="p-1.5 rounded-lg border border-[#e2e8f0] text-[#64748b] hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
-                    title="Delete lot"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Floating Action Feedback Notification */}
       {actionFeedbackMsg && (
-        <div className="fixed bottom-4 right-4 z-50 bg-[#1e293b] text-white px-4 py-2.5 rounded-xl shadow-xl border border-white/20 flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-[#d4af37]" />
+        <div
+          className={`p-3.5 rounded-xl font-bold text-xs shadow-md flex items-center gap-2 animate-in slide-in-from-top-2 ${
+            actionFeedbackMsg.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4 text-white flex-shrink-0" />
           <span>{actionFeedbackMsg.text}</span>
         </div>
       )}
 
-      {/* Unified Delete Confirmation Modal */}
-      <DeleteConfirmModal
-        isOpen={deleteModalConfig.isOpen}
-        title={deleteModalConfig.type === 'varietyRow' ? 'Remove Flower Variety' : 'Delete Parchi Lot'}
-        itemName={
-          deleteModalConfig.type === 'varietyRow'
-            ? `Variety: ${deleteModalConfig.varietyName}`
-            : deleteModalConfig.lot
-            ? `Parchi Lot: ${deleteModalConfig.lot.parchiNumber}`
-            : undefined
-        }
-        itemDetails={
-          deleteModalConfig.type === 'varietyRow'
-            ? deleteModalConfig.rowDetails
-            : deleteModalConfig.lot
-            ? `Farmer: ${deleteModalConfig.lot.farmerName} • Variety: ${deleteModalConfig.lot.flowerVariety} • Amount: ₹${(deleteModalConfig.lot.grossTotal ?? deleteModalConfig.lot.farmerNetPayable ?? 0).toLocaleString('en-IN')}`
-            : undefined
-        }
-        message={
-          deleteModalConfig.type === 'varietyRow'
-            ? 'Are you sure you want to remove this flower variety item from the current entry?'
-            : 'Are you sure you want to delete this parchi record? This will permanently remove the lot from all reports, ledgers, and transactions.'
-        }
-        confirmText="CONFIRM DELETE"
-        cancelText="CANCEL"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteModalConfig({ isOpen: false, type: 'lot' })}
-      />
+      {/* CARD 1: SELECT FARMER OR CUSTOMER */}
+      <div
+        ref={farmerSectionRef}
+        className={`bg-white rounded-2xl border transition-all ${
+          !isRetailerMode && farmerFieldError
+            ? 'border-rose-500 ring-2 ring-rose-200'
+            : isRetailerMode && customerFieldError
+            ? 'border-rose-500 ring-2 ring-rose-200'
+            : 'border-slate-200'
+        } shadow-sm p-3.5 sm:p-4 space-y-3`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[#1a3a52] text-white flex items-center justify-center font-black text-xs">
+              1
+            </div>
+            <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+              1. {isRetailerMode ? 'Customer' : 'Farmer'}
+            </h2>
+          </div>
 
-      {/* Draft / Live Form C PDF Modal */}
-      {isDraftPdfOpen && (
+          <button
+            type="button"
+            onClick={() =>
+              isRetailerMode
+                ? setShowInlineAddCustomer(!showInlineAddCustomer)
+                : setIsFarmerModalOpen(true)
+            }
+            className="px-3 py-1.5 rounded-xl bg-[#1a3a52] hover:bg-[#24485e] text-white font-bold text-xs transition flex items-center gap-1 cursor-pointer shadow-xs self-start sm:self-auto"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>{isRetailerMode ? '+ Add Customer' : '+ Add Farmer'}</span>
+          </button>
+        </div>
+
+        {/* Selected Farmer Card (When selectedFarmer exists in Wholesaler Mode) */}
+        {!isRetailerMode && selectedFarmer ? (
+          <div className="bg-[#f0f7ff] border-2 border-[#1a3a52] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-black text-[#1a3a52]">{selectedFarmer.name}</span>
+                <span className="px-2 py-0.5 rounded-md bg-[#1a3a52] text-white text-[10px] font-bold font-mono">
+                  {selectedFarmer.id}
+                </span>
+              </div>
+              <div className="text-xs text-slate-600 font-medium flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                <span>📍 {selectedFarmer.village && selectedFarmer.village.trim() ? selectedFarmer.village : '—'}</span>
+                <span>📱 {selectedFarmer.phone && selectedFarmer.phone.trim() ? `+91 ${selectedFarmer.phone}` : '—'}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 self-end sm:self-center">
+              <div className="text-right">
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">Current Balance</span>
+                <span
+                  className={`text-xs font-black font-mono ${
+                    selectedFarmerDues > 0 ? 'text-rose-600' : 'text-emerald-600'
+                  }`}
+                >
+                  {selectedFarmerDues > 0
+                    ? `₹${selectedFarmerDues.toLocaleString('en-IN')} Dues`
+                    : '₹0.00 Balance'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 border-l border-slate-300 pl-3">
+                <button
+                  type="button"
+                  onClick={handleRequestChangeFarmer}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-[#1a3a52] hover:bg-slate-100 text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1"
+                >
+                  <span>Change</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRequestChangeFarmer}
+                  className="p-1.5 rounded-lg bg-white border border-slate-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition shadow-xs cursor-pointer"
+                  title="Clear Farmer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : !isRetailerMode ? (
+          /* Farmer Search Input Box & Dropdown (When no farmer selected) */
+          <div className="space-y-2">
+            <div className="relative">
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                Farmer Search *
+              </label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search farmer name, village, phone, or ID..."
+                  value={farmerSearch}
+                  onKeyDown={handleSearchKeyDown}
+                  onChange={(e) => {
+                    setHighlightedIndex(0);
+                    setFarmerSearch(e.target.value);
+                    setIsFarmerDropdownOpen(true);
+                    setFarmerFieldError(null);
+                  }}
+                  onFocus={() => {
+                    setHighlightedIndex(0);
+                    setIsFarmerDropdownOpen(true);
+                  }}
+                  className={`w-full pl-9 pr-3 py-2 rounded-xl border font-bold text-xs outline-none bg-slate-50 ${
+                    farmerFieldError
+                      ? 'border-rose-500 focus:ring-2 focus:ring-rose-200 bg-rose-50/50'
+                      : 'border-slate-300 focus:ring-2 focus:ring-[#1a3a52]'
+                  }`}
+                />
+              </div>
+
+              {farmerFieldError && (
+                <p className="text-xs font-bold text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {farmerFieldError}
+                </p>
+              )}
+
+              {/* Farmer Dropdown List */}
+              {isFarmerDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-300 rounded-xl shadow-xl z-30 max-h-60 overflow-y-auto divide-y divide-slate-100">
+                  {(() => {
+                    const query = farmerSearch.trim().toLowerCase();
+                    const filtered = farmers.filter((f) => {
+                      if (f.isArchived) return false;
+                      if (!query) return true;
+                      const nameMatch = (f.name || '').toLowerCase().includes(query);
+                      const villageMatch = (f.village || '').toLowerCase().includes(query);
+                      const phoneMatch = (f.phone || '').includes(query);
+                      const idMatch = (f.id || '').toLowerCase().includes(query);
+                      return nameMatch || villageMatch || phoneMatch || idMatch;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="p-4 text-center space-y-2.5">
+                          <p className="text-xs text-slate-600 font-bold">
+                            No farmer found for &lsquo;<span className="text-slate-900">{farmerSearch}</span>&rsquo;
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsFarmerModalOpen(true);
+                              setIsFarmerDropdownOpen(false);
+                            }}
+                            className="px-4 py-2 rounded-xl bg-[#1a3a52] hover:bg-[#24485e] text-white text-xs font-black transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            <span>+ Register New Farmer</span>
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((f, idx) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedFarmerId(f.id);
+                          setIsFarmerDropdownOpen(false);
+                          setFarmerSearch('');
+                          setFarmerFieldError(null);
+                        }}
+                        className={`w-full text-left p-3 hover:bg-blue-50 flex items-center justify-between transition cursor-pointer ${
+                          highlightedIndex === idx ? 'bg-blue-100 font-black' : ''
+                        }`}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-[#1a3a52]">{f.name}</span>
+                            <span className="text-[10px] font-mono bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-bold text-slate-600">
+                              {f.id}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-medium flex items-center gap-2">
+                            <span>📍 {f.village && f.village.trim() ? f.village : '—'}</span>
+                            <span>•</span>
+                            <span>📱 {f.phone && f.phone.trim() ? `+91 ${f.phone}` : '—'}</span>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-[#1a3a52] hover:underline">Select</span>
+                      </button>
+                    ));
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Recent Farmers Chips (shown when search is empty) */}
+            {farmerSearch === '' && recentFarmers.length > 0 && (
+              <div className="space-y-1 pt-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Recent Farmers:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {recentFarmers.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedFarmerId(f.id);
+                        setFarmerFieldError(null);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:border-blue-300 text-slate-800 font-bold text-xs border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>{f.name}</span>
+                      {f.village && <span className="text-[10px] text-slate-500">({f.village})</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* Customer Selection for Retailer Mode */}
+        {isRetailerMode && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div className="relative">
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                Customer
+              </label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search customer name, shop, phone..."
+                  value={customerSearch}
+                  onKeyDown={handleSearchKeyDown}
+                  onChange={(e) => {
+                    setHighlightedIndex(0);
+                    setCustomerSearch(e.target.value);
+                    setIsCustomerDropdownOpen(true);
+                  }}
+                  onFocus={() => {
+                    setHighlightedIndex(0);
+                    setIsCustomerDropdownOpen(true);
+                  }}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none bg-slate-50"
+                />
+              </div>
+
+              {/* Retailer Customer Dropdown */}
+              {isCustomerDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-300 rounded-xl shadow-xl z-30 max-h-56 overflow-y-auto divide-y divide-slate-100">
+                  {(() => {
+                    const filtered = retailers.filter(
+                      (r) =>
+                        (r.name || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
+                        (r.shopOrMarket || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
+                        (r.phone || '').includes(customerSearch)
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="p-3 text-center flex flex-col items-center justify-center gap-2">
+                          <span className="text-xs text-slate-500 font-medium">No customer found</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewCustomerName(customerSearch);
+                              setShowInlineAddCustomer(true);
+                              setIsCustomerDropdownOpen(false);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-[#1a3a52] hover:bg-[#24485e] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>+ Add Customer</span>
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((r, idx) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedRetailerId(r.id);
+                          setIsCustomerDropdownOpen(false);
+                          setCustomerSearch('');
+                        }}
+                        className={`w-full text-left p-2.5 hover:bg-slate-100 flex items-center justify-between transition cursor-pointer ${
+                          highlightedIndex === idx
+                            ? 'bg-blue-100 font-black'
+                            : selectedRetailerId === r.id
+                            ? 'bg-blue-50 font-bold'
+                            : ''
+                        }`}
+                      >
+                        <div>
+                          <div className="text-xs font-black text-[#1a3a52]">{r.name}</div>
+                          <div className="text-[10px] text-slate-500 font-medium">
+                            {r.shopOrMarket && r.shopOrMarket.trim() ? r.shopOrMarket : '—'} • {r.phone && r.phone.trim() ? r.phone : '—'}
+                          </div>
+                        </div>
+                        {selectedRetailerId === r.id && <CheckCircle2 className="w-4 h-4 text-[#1a3a52]" />}
+                      </button>
+                    ));
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {selectedRetailer && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-500 block">Selected Customer</span>
+                  <span className="text-xs font-black text-[#1a3a52] block">{selectedRetailer.name}</span>
+                  <span className="text-[11px] text-slate-600 font-medium block">
+                    {selectedRetailer.shopOrMarket && selectedRetailer.shopOrMarket.trim() ? selectedRetailer.shopOrMarket : '—'} • Ph: {selectedRetailer.phone && selectedRetailer.phone.trim() ? selectedRetailer.phone : '—'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase text-slate-500 block">Old Due</span>
+                  <span className={`text-xs font-black font-mono ${previousDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    ₹{previousDue.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* CARD 2: GOODS & VARIETY ITEMS */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-4 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[#1a3a52] text-white flex items-center justify-center font-black text-xs">
+              2
+            </div>
+            <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+              2. Items
+            </h2>
+          </div>
+        </div>
+
+        {/* Variety Rows */}
+        <div className="space-y-2.5">
+          {calculatedRows.map((row, index) => {
+            const config = getSafeCommodityConfig(row.commodityCategory);
+            return (
+              <div
+                key={row.id}
+                className="bg-slate-50/80 border border-slate-200 rounded-xl p-2.5 sm:p-3 space-y-2 transition hover:border-slate-300"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-[#1a3a52] uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-[#1a3a52] text-white text-[9px] flex items-center justify-center font-bold">
+                      {index + 1}
+                    </span>
+                    <span>Item #{index + 1}</span>
+                  </span>
+
+                  {varietyRows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveVarietyRow(row.id)}
+                      className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  {/* Category */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={row.commodityCategory}
+                      onChange={(e) =>
+                        handleRowChange(row.id, 'commodityCategory', e.target.value as CommodityCategory)
+                      }
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none bg-white"
+                    >
+                      {userCommodities.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {COMMODITY_CONFIGS[cat]?.icon} {COMMODITY_CONFIGS[cat]?.name || cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Variety / Item Name */}
+                  <div className="sm:col-span-2">
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Item Name *
+                    </label>
+                    <CustomVarietyInput
+                      category={row.commodityCategory}
+                      value={row.customVariety || row.flowerVariety}
+                      onChange={(val) => {
+                        handleRowChange(row.id, 'flowerVariety', val);
+                        handleRowChange(row.id, 'customVariety', val);
+                      }}
+                      placeholder="Select or enter item name..."
+                    />
+                  </div>
+
+                  {/* Quality Grade */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Quality
+                    </label>
+                    <div className="grid grid-cols-3 gap-1">
+                      {(['Good', 'Average', 'Bad'] as FlowerQuality[]).map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => handleRowChange(row.id, 'flowerQuality', q)}
+                          className={`py-1.5 rounded-lg text-[10px] font-black uppercase transition cursor-pointer ${
+                            row.flowerQuality === q
+                              ? q === 'Good'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : q === 'Average'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'bg-rose-600 text-white shadow-xs'
+                              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {q === 'Good' ? 'Good' : q === 'Average' ? 'Avg' : 'Bad'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Packaging Count + Type (Single Row) */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Packaging &amp; Type
+                    </label>
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        placeholder="Count"
+                        value={row.boxesCount}
+                        onChange={(e) => handleRowChange(row.id, 'boxesCount', e.target.value)}
+                        className="w-1/2 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none bg-white"
+                      />
+                      <select
+                        value={row.packagingType || 'Boxes'}
+                        onChange={(e) => handleRowChange(row.id, 'packagingType', e.target.value)}
+                        className="w-1/2 px-1.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none bg-white"
+                      >
+                        <option value="Boxes">Boxes</option>
+                        <option value="Bags">Bags</option>
+                        <option value="Crates">Crates</option>
+                        <option value="Baskets">Baskets</option>
+                        <option value="Bunches">Bunches</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Quantity + Unit (Single Row) */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Quantity &amp; Unit *
+                    </label>
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="Qty"
+                        value={row.quantity}
+                        onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)}
+                        className="w-1/2 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none bg-white"
+                      />
+                      <select
+                        value={row.unit}
+                        onChange={(e) => handleRowChange(row.id, 'unit', e.target.value as WeightUnit)}
+                        className="w-1/2 px-1.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none bg-white"
+                      >
+                        {config.allowedUnits.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Rate per Unit */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Rate per {row.unit} (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 90"
+                      value={row.rate}
+                      onChange={(e) => handleRowChange(row.id, 'rate', e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none bg-white font-mono"
+                    />
+                  </div>
+
+                  {/* Small right-aligned Item Total */}
+                  <div className="flex items-end justify-end py-1">
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase block">Total</span>
+                      <span className="text-xs font-black font-mono text-[#1a3a52]">
+                        ₹{row.lineTotal.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ONE full-width outlined navy button placed BELOW the last item card */}
+        <button
+          type="button"
+          onClick={handleAddVarietyRow}
+          className="w-full py-2.5 rounded-xl border-2 border-[#1a3a52] text-[#1a3a52] hover:bg-blue-50 font-black text-xs transition flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+        >
+          <Plus className="w-4 h-4 text-[#1a3a52]" />
+          <span>+ Add Item</span>
+        </button>
+      </div>
+
+      {/* CARD 3: CHARGES (ONLY SHOWN IN WHOLESALER MODE) */}
+      {!isRetailerMode && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-[#1a3a52] text-white flex items-center justify-center font-black text-xs">
+                3
+              </div>
+              <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+                3. Charges
+              </h2>
+            </div>
+
+            <div className="text-right">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Deductions
+              </span>
+              <span className="text-sm font-black font-mono text-rose-700">
+                ₹{totalDeductions.toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                Hamali (₹)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 50"
+                value={ammaliCharge}
+                onChange={(e) => setAmmaliCharge(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                Transport (₹)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 100"
+                value={transportCharge}
+                onChange={(e) => setTransportCharge(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                Mandi Comm. (%)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 5"
+                value={commissionRate}
+                onChange={(e) => setCommissionRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                Misc. Comm. (%)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 2"
+                value={miscCommissionRate}
+                onChange={(e) => setMiscCommissionRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-[#1a3a52] outline-none font-mono"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SINGLE SUMMARY CARD FOR WHOLESALER */}
+      {!isRetailerMode && (
+        <div className="bg-[#f8fafc] rounded-2xl border border-slate-200 p-3.5 sm:p-4 space-y-2 shadow-2xs">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h3 className="text-xs font-black text-[#1a3a52] uppercase tracking-wider">
+              Farmer Payment Summary
+            </h3>
+            <span className="text-[10px] font-bold text-slate-500 uppercase">Live Summary</span>
+          </div>
+
+          <div className="space-y-1.5 text-xs font-bold">
+            <div className="flex justify-between items-center text-slate-800">
+              <span>Total Amount:</span>
+              <span className="font-mono text-slate-900 font-black">₹{totalGrossAmount.toLocaleString('en-IN')}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-rose-700">
+              <span>Total Deductions:</span>
+              <span className="font-mono font-black">-₹{totalDeductions.toLocaleString('en-IN')}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-emerald-800 border-t border-slate-200 pt-2 text-sm sm:text-base">
+              <span>Net Farmer Payable:</span>
+              <span className="font-mono font-black text-lg sm:text-2xl text-emerald-700">
+                ₹{farmerNetPayable.toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CARD 4: PAYMENT SECTION */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-5 space-y-4">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+          <div className="w-7 h-7 rounded-lg bg-[#1a3a52] text-white flex items-center justify-center font-black text-xs">
+            {isRetailerMode ? 3 : 4}
+          </div>
+          <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+            {isRetailerMode ? '3. Payment' : '5. Payment'}
+          </h2>
+        </div>
+
+        {/* Rows for Retailer Mode */}
+        {isRetailerMode && (
+          <div className="space-y-2 font-bold">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-900 text-xs sm:text-sm">
+              <div>
+                <span className="block font-black">Today's Goods</span>
+              </div>
+              <span className="font-mono font-black text-base sm:text-lg">₹{totalGrossAmount.toLocaleString('en-IN')}</span>
+            </div>
+
+            {previousDue > 0 && (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm">
+                <div>
+                  <span className="block font-black">Old Due</span>
+                </div>
+                <span className="font-mono font-black text-base sm:text-lg">₹{previousDue.toLocaleString('en-IN')}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#1a3a52] text-white text-sm sm:text-base font-black">
+              <div>
+                <span className="block">Total To Pay</span>
+              </div>
+              <span className="font-mono text-xl sm:text-2xl">
+                ₹{grandTotalPayable.toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Question: How much paid? */}
+        <div className="space-y-2">
+          <div>
+            <span className="text-xs font-black text-slate-900 block">How much paid?</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handlePresetPayFull}
+              className={`p-3 rounded-xl font-black text-xs sm:text-sm transition border text-center cursor-pointer ${
+                numAmountPaid === payableBase && payableBase > 0
+                  ? 'bg-[#1a3a52] text-white border-[#1a3a52] shadow-sm'
+                  : 'bg-white text-[#1a3a52] border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              Full ₹{payableBase.toLocaleString('en-IN')}
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePresetPayHalf}
+              className={`p-3 rounded-xl font-black text-xs sm:text-sm transition border text-center cursor-pointer ${
+                numAmountPaid === Math.round(payableBase / 2) && numAmountPaid > 0
+                  ? 'bg-[#1a3a52] text-white border-[#1a3a52] shadow-sm'
+                  : 'bg-white text-[#1a3a52] border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              Half ₹{Math.round(payableBase / 2).toLocaleString('en-IN')}
+            </button>
+
+            {isRetailerMode && previousDue > 0 && (
+              <button
+                type="button"
+                onClick={handlePresetPayTodaysOnly}
+                className={`p-3 rounded-xl font-black text-xs sm:text-sm transition border text-center cursor-pointer ${
+                  numAmountPaid === totalGrossAmount && totalGrossAmount > 0
+                    ? 'bg-[#1a3a52] text-white border-[#1a3a52] shadow-sm'
+                    : 'bg-white text-[#1a3a52] border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                Only Today's ₹{totalGrossAmount.toLocaleString('en-IN')}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handlePresetCustom}
+              className={`p-3 rounded-xl font-black text-xs sm:text-sm transition border text-center cursor-pointer ${
+                amountPaidNow !== '' &&
+                numAmountPaid !== payableBase &&
+                numAmountPaid !== Math.round(payableBase / 2) &&
+                (!isRetailerMode || numAmountPaid !== totalGrossAmount)
+                  ? 'bg-[#1a3a52] text-white border-[#1a3a52] shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              Type Amount
+            </button>
+          </div>
+
+          {/* Custom Amount Input */}
+          <div className="pt-1">
+            <input
+              type="number"
+              step="any"
+              placeholder="Type amount paid (₹)..."
+              value={amountPaidNow}
+              onChange={(e) => setAmountPaidNow(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-black font-mono focus:ring-2 focus:ring-[#1a3a52] outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Big Result Box */}
+        <div className="pt-1">
+          {numAmountPaid < payableBase ? (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm font-black flex items-center justify-between">
+              <div>
+                <span className="block">Balance Due</span>
+              </div>
+              <span className="font-mono text-base sm:text-lg font-black">₹{(payableBase - numAmountPaid).toLocaleString('en-IN')}</span>
+            </div>
+          ) : numAmountPaid === payableBase ? (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-black flex items-center justify-center gap-1.5">
+              <Check className="w-5 h-5 text-emerald-600" />
+              <span>No Due ✓</span>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-black flex items-center justify-between">
+              <div>
+                <span className="block">Advance</span>
+              </div>
+              <span className="font-mono text-base sm:text-lg font-black">₹{(numAmountPaid - payableBase).toLocaleString('en-IN')}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Question: How paid? (3 big icon buttons) */}
+        <div className="space-y-2 pt-1">
+          <div>
+            <span className="text-xs font-black text-slate-900 block">How paid?</span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setPaymentMode('Cash')}
+              className={`py-3 px-2 rounded-xl font-bold text-xs transition border flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                paymentMode === 'Cash'
+                  ? 'bg-[#1a3a52] text-white border-[#1a3a52] shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <Coins className="w-4 h-4" />
+              <span className="font-black">Cash</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentMode('UPI')}
+              className={`py-3 px-2 rounded-xl font-bold text-xs transition border flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                paymentMode === 'UPI' || paymentMode === 'PhonePe' || paymentMode === 'Paytm' || paymentMode === 'Google Pay'
+                  ? 'bg-[#1a3a52] text-white border-[#1a3a52] shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+              <span className="font-black">UPI / PhonePe</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentMode('Bank Transfer')}
+              className={`py-3 px-2 rounded-xl font-bold text-xs transition border flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                paymentMode === 'Bank Transfer'
+                  ? 'bg-[#1a3a52] text-white border-[#1a3a52] shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <Receipt className="w-4 h-4" />
+              <span className="font-black">Bank</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* END-OF-FORM ACTION CARD: Normal white card in page flow */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-5 space-y-3.5 shadow-xs">
+        {pdfError && (
+          <div className="p-3.5 rounded-xl bg-rose-600 text-white font-bold text-xs flex items-center justify-between gap-2 shadow-md">
+            <span>{pdfError}</span>
+            <button
+              type="button"
+              onClick={() => handleSaveSale(true)}
+              className="px-3 py-1 bg-white text-rose-700 hover:bg-slate-100 rounded-lg text-xs font-black cursor-pointer shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
+          <div>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+              {isRetailerMode ? 'Total Payable:' : 'Total Amount:'}
+            </span>
+            <span className="text-lg sm:text-xl font-black font-mono text-[#1a3a52]">
+              ₹{(isRetailerMode ? grandTotalPayable : totalGrossAmount).toLocaleString('en-IN')}
+            </span>
+          </div>
+
+          <div className="text-left sm:text-right">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+              {isRetailerMode ? 'Remaining Balance:' : 'Net Farmer Payable:'}
+            </span>
+            <span
+              className={`text-base sm:text-lg font-black font-mono ${
+                isRetailerMode && remainingBalance > 0 ? 'text-rose-600' : 'text-emerald-700'
+              }`}
+            >
+              ₹
+              {(isRetailerMode
+                ? Math.max(0, remainingBalance)
+                : farmerNetPayable
+              ).toLocaleString('en-IN')}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
+          {/* Button 1: Save Parchi (No PDF download) */}
+          <button
+            type="button"
+            id="save-parchi-btn"
+            disabled={isPdfPreparing}
+            onClick={() => handleSaveSale(false)}
+            className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#24485e] text-white font-bold text-sm transition cursor-pointer flex items-center justify-center gap-2 shadow-xs border border-blue-900/20 disabled:opacity-50"
+          >
+            <Check className="w-4 h-4 text-emerald-400" />
+            <span>Save Parchi</span>
+          </button>
+
+          {/* Button 2: Save & Generate Form C PDF */}
+          <button
+            type="button"
+            id="save-generate-pdf-btn"
+            disabled={isPdfPreparing}
+            onClick={() => handleSaveSale(true)}
+            className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#24485e] text-white font-bold text-sm transition cursor-pointer flex items-center justify-center gap-2 shadow-xs border border-blue-900/20 disabled:opacity-50"
+          >
+            <Printer className="w-4 h-4 text-blue-300" />
+            <span>{isPdfPreparing ? 'Preparing PDF…' : 'Save & Generate Form C PDF'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Retailer Previous Due Details Modal */}
+      {showDueDetailsModal && selectedRetailer && isRetailerMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 overflow-y-auto">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto">
+            <div className="bg-[#1a3a52] text-white p-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black">Previous Due Breakdown</h3>
+                <p className="text-xs text-slate-300 font-medium">
+                  {selectedRetailer.name} • {selectedRetailer.shopOrMarket}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDueDetailsModal(false)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto text-xs">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-center">
+                <span className="font-bold text-slate-700">Total Outstanding Previous Due:</span>
+                <span className="font-mono font-black text-rose-700 text-base">
+                  ₹{previousDue.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDueDetailsModal(false)}
+                className="px-4 py-2 rounded-xl bg-[#1a3a52] text-white font-bold text-xs cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wholesaler Form C PDF Modal */}
+      {isWholesalerPdfOpen && wholesalerPdfLot && (
         <GeneratePdfModal
-          isOpen={isDraftPdfOpen}
+          isOpen={isWholesalerPdfOpen}
           onClose={() => {
-            setIsDraftPdfOpen(false);
-            setSelectedLotForPdf(null);
+            setIsWholesalerPdfOpen(false);
+            setWholesalerPdfLot(null);
           }}
-          lot={selectedLotForPdf}
-          lots={!selectedLotForPdf && dateLots.length > 0 ? dateLots : undefined}
-          draftData={
-            !selectedLotForPdf
-              ? {
-                  farmerName: selectedFarmer?.name || (dateLots[0]?.farmerName) || 'Farmer Consignor',
-                  farmerVillage: selectedFarmer?.village || (dateLots[0]?.farmerVillage) || 'APMC Yard',
-                  farmerPhone: selectedFarmer?.phone || (dateLots[0]?.farmerPhone) || '',
-                  grossTotal: computedVarietyRows.length > 0 ? grossTotal : undefined,
-                  transportCharges: numericTransport,
-                  ammaliCharges: numericAmmali,
-                  commissionPercent: numericCommissionRate,
-                  commissionAmount: numericCommissionAmount,
-                  miscCommissionPercent: numericMiscCommissionRate,
-                  miscCommissionAmount: numericMiscCommissionAmount,
-                  date: saleDate,
-                  time: 'Morning Auction',
-                  items:
-                    computedVarietyRows.length > 0
-                      ? computedVarietyRows.map((r) => ({
-                          id: r.id,
-                          flowerVariety: r.displayName,
-                          flowerQuality: r.flowerQuality,
-                          quantity: r.numericQuantity,
-                          unit: r.unit,
-                          boxesCount: r.numericBoxes > 0 ? r.numericBoxes : undefined,
-                          packagingType: r.packagingType,
-                          rate: r.numericRate,
-                          grossTotal: r.lineGross,
-                        }))
-                      : undefined,
-                }
-              : undefined
-          }
+          lot={wholesalerPdfLot}
         />
       )}
 
+      {/* Retailer Form C PDF Modal */}
+      {isRetailerPdfOpen && selectedRetailerForPdf && (
+        <RetailerPdfModal
+          isOpen={isRetailerPdfOpen}
+          onClose={() => {
+            setIsRetailerPdfOpen(false);
+            setSelectedRetailerForPdf(null);
+          }}
+          retailer={selectedRetailerForPdf}
+          dateRangeLabel="New Retail Parchi Statement"
+        />
+      )}
+
+      {/* New Farmer Registration Modal */}
+      <NewFarmerRegistrationModal
+        isOpen={isFarmerModalOpen}
+        onClose={() => setIsFarmerModalOpen(false)}
+        initialNameQuery={farmerSearch}
+        onFarmerSaved={(savedFarmer) => {
+          setSelectedFarmerId(savedFarmer.id);
+          setFarmerSearch('');
+          setIsFarmerDropdownOpen(false);
+          setActionFeedbackMsg({
+            type: 'success',
+            text: `✓ Registered & Selected ${savedFarmer.name} (${savedFarmer.id})`,
+          });
+        }}
+      />
+
+      {/* Change Farmer Confirmation Modal */}
+      {isChangeFarmerConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-4 animate-in zoom-in-95 duration-150 text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900">Change farmer?</h3>
+              <p className="text-xs text-slate-600 mt-1 font-medium leading-relaxed">
+                Change farmer? Item entries will stay the same.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsChangeFarmerConfirmOpen(false)}
+                className="py-2.5 px-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-extrabold text-xs transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={clearFarmerSelection}
+                className="py-2.5 px-3 rounded-xl bg-[#1a3a52] hover:bg-[#24485e] text-white font-black text-xs transition cursor-pointer shadow-xs"
+              >
+                Change Farmer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

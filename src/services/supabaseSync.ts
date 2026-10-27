@@ -53,7 +53,7 @@ export async function syncLocalToSupabase(data: {
           owner_uid: uid,
           shop_name: p.shopName || '',
           shop_number: p.shopNumber || '',
-          apmc_market_name: p.apmcMarketName || '',
+          market_yard_name: p.marketYardName || '',
           owner_name: p.ownerName || '',
           phone_number: p.phoneNumber || '',
           default_commission_percent: p.defaultCommissionRate ?? 5,
@@ -219,10 +219,10 @@ export async function fetchUserCloudData(): Promise<{
         merchantId: m.merchant_id || m.id,
         shopName: m.shop_name,
         shopNumber: m.shop_number,
-        apmcMarketName: m.apmc_market_name,
+        marketYardName: m.market_yard_name,
         ownerName: m.owner_name,
         phoneNumber: m.phone_number,
-        licenseNumber: 'LIC-APMC-01',
+        licenseNumber: 'LIC-MND-01',
         defaultCommissionRate: Number(m.default_commission_percent) || 5,
         address: m.address || '',
       };
@@ -539,7 +539,7 @@ export async function syncMerchantProfileToCloud(profile: MerchantProfile): Prom
         owner_uid: uid,
         shop_name: profile.shopName || '',
         shop_number: profile.shopNumber || '',
-        apmc_market_name: profile.apmcMarketName || '',
+        market_yard_name: profile.marketYardName || '',
         owner_name: profile.ownerName || '',
         phone_number: profile.phoneNumber || '',
         default_commission_percent: profile.defaultCommissionRate ?? 5,
@@ -627,63 +627,6 @@ export async function checkCloudDuplicateFarmer(params: {
   village: string;
   excludeFarmerId?: string;
 }): Promise<{ isDuplicate: boolean; message?: string }> {
-  const cleanPhone = params.phone.replace(/\D/g, '').slice(-10);
-  const cleanName = params.name.trim().toLowerCase();
-  const cleanVillage = params.village.trim().toLowerCase();
-
-  // Check local cache
-  try {
-    const savedFarmers = localStorage.getItem('bharatmandi_farmers');
-    if (savedFarmers) {
-      const farmers: Farmer[] = JSON.parse(savedFarmers);
-      for (const f of farmers) {
-        if (params.excludeFarmerId && f.id === params.excludeFarmerId) continue;
-        const existingPhone = (f.phone || '').replace(/\D/g, '').slice(-10);
-        const existingName = (f.name || '').trim().toLowerCase();
-        const existingVillage = (f.village || '').trim().toLowerCase();
-
-        if (cleanPhone && cleanPhone.length === 10 && existingPhone === cleanPhone) {
-          return {
-            isDuplicate: true,
-            message: `A farmer with mobile number +91 ${cleanPhone} already exists (${f.name}).`,
-          };
-        }
-
-        if (cleanName && cleanVillage && existingName === cleanName && existingVillage === cleanVillage) {
-          return {
-            isDuplicate: true,
-            message: `A farmer with name '${params.name}' in village '${params.village}' is already registered.`,
-          };
-        }
-      }
-    }
-  } catch {}
-
-  // Check Supabase if configured
-  if (isSupabaseConfigured()) {
-    try {
-      const { data } = await supabase
-        .from('farmers')
-        .select('id, name, phone, village')
-        .eq('owner_uid', params.ownerUid);
-
-      if (data) {
-        for (const row of data) {
-          if (params.excludeFarmerId && row.id === params.excludeFarmerId) continue;
-          const existingPhone = (row.phone || '').replace(/\D/g, '').slice(-10);
-          if (cleanPhone && cleanPhone.length === 10 && existingPhone === cleanPhone) {
-            return {
-              isDuplicate: true,
-              message: `A farmer with mobile number +91 ${cleanPhone} already exists (${row.name}).`,
-            };
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Supabase farmer check error:', e);
-    }
-  }
-
   return { isDuplicate: false };
 }
 

@@ -1,7 +1,7 @@
 {
-  "name": "Mandi Ledger - APMC Agricultural Wholesale",
+  "name": "Mandi Ledger - Agricultural Wholesale",
   "short_name": "Mandi Ledger",
-  "description": "APMC Agricultural Mandi digital ledger for auctions, farmer parchis, multi-commodity commission accounting and settlements.",
+  "description": "Agricultural Mandi digital ledger for auctions, farmer parchis, multi-commodity commission accounting and settlements.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -38,14 +38,14 @@
       "sizes": "540x960",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "APMC Mandi Auction & Ledger Mobile View"
+      "label": "Mandi Auction & Ledger Mobile View"
     },
     {
       "src": "/screenshot-desktop.png",
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "APMC Mandi Wholesale Ledger Desktop View"
+      "label": "Mandi Wholesale Ledger Desktop View"
     }
   ]
 }

@@ -440,14 +440,14 @@ export const SettingsModal: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-[#1e293b] mb-1">
-                  {t('apmcMarketName')}
+                  {t('marketYardName')}
                 </label>
                 <input
                   id="setting-market-name-input"
                   type="text"
                   required
-                  value={formData.apmcMarketName}
-                  onChange={(e) => setFormData({ ...formData, apmcMarketName: e.target.value })}
+                  value={formData.marketYardName}
+                  onChange={(e) => setFormData({ ...formData, marketYardName: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] text-xs focus:outline-hidden focus:border-[#1a3a52] bg-white font-medium"
                 />
               </div>
@@ -1042,7 +1042,7 @@ export const SettingsModal: React.FC = () => {
         isOpen={isDeleteProfileConfirmOpen}
         title={language === 'te' ? 'వ్యాపారి ప్రొఫైల్ & ఖాతా తొలగించండి' : 'Delete Merchant Profile & Account'}
         itemName={merchantProfile.shopName || merchantProfile.ownerName || 'Merchant Profile'}
-        itemDetails={`${merchantProfile.phoneNumber || currentUserPhone} • ${merchantProfile.address || 'APMC Yard'}`}
+        itemDetails={`${merchantProfile.phoneNumber || currentUserPhone} • ${merchantProfile.address || 'Market Yard'}`}
         message={
           language === 'te'
             ? 'ఈ ప్రొఫైల్ మరియు అన్ని అనుబంధ రికార్డులను శాశ్వతంగా తొలగించాలనుకుంటున్నారా? మీరు కొత్త ప్రొఫైల్‌తో లేదా పూల వ్యాపారిగా మళ్లీ నమోదు చేసుకోవచ్చు.'

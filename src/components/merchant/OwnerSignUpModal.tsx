@@ -45,7 +45,7 @@ export const OwnerSignUpModal: React.FC<OwnerSignUpModalProps> = ({ isOpen, onCl
     photoUrl: merchantProfile.photoUrl || '',
     shopName: merchantProfile.shopName || '',
     shopNumber: merchantProfile.shopNumber || '',
-    apmcMarketName: merchantProfile.apmcMarketName || '',
+    marketYardName: merchantProfile.marketYardName || '',
     phoneNumber: (merchantProfile.phoneNumber || '').replace(/\D/g, '').slice(-10),
     defaultCommissionRate: merchantProfile.defaultCommissionRate || 4,
     defaultExpenditureRate: merchantProfile.defaultExpenditureRate || 6,
@@ -123,7 +123,7 @@ export const OwnerSignUpModal: React.FC<OwnerSignUpModalProps> = ({ isOpen, onCl
       const cloudCheck = await checkCloudDuplicateRegistration({
         phoneNumber: cleanPhone,
         shopNumber: formData.shopNumber?.trim(),
-        marketName: formData.apmcMarketName?.trim(),
+        marketName: formData.marketYardName?.trim(),
         shopName: formData.shopName.trim(),
         excludePhone: currentUserPhone,
       });
@@ -152,7 +152,7 @@ export const OwnerSignUpModal: React.FC<OwnerSignUpModalProps> = ({ isOpen, onCl
         'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
       shopName: 'Ravi Flowers (Sri Venkateshwara Florals)',
       shopNumber: 'Shop No. 27, Gate #3',
-      apmcMarketName: 'Gudimalkapur Wholesale Flower Market',
+      marketYardName: 'Gudimalkapur Wholesale Flower Market',
       phoneNumber: '9849012345',
       defaultCommissionRate: 4,
       defaultExpenditureRate: 6,
@@ -393,8 +393,8 @@ export const OwnerSignUpModal: React.FC<OwnerSignUpModalProps> = ({ isOpen, onCl
                   type="text"
                   required
                   placeholder="e.g., Gudimalkapur Wholesale Flower Market"
-                  value={formData.apmcMarketName}
-                  onChange={(e) => setFormData({ ...formData, apmcMarketName: e.target.value })}
+                  value={formData.marketYardName}
+                  onChange={(e) => setFormData({ ...formData, marketYardName: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] text-xs focus:outline-hidden focus:border-[#1a3a52] bg-white font-medium"
                 />
               </div>
@@ -541,7 +541,7 @@ export const OwnerSignUpModal: React.FC<OwnerSignUpModalProps> = ({ isOpen, onCl
       isOpen={isDeleteConfirmOpen}
       title={language === 'te' ? 'వ్యాపారి ప్రొఫైల్ & ఖాతా తొలగించండి' : 'Delete Merchant Profile & Account'}
       itemName={formData.shopName || formData.ownerName || 'Merchant Profile'}
-      itemDetails={`${formData.phoneNumber} • ${formData.address || 'APMC Yard'}`}
+      itemDetails={`${formData.phoneNumber} • ${formData.address || 'Market Yard'}`}
       message={
         language === 'te'
           ? 'మీరు ఈ ప్రొఫైల్‌ను తొలగించాలనుకుంటున్నారా? తప్పుడు సమాచారం ఇచ్చి ఉంటే లేదా కొత్తగా నమోదు కావాలనుకుంటే మీరు మళ్లీ నమోదు చేసుకోవచ్చు.'

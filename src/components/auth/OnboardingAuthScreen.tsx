@@ -24,6 +24,8 @@ import {
   MapPin,
   Building,
   FileText,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
 import { CommodityCategory, WeightUnit } from '../../types';
@@ -199,7 +201,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     step3Title: 'దుకాణం వివరాలు',
     step3Desc: 'మీ దుకాణం లేదా సంస్థ పేరు మరియు స్టాల్ సంఖ్యను అందించండి',
     step4Title: 'మార్కెట్ వివరాలు',
-    step4Desc: 'మీ APMC మార్కెట్ యార్డ్, రాష్ట్రం మరియు చిరునామాను ఎంచుకోండి',
+    step4Desc: 'మీ Mandi మార్కెట్ యార్డ్, రాష్ట్రం మరియు చిరునామాను ఎంచుకోండి',
 
     fullNameLabel: 'పూర్తి పేరు (యజమాని / వ్యాపారి) *',
     mobileLabel: 'మొబైల్ సంఖ్య (10 అంకెలు) *',
@@ -256,7 +258,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     step3Title: 'दुकान का विवरण',
     step3Desc: 'अपनी दुकान या फर्म का नाम और स्टॉल नंबर दर्ज करें',
     step4Title: 'मंडी विवरण',
-    step4Desc: 'अपना राज्य, APMC मंडी प्रांगण और पूरा पता चुनें',
+    step4Desc: 'अपना राज्य, Mandi मंडी प्रांगण और पूरा पता चुनें',
 
     fullNameLabel: 'पूरा नाम (मालिक / व्यापारी) *',
     mobileLabel: 'मोबाइल नंबर (10 अंक) *',
@@ -313,7 +315,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     step3Title: 'ಅಂಗಡಿ ವಿವರಗಳು',
     step3Desc: 'ನಿಮ್ಮ ಅಂಗಡಿ/ಸಂಸ್ಥೆಯ ಹೆಸರು ಮತ್ತು ಸ್ಟಾಲ್ ಸಂಖ್ಯೆಯನ್ನು ನೀಡಿ',
     step4Title: 'ಮಾರುಕಟ್ಟೆ ವಿವರಗಳು',
-    step4Desc: 'ನಿಮ್ಮ ರಾಜ್ಯ, APMC ಮಾರುಕಟ್ಟೆ ಮತ್ತು ವಿಳಾಸವನ್ನು ಆಯ್ಕೆಮಾಡಿ',
+    step4Desc: 'ನಿಮ್ಮ ರಾಜ್ಯ, Mandi ಮಾರುಕಟ್ಟೆ ಮತ್ತು ವಿಳಾಸವನ್ನು ಆಯ್ಕೆಮಾಡಿ',
 
     fullNameLabel: 'ಪೂರ್ಣ ಹೆಸರು (ಮಾಲೀಕರು / ವರ್ತಕರು) *',
     mobileLabel: 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆ (10 ಅಂಕೆಗಳು) *',
@@ -370,7 +372,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     step3Title: 'கடை விவரங்கள்',
     step3Desc: 'உங்கள் கடை/நிறுவன பெயர் மற்றும் கடை எண்ணை வழங்கவும்',
     step4Title: 'சந்தை விவரங்கள்',
-    step4Desc: 'உங்கள் மாநிலம், APMC சந்தை மற்றும் முகவரியைத் தேர்ந்தெடுக்கவும்',
+    step4Desc: 'உங்கள் மாநிலம், Mandi சந்தை மற்றும் முகவரியைத் தேர்ந்தெடுக்கவும்',
 
     fullNameLabel: 'முழு பெயர் (உரிமையாளர் / வியாபாரி) *',
     mobileLabel: 'மொபைல் எண் (10 இலக்கங்கள்) *',
@@ -427,7 +429,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     step3Title: 'दुकानाचा तपशील',
     step3Desc: 'तुमच्या दुकानाचे/फर्मचे नाव आणि गाळा क्रमांक प्रविष्ट करा',
     step4Title: 'बाजार समिती तपशील',
-    step4Desc: 'तुमचे राज्य, APMC बाजार समिती आणि पत्ता निवडा',
+    step4Desc: 'तुमचे राज्य, Mandi बाजार समिती आणि पत्ता निवडा',
 
     fullNameLabel: 'पूर्ण नाव (मालक / व्यापारी) *',
     mobileLabel: 'मोबाईल नंबर (10 अंक) *',
@@ -484,7 +486,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     step3Title: 'દુકાનની વિગતો',
     step3Desc: 'તમારી દુકાન/ફર્મનું નામ અને સ્ટોલ નંબર આપો',
     step4Title: 'માર્કેટ વિગતો',
-    step4Desc: 'તમારું રાજ્ય, APMC માર્કેટ યાર્ડ અને સરનામું પસંદ કરો',
+    step4Desc: 'તમારું રાજ્ય, Mandi માર્કેટ યાર્ડ અને સરનામું પસંદ કરો',
 
     fullNameLabel: 'પૂરું નામ (માલિક / વેપારી) *',
     mobileLabel: 'મોબાઇલ નંબર (10 અંક) *',
@@ -541,7 +543,7 @@ const SIGNUP_TRANSLATIONS: Record<string, SignupTranslations> = {
     step3Title: 'দোকানের বিবরণ',
     step3Desc: 'আপনার দোকান/ফার্মের নাম এবং স্টল নম্বর দিন',
     step4Title: 'বাজারের বিবরণ',
-    step4Desc: 'আপনার রাজ্য, APMC বাজার ইয়ার্ড এবং ঠিকানা নির্বাচন করুন',
+    step4Desc: 'আপনার রাজ্য, Mandi বাজার ইয়ার্ড এবং ঠিকানা নির্বাচন করুন',
 
     fullNameLabel: 'পুরো নাম (মালিক / ব্যবসায়ী) *',
     mobileLabel: 'মোবাইল নম্বর (১০ ডিজিট) *',
@@ -1621,7 +1623,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
     sounds.playTrashSound?.();
   };
 
-  // Standard Login submit with 6-digit PIN
+  // Standard Login submit with 6-digit PIN and performance timing
   const handlePinLoginSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMsg('');
@@ -1639,13 +1641,26 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       return;
     }
 
+    const tStart = performance.now();
+    console.time('[LOGIN PERF] 1. Login Button Tap -> Sign-in Request');
     setIsSubmitting(true);
     sounds.playBidTick();
+    console.timeEnd('[LOGIN PERF] 1. Login Button Tap -> Sign-in Request');
 
+    // 8-second safety timeout guard
+    const timeoutId = setTimeout(() => {
+      setIsSubmitting(false);
+      setErrorMsg('Login is taking longer than expected. Please check your network and tap Retry Login.');
+    }, 8000);
+
+    console.time('[LOGIN PERF] 2. Server Sign-in Request (loginOnServer)');
     const res = await loginOnServer(cleanInput, loginPin);
-    setIsSubmitting(false);
+    console.timeEnd('[LOGIN PERF] 2. Server Sign-in Request (loginOnServer)');
+
+    clearTimeout(timeoutId);
 
     if (!res.success) {
+      setIsSubmitting(false);
       sounds.playTrashSound?.();
       if (res.isLocked) {
         setLockoutMsg(res.error || 'Login locked due to 5 incorrect PIN attempts.');
@@ -1655,7 +1670,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       return;
     }
 
-    // Login Successful
+    console.time('[LOGIN PERF] 3. Profile & Data Fetch (Local Memory)');
     sounds.playCashChime();
     const verifiedPhone = res.account?.phoneNumber || cleanInput;
     const cleanPhone = verifiedPhone.replace(/\D/g, '').slice(-10);
@@ -1672,8 +1687,15 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       localStorage.setItem('bharatmandi_user_role', res.account?.role || 'merchant');
       localStorage.setItem('bharatmandi_active_phone_v1', cleanPhone);
     } catch {}
+    console.timeEnd('[LOGIN PERF] 3. Profile & Data Fetch (Local Memory)');
 
+    console.time('[LOGIN PERF] 4. First Screen Rendered (Dashboard)');
+    setIsSubmitting(false);
     onComplete();
+    console.timeEnd('[LOGIN PERF] 4. First Screen Rendered (Dashboard)');
+
+    const tEnd = performance.now();
+    console.log(`[LOGIN PERF SUMMARY] Full login completed in ${(tEnd - tStart).toFixed(2)} ms`);
   };
 
   // ==========================================
@@ -1824,7 +1846,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       return;
     }
     if (!marketYard.trim()) {
-      setErrorMsg('Please enter Market or APMC Name');
+      setErrorMsg('Please enter Market or Mandi Name');
       return;
     }
 
@@ -1886,7 +1908,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
         shopName,
         ownerName: fullName,
         shopNumber: shopNumber || 'Shop 1',
-        apmcMarketName: marketYard,
+        marketYardName: marketYard,
         address: city ? `${city}, ${selectedState}` : `${marketYard}, ${selectedState}`,
         phoneNumber: cleanPhone,
         licenseNumber: licenseNumber || '',
@@ -2035,16 +2057,16 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-2xl w-full mx-auto my-auto py-6 space-y-6">
+      <main className="max-w-md w-full mx-auto my-auto py-4 space-y-4">
         {/* Lockout Warning Banner */}
         {lockoutMsg && (
-          <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs font-bold space-y-2 animate-in fade-in duration-200 shadow-2xs">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-              <span className="text-sm font-extrabold">{lockoutMsg}</span>
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs font-bold space-y-2 animate-in fade-in duration-200 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="text-xs font-extrabold">{lockoutMsg}</span>
             </div>
             <div className="pt-2 border-t border-amber-200 flex items-center justify-between">
-              <span className="text-amber-800">Forgot your 6-digit PIN? Verify by mobile OTP:</span>
+              <span className="text-amber-800 text-[11px]">Forgot 6-digit PIN? Verify by mobile OTP:</span>
               <button
                 type="button"
                 onClick={() => {
@@ -2055,9 +2077,9 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                   setErrorMsg('');
                   setLockoutMsg('');
                 }}
-                className="px-3.5 py-1.5 bg-[#1a3a52] text-white rounded-xl text-xs font-black hover:bg-[#122839] transition cursor-pointer"
+                className="px-2.5 py-1 bg-[#1a3a52] text-white rounded-lg text-xs font-black hover:bg-[#122839] transition cursor-pointer"
               >
-                Reset PIN with OTP
+                Reset PIN
               </button>
             </div>
           </div>
@@ -2065,18 +2087,18 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
         {/* Global Error Banner */}
         {errorMsg && (
-          <div className="p-4 rounded-2xl bg-red-50 border-2 border-red-200 text-red-900 text-xs font-bold space-y-2 animate-in fade-in duration-200 shadow-2xs">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-              <span className="text-sm font-extrabold">{errorMsg}</span>
+          <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-900 text-xs font-bold space-y-2 animate-in fade-in duration-200 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              <span className="text-xs font-extrabold">{errorMsg}</span>
             </div>
           </div>
         )}
 
         {/* Global Success Banner */}
         {successMsg && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-3 animate-in fade-in duration-200">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{successMsg}</span>
           </div>
         )}
@@ -2085,16 +2107,16 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
             MODE 1: LOG IN (Instagram Style: Saved Profile Cards + 6-Digit PIN)
            ========================================================================= */}
         {authMode === 'login' && (
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-6">
-            <div className="text-center space-y-1.5">
-              <span className="text-xs font-black uppercase tracking-wider px-3.5 py-1 rounded-full inline-block text-[#1a3a52] bg-[#eef3f7]">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="text-center space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full inline-block text-[#1a3a52] bg-[#eef3f7]">
                 Merchant Sign In
               </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-[#1e293b]">
+              <h2 className="text-xl sm:text-2xl font-black text-[#1e293b]">
                 Log In to Your Mandi Ledger
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                Log in with your saved profile or enter username/mobile number and 6-digit PIN
+              <p className="text-xs text-slate-500 font-medium">
+                Enter username/mobile and 6-digit PIN
               </p>
             </div>
 
@@ -2292,10 +2314,19 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                 type="submit"
                 id="btn-login-submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] disabled:opacity-50"
+                className="w-full py-3.5 px-4 rounded-xl bg-[#1a3a52] hover:bg-[#122839] text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>Log In to Dashboard</span>
-                <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-[#d4af37]" />
+                    <span>Signing In...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Log In to Dashboard</span>
+                    <ArrowRight className="w-4 h-4 text-[#d4af37]" />
+                  </>
+                )}
               </button>
 
               <div className="text-center pt-3 border-t border-slate-200">
@@ -2738,7 +2769,7 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
                     id="signup-fullname-input"
                     type="text"
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    onChange={(e) => setFullName(e.target.value.replace(/[0-9]/g, ''))}
                     placeholder="e.g. Ramesh Kumar"
                     className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
                     required
@@ -2764,14 +2795,14 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
                   <div>
                     <label htmlFor="signup-marketyard-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                      Market or APMC Name *
+                      Market or Mandi Name *
                     </label>
                     <input
                       id="signup-marketyard-input"
                       type="text"
                       value={marketYard}
                       onChange={(e) => setMarketYard(e.target.value)}
-                      placeholder="e.g. Ghazipur APMC Mandi"
+                      placeholder="e.g. Ghazipur Mandi"
                       className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
                       required
                     />
@@ -2852,14 +2883,14 @@ export const OnboardingAuthScreen: React.FC<Props> = ({ onComplete }) => {
 
                 <div>
                   <label htmlFor="signup-license-input" className="block text-xs font-black uppercase tracking-wider text-[#1a3a52] mb-1">
-                    APMC License Number (Optional)
+                    Market License Number (Optional)
                   </label>
                   <input
                     id="signup-license-input"
                     type="text"
                     value={licenseNumber}
                     onChange={(e) => setLicenseNumber(e.target.value)}
-                    placeholder="e.g. APMC-LIC-9842"
+                    placeholder="e.g. LIC-MND-9842"
                     className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1a3a52] font-semibold text-sm text-[#1e293b] outline-none"
                   />
                 </div>

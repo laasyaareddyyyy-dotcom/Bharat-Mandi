@@ -49,7 +49,7 @@ const QUICK_SUGGESTIONS = [
   {
     category: 'Report/Invoice Issue' as HelpTicketCategory,
     priority: 'Medium' as HelpTicketPriority,
-    title: 'Form C monthly APMC turnover report format question',
+    title: 'Form C monthly Mandi turnover report format question',
     desc: 'Requesting clarification on whether daily transport cess is bundled into the gross taxable turnover column.',
   },
 ];
@@ -169,7 +169,7 @@ export const RaiseQueryForm: React.FC<{
 
   const handleCopyTicketDetails = () => {
     if (!submittedTicket) return;
-    const text = `PhoolMitra Mandi Support Ticket:\nTicket ID: ${submittedTicket.ticketNumber}\nSubject: ${submittedTicket.subject}\nSubmitted: ${new Date(submittedTicket.createdAt).toLocaleString()}\nStatus: Open (Under 2-Hour APMC SLA)`;
+    const text = `PhoolMitra Mandi Support Ticket:\nTicket ID: ${submittedTicket.ticketNumber}\nSubject: ${submittedTicket.subject}\nSubmitted: ${new Date(submittedTicket.createdAt).toLocaleString()}\nStatus: Open (Under 2-Hour Support SLA)`;
     navigator.clipboard.writeText(text);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
@@ -354,7 +354,7 @@ export const RaiseQueryForm: React.FC<{
             <option value="Payment/Settlement Issue">Payment/Settlement Issue (Khata, dues, RTGS)</option>
             <option value="Report/Invoice Issue">Report/Invoice Issue (Form C, PDF, summaries)</option>
             <option value="Feature Request">Feature Request (New tools, translations)</option>
-            <option value="Other">Other Query / APMC Yard Assistance</option>
+            <option value="Other">Other Query / Market Yard Assistance</option>
           </select>
         </div>
 

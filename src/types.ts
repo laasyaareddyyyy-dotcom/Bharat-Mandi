@@ -28,6 +28,8 @@ export type Role = 'merchant' | 'farmer' | 'admin';
 
 export type CommodityCategory = 'flowers' | 'grains' | 'vegetables' | 'fruits' | 'spices';
 
+export type MerchantSection = 'wholesaler' | 'retailer';
+
 export type MerchantTab =
   | 'dashboard'
   | 'new-sale'
@@ -37,6 +39,7 @@ export type MerchantTab =
   | 'settings'
   | 'stock'
   | 'employees'
+  | 'retailers'
   | 'support';
 
 export type FarmerTab =
@@ -199,16 +202,31 @@ export interface FifteenDaySettlement {
   notes?: string;
 }
 
+export type FarmerType = 'Grower / Kisan' | 'Trader' | 'Other';
+
+export interface FarmerAuditLog {
+  id: string;
+  action: 'add' | 'edit' | 'archive' | 'delete';
+  timestamp: string;
+  details?: string;
+}
+
 export interface Farmer {
-  id: string; // e.g. FM-001
+  id: string; // e.g. FRM-0001
+  farmerCode?: string;
   name: string;
   phone: string;
   village: string;
-  primaryCrops: string[];
+  address?: string;
+  farmerType?: FarmerType;
   commoditiesGrown?: CommodityCategory[];
+  primaryCrops: string[];
+  notes?: string;
+  isArchived?: boolean;
   connectedMerchantIds: string[];
   createdAt: string;
-  photoUrl?: string; // photo of farmer
+  photoUrl?: string;
+  auditLogs?: FarmerAuditLog[];
 }
 
 export interface PaymentRecord {
@@ -233,7 +251,7 @@ export interface MerchantProfile {
   photoUrl?: string; // photo of owner
   logoUrl?: string; // logo of shop
   shopNumber: string;
-  apmcMarketName: string;
+  marketYardName: string;
   merchantId: string;
   phoneNumber: string;
   licenseNumber: string;
@@ -340,7 +358,7 @@ export interface RegisteredAccount {
   shopNumber?: string;
   state?: string;
   marketName?: string;
-  apmcLicense?: string;
+  mandiLicense?: string;
   photoUrl?: string;
   passwordResetAt?: string;
   createdAt: string;
@@ -521,6 +539,61 @@ export interface EmployeeRecord {
   joinedDate: string;
   totalPaid: number;
   balanceDue: number;
+  notes?: string;
+}
+
+export interface Retailer {
+  id: string; // e.g. RTL-001
+  name: string;
+  phone: string;
+  shopOrMarket: string; // shop, market or village location
+  createdAt: string; // YYYY-MM-DD
+  notes?: string;
+}
+
+export interface RetailerSaleItem {
+  id: string;
+  commodityCategory?: CommodityCategory;
+  varietyName: string; // Dutch Rose, Marigold, Lily, Jasmine, Chrysanthemum, etc.
+  quantity: number;
+  unit: WeightUnit; // Kg, Crates, Baskets, Bags, Boxes, Bunches
+  rate: number; // ₹ per unit
+  amount: number; // quantity * rate
+  packagingType?: string;
+  packagingCount?: number;
+}
+
+export interface RetailerSale {
+  id: string; // e.g. RTL-SALE-20261024-001
+  parchiNumber: string; // e.g. RT-20261024-001
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm AM/PM
+  retailerId: string;
+  retailerName: string;
+  retailerPhone: string;
+  retailerShop: string;
+  items: RetailerSaleItem[];
+  grossTotal: number; // sum of today's item amounts
+  previousDue?: number; // carry-forward balance prior to this sale
+  grandTotalPayable?: number; // grossTotal + previousDue
+  amountPaid: number; // advance / paid now
+  balanceDue: number; // remaining balance (grandTotalPayable - amountPaid)
+  paymentStatus: PaymentStatus; // 'Paid' | 'Partial' | 'Unpaid'
+  paymentMode?: PaymentMode;
+  paymentReference?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface RetailerPayment {
+  id: string; // e.g. RTL-PAY-001
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm AM/PM
+  retailerId: string;
+  retailerName: string;
+  amount: number; // payment received from retailer
+  paymentMode: PaymentMode;
+  referenceNumber?: string;
   notes?: string;
 }
 

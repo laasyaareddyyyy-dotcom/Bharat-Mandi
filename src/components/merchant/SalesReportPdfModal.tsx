@@ -237,7 +237,7 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
       const filename = `Sales_Report_${startDate}_to_${endDate}.pdf`;
       const res = await exportElementToPdf(printAreaRef.current, {
         filename,
-        title: `${merchantProfile.shopName || 'APMC'} Sales Report`,
+        title: `${merchantProfile.shopName || 'Mandi'} Sales Report`,
         format: 'a4',
         orientation: 'portrait',
         marginMm: 6,
@@ -505,8 +505,8 @@ export const SalesReportPdfModal: React.FC<SalesReportPdfModalProps> = ({
                 </h1>
                 <p className="text-xs sm:text-sm font-bold text-slate-700">
                   {merchantProfile.shopNumber ? `Shop No. ${merchantProfile.shopNumber}` : ''}
-                  {merchantProfile.shopNumber && (merchantProfile.apmcMarketName || merchantProfile.address) ? ' • ' : ''}
-                  {merchantProfile.apmcMarketName || merchantProfile.address || 'Wholesale Market Yard'}
+                  {merchantProfile.shopNumber && (merchantProfile.marketYardName || merchantProfile.address) ? ' • ' : ''}
+                  {merchantProfile.marketYardName || merchantProfile.address || 'Wholesale Market Yard'}
                 </p>
                 <p className="text-xs text-slate-500 font-medium">
                   Proprietor: <strong className="text-slate-800 font-semibold">{merchantProfile.ownerName || 'Merchant Trader'}</strong>

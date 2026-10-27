@@ -210,13 +210,13 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
     draftData?.farmerName ||
     (lots && lots[0]?.farmerName) ||
     linkedShipment?.farmerName ||
-    'Farmer Consignor';
+    'Farmer';
   const sourceFarmerVillage =
     lot?.farmerVillage ||
     draftData?.farmerVillage ||
     (lots && lots[0]?.farmerVillage) ||
     linkedShipment?.farmerVillage ||
-    'APMC Catchment';
+    '';
   const sourceFarmerPhone =
     lot?.farmerPhone ||
     draftData?.farmerPhone ||
@@ -233,7 +233,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
     draftData?.parchiNumber ||
     (lots && lots[0]?.parchiNumber) ||
     linkedShipment?.shipmentNumber ||
-    'FC-2026-PREVIEW';
+    'FC-2026-0001';
   const sourceDate =
     lot?.date ||
     draftData?.date ||
@@ -295,7 +295,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
   const [deductionsList, setDeductionsList] = useState<StandardDeductionOption[]>([
     {
       id: 'mandiCess',
-      name: 'APMC Mandi Tax / Cess',
+      name: 'Mandi Tax / Cess',
       nameTe: 'మార్కెట్ ఫీజు',
       defaultAmount: 30,
       selected: false,
@@ -533,7 +533,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
       performAutoSaveRecord();
 
       const cleanFarmer = sourceFarmerName.replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `BharatMandi-FormC-Invoice-${sourceParchiNumber}-${cleanFarmer}.pdf`;
+      const filename = `BharatMandi-FormC-${sourceParchiNumber}-${cleanFarmer}.pdf`;
       const result = await exportElementToPdf(pdfPrintAreaRef.current, {
         filename,
         format,
@@ -585,7 +585,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
 
       const result = await exportElementToPdf(pdfPrintAreaRef.current, {
         filename,
-        title: `APMC Form C Invoice #${sourceParchiNumber}`,
+        title: `Form C Invoice #${sourceParchiNumber}`,
         format: pdfLayoutFormat,
         orientation: 'portrait',
         marginMm: pdfLayoutFormat === 'thermal-80mm' ? 4 : 6,
@@ -676,12 +676,12 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
             >
               <ArrowLeft className="w-5 h-5 text-white" />
             </button>
-            <div className="w-9 h-9 rounded-xl bg-white/10 hidden sm:flex items-center justify-center text-[#d4af37] shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-white/10 hidden sm:flex items-center justify-center text-blue-300 shrink-0">
               <FileText className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-[#d4af37] bg-white/10 px-2 py-0.5 rounded">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-blue-200 bg-white/10 px-2 py-0.5 rounded">
                   Form C Official Invoice
                 </span>
                 <span className="text-xs text-white/70 font-mono">
@@ -869,7 +869,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
               {/* 4. Additional Deductions */}
               <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 min-w-0 w-full overflow-hidden">
                 <span className="text-xs font-bold text-[#1e293b] block">
-                  Itemized APMC Deductions
+                  Itemized Mandi Deductions
                 </span>
                 <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 min-w-0">
                   {deductionsList.map((ded) => (

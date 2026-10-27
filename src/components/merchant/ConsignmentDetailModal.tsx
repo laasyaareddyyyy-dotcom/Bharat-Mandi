@@ -266,8 +266,8 @@ export const ConsignmentDetailModal: React.FC<ConsignmentDetailModalProps> = ({
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-[#64748b]">APMC Yard:</span>
-                      <span>{merchantProfile.apmcMarketName}</span>
+                      <span className="text-[#64748b]">Market Yard:</span>
+                      <span>{merchantProfile.marketYardName}</span>
                     </div>
                   </div>
                 </div>

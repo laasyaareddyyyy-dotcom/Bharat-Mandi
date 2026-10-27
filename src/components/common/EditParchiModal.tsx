@@ -321,7 +321,7 @@ export const EditParchiModal: React.FC = () => {
                     type="text"
                     required
                     value={farmerName}
-                    onChange={(e) => setFarmerName(e.target.value)}
+                    onChange={(e) => setFarmerName(e.target.value.replace(/[0-9]/g, ''))}
                     className="w-full pl-8 pr-3 py-2 rounded-xl bg-white border border-[#e2e8f0] font-bold text-xs focus:outline-hidden focus:border-[#1a3a52]"
                     placeholder="e.g. Ramesh Kumar"
                   />
@@ -338,7 +338,7 @@ export const EditParchiModal: React.FC = () => {
                     type="tel"
                     maxLength={10}
                     value={farmerPhone}
-                    onChange={(e) => setFarmerPhone(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => setFarmerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     className="w-full pl-8 pr-3 py-2 rounded-xl bg-white border border-[#e2e8f0] font-mono font-bold text-xs focus:outline-hidden focus:border-[#1a3a52]"
                     placeholder="10-digit mobile number"
                   />
@@ -354,7 +354,7 @@ export const EditParchiModal: React.FC = () => {
                   <input
                     type="text"
                     value={farmerVillage}
-                    onChange={(e) => setFarmerVillage(e.target.value)}
+                    onChange={(e) => setFarmerVillage(e.target.value.replace(/[0-9]/g, ''))}
                     className="w-full pl-8 pr-3 py-2 rounded-xl bg-white border border-[#e2e8f0] font-medium text-xs focus:outline-hidden focus:border-[#1a3a52]"
                     placeholder="e.g. Medchal Belt"
                   />

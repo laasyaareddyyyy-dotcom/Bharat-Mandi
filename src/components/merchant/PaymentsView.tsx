@@ -387,7 +387,7 @@ export const PaymentsView: React.FC = () => {
             }`}
           >
             <Wallet className="w-4 h-4 text-[#1a3a52]" />
-            <span>{language === 'te' ? 'రైతుల చెల్లింపులు' : language === 'hi' ? 'किसान भुगतान' : 'Farmer Payments'}</span>
+            <span>Farmer Payments</span>
             {farmersWithDuesCount > 0 && (
               <span className="px-1.5 py-0.5 rounded-full bg-[#1a3a52] text-white text-[10px] font-mono">
                 {farmersWithDuesCount}
@@ -406,7 +406,7 @@ export const PaymentsView: React.FC = () => {
             }`}
           >
             <Receipt className="w-4 h-4 text-[#1a3a52]" />
-            <span>{language === 'te' ? 'సెటిల్‌మెంట్ లెడ్జర్' : language === 'hi' ? 'सेटलमेंट लेज़र' : 'Settlement Ledger'}</span>
+            <span>Settlement Ledger</span>
             <span className="px-1.5 py-0.5 rounded-full bg-[#1a3a52] text-white text-[10px] font-mono">
               {lots.length}
             </span>
@@ -497,7 +497,7 @@ export const PaymentsView: React.FC = () => {
                 onClick={() => setConsignmentFilter('partial')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition whitespace-nowrap ${
                   consignmentFilter === 'partial'
-                    ? 'bg-[#d4af37] text-[#1e293b] border-[#d4af37]'
+                    ? 'bg-[#1a3a52] text-white border-[#1a3a52]'
                     : 'bg-white text-[#1e293b] border-[#e2e8f0] hover:bg-[#f8fafc]'
                 }`}
               >

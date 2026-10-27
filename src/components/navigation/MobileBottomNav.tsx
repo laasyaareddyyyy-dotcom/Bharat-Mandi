@@ -3,6 +3,7 @@ import {
   TrendingUp,
   PlusCircle,
   Users,
+  Store,
   Headphones,
 } from 'lucide-react';
 import { useMandi } from '../../context/MandiContext';
@@ -11,6 +12,8 @@ export const MobileBottomNav: React.FC = () => {
   const {
     merchantTab,
     setMerchantTab,
+    merchantSection,
+    setMerchantSection,
     t,
   } = useMandi();
 
@@ -46,7 +49,7 @@ export const MobileBottomNav: React.FC = () => {
         >
           <TrendingUp className={`w-5 h-5 ${merchantTab === 'dashboard' ? 'stroke-[2.5] text-[#1a3a52]' : ''}`} />
           <span className="text-[10px] mt-0.5 leading-none font-bold truncate">
-            {t('tabDashboard')}
+            {merchantSection === 'retailer' ? 'Dashboard' : t('tabDashboard')}
           </span>
         </button>
 
@@ -63,24 +66,24 @@ export const MobileBottomNav: React.FC = () => {
         >
           <PlusCircle className={`w-5 h-5 ${merchantTab === 'new-sale' ? 'stroke-[2.5] text-[#1a3a52]' : ''}`} />
           <span className="text-[10px] mt-0.5 leading-none font-bold truncate">
-            {t('tabNewSale')}
+            {merchantSection === 'retailer' ? 'New Retail' : t('tabNewSale')}
           </span>
         </button>
 
-        {/* 3. Farmers */}
+        {/* 3. Farmers / Customers */}
         <button
           type="button"
           id="mobile-tab-farmers"
           onClick={() => setMerchantTab('farmers')}
           className={`flex flex-col items-center justify-center w-full h-full py-1 transition min-touch-target cursor-pointer ${
-            merchantTab === 'farmers'
+            merchantTab === 'farmers' || merchantTab === 'retailers'
               ? 'text-[#1a3a52] font-black'
               : 'text-slate-500 hover:text-[#1e293b]'
           }`}
         >
-          <Users className={`w-5 h-5 ${merchantTab === 'farmers' ? 'stroke-[2.5] text-[#1a3a52]' : ''}`} />
+          <Users className={`w-5 h-5 ${merchantTab === 'farmers' || merchantTab === 'retailers' ? 'stroke-[2.5] text-[#1a3a52]' : ''}`} />
           <span className="text-[10px] mt-0.5 leading-none font-bold truncate">
-            {t('tabFarmers')}
+            {merchantSection === 'retailer' ? 'Customers' : t('tabFarmers')}
           </span>
         </button>
 

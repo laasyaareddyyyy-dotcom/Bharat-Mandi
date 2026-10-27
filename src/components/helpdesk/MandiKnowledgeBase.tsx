@@ -51,7 +51,7 @@ export const MandiKnowledgeBase: React.FC<{
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search guides, printing rules, settlements, APMC Form C..."
+            placeholder="Search guides, printing rules, settlements, Form C..."
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#e2e8f0] text-xs font-medium bg-white focus:outline-none focus:border-[#1a3a52] focus:ring-1 focus:ring-[#1a3a52]"
           />
         </div>
@@ -133,7 +133,7 @@ export const MandiKnowledgeBase: React.FC<{
             Didn't find an answer to your query?
           </h4>
           <p className="text-xs text-[#1a3a52]/80 mt-0.5">
-            Our APMC Mandi Support Desk team is ready to assist you.
+            Our Mandi Support Desk team is ready to assist you.
           </p>
         </div>
 

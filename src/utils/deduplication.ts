@@ -35,30 +35,44 @@ export const normalizeStr = (str?: string): string => {
  */
 export const deduplicateFarmers = (farmers: Farmer[]): Farmer[] => {
   if (!Array.isArray(farmers) || farmers.length === 0) return [];
-  const seenIds = new Set<string>();
-  const seenPhones = new Set<string>();
-  const seenNameVillages = new Set<string>();
-  const unique: Farmer[] = [];
+  const map = new Map<string, Farmer>();
 
-  for (const farmer of farmers) {
-    if (!farmer || typeof farmer !== 'object') continue;
+  for (const f of farmers) {
+    if (!f || typeof f !== 'object') continue;
+    const cleanId = (f.id || '').trim();
+    const cleanPhone = normalizePhone(f.phone);
+    const cleanName = normalizeStr(f.name);
+    const cleanVillage = normalizeStr(f.village);
 
-    const id = (farmer.id || '').trim();
-    const phone = normalizePhone(farmer.phone);
-    const nameVillageKey = `${normalizeStr(farmer.name)}__${normalizeStr(farmer.village)}`;
+    let key = cleanId;
+    if (!key && cleanPhone && cleanPhone.length === 10 && cleanPhone !== '9876543210') {
+      key = `phone_${cleanPhone}`;
+    } else if (!key && cleanName) {
+      key = `nv_${cleanName}_${cleanVillage}`;
+    }
 
-    if (id && seenIds.has(id)) continue;
-    if (phone && phone.length === 10 && seenPhones.has(phone)) continue;
-    if (nameVillageKey.length > 2 && seenNameVillages.has(nameVillageKey)) continue;
+    if (!key) {
+      key = `farmer_${Math.random()}`;
+    }
 
-    if (id) seenIds.add(id);
-    if (phone && phone.length === 10) seenPhones.add(phone);
-    if (nameVillageKey.length > 2) seenNameVillages.add(nameVillageKey);
-
-    unique.push(farmer);
+    if (map.has(key)) {
+      const existing = map.get(key)!;
+      map.set(key, {
+        ...existing,
+        ...f,
+        id: existing.id || f.id,
+        name: f.name?.trim() || existing.name,
+        phone: (cleanPhone && cleanPhone !== '9876543210') ? f.phone : existing.phone,
+        village: f.village?.trim() || existing.village,
+        photoUrl: f.photoUrl?.trim() || existing.photoUrl,
+        primaryCrops: Array.isArray(f.primaryCrops) && f.primaryCrops.length > 0 ? f.primaryCrops : existing.primaryCrops,
+      });
+    } else {
+      map.set(key, f);
+    }
   }
 
-  return unique;
+  return Array.from(map.values());
 };
 
 /**

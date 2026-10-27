@@ -251,7 +251,7 @@ export const UserTicketScreen: React.FC = () => {
               <div className="space-y-1">
                 <h3 className="text-base font-black text-[#1e293b]">No Support Tickets Yet</h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  Have a question about settlements, billing, or app features? Raise a ticket and our APMC Help Desk will respond.
+                  Have a question about settlements, billing, or app features? Raise a ticket and our Mandi Help Desk will respond.
                 </p>
               </div>
               <button
@@ -346,7 +346,7 @@ export const UserTicketScreen: React.FC = () => {
           <div className="border-b border-slate-200 pb-4">
             <h2 className="text-xl font-black text-[#1e293b]">Raise a Support Ticket</h2>
             <p className="text-xs text-slate-500">
-              Submit your inquiry or issue directly to the APMC Mandi Super Admin
+              Submit your inquiry or issue directly to the Mandi Super Admin
             </p>
           </div>
 

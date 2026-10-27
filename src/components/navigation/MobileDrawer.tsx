@@ -28,7 +28,7 @@ import { useFirebase } from '../../context/FirebaseContext';
    - Structured sections: 
      1. Merchant Operations (Dashboard, New Sale, Farmers, Payments, Settlement, Reports)
      2. Account Management (Settings & Profile, Merchant QR)
-     3. Support & APMC (Help Desk, Add Farmer Registration)
+     3. Support & Mandi (Help Desk, Add Farmer Registration)
    ========================================================================= */
 
 interface MobileDrawerProps {
@@ -42,6 +42,8 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
     setPortalMode,
     merchantTab,
     setMerchantTab,
+    merchantSection,
+    setMerchantSection,
     userCommodities,
     activeCommodityFilter,
     setActiveCommodityFilter,
@@ -128,6 +130,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
     { id: 'dashboard', label: t('tabDashboard'), icon: <TrendingUp className="w-4 h-4" /> },
     { id: 'new-sale', label: t('tabNewSale'), icon: <PlusCircle className="w-4 h-4" /> },
     { id: 'farmers', label: t('tabFarmers'), icon: <Users className="w-4 h-4" /> },
+    { id: 'retailers', label: 'Retailer Sales Section', icon: <Store className="w-4 h-4 text-amber-500" /> },
     { id: 'settings', label: t('tabSettings'), icon: <Store className="w-4 h-4" /> },
     { id: 'support', label: t('helpDesk'), icon: <Headphones className="w-4 h-4" /> },
   ];
@@ -163,7 +166,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 </span>
               </div>
               <p className="text-[11px] text-slate-200/80 mt-0.5">
-                {merchantProfile.shopNumber || 'Shop 1'} • {merchantProfile.apmcMarketName || 'Gudimalkapur Flower Market Yard'}
+                {merchantProfile.shopNumber || 'Shop 1'} • {merchantProfile.marketYardName || 'Gudimalkapur Flower Market Yard'}
               </p>
             </div>
           </div>
@@ -258,6 +261,11 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                       key={tab.id}
                       id={`drawer-tab-${tab.id}`}
                       onClick={() => {
+                        if (tab.id === 'retailers') {
+                          setMerchantSection('retailer');
+                        } else {
+                          setMerchantSection('wholesaler');
+                        }
                         setMerchantTab(tab.id);
                         onClose();
                       }}
@@ -392,7 +400,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 </button>
               )}
 
-              {/* APMC Mandi Help Desk */}
+              {/* Mandi Help Desk */}
               <button
                 type="button"
                 id="drawer-help-desk-btn"
