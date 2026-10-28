@@ -255,6 +255,8 @@ export interface MerchantProfile {
   merchantId: string;
   phoneNumber: string;
   licenseNumber: string;
+  gstin?: string;
+  signatoryLabel?: string;
   defaultCommissionRate: number;
   defaultExpenditureRate?: number;
   defaultLoadingChargePerUnit?: number;

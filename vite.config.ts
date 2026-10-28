@@ -61,6 +61,10 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+      dedupe: ['react', 'react-dom'],
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom'],
     },
     server: {
       // Disable HMR WebSocket connections in AI Studio preview iframe to prevent WebSocket connection errors

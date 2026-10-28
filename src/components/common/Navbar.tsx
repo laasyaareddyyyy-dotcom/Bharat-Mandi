@@ -152,86 +152,95 @@ export const Navbar: React.FC = () => {
   return (
     <header className="no-print">
       {/* 1. TOP HEADER SECTION: Horizontal Row with Balanced Vertical Padding */}
-      <div className="border-b border-[#132d42] bg-[#1a3a52] py-3.5 sm:py-4.5 px-3.5 sm:px-6 text-white">
-        <div className="max-w-7xl mx-auto flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
-          {/* Left Side: Logo + Title & Subtitle Beside It */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-            <div
-              className="cursor-pointer select-none shrink-0"
-              onClick={() => {
-                setMerchantTab('dashboard');
-                setDashboardTab('summary');
-              }}
-              title="Agricultural Marketplace Settlement Tracker"
-            >
-              <img
-                src="/bharat_mandi_logo.png"
-                alt="Agricultural Marketplace Logo"
-                referrerPolicy="no-referrer"
-                className="w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow-xs bg-transparent"
-              />
-            </div>
+      <div className="border-b border-[#132d42] bg-[#1a3a52] py-2.5 sm:py-3.5 px-3.5 sm:px-6 text-white overflow-hidden">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+          {/* Top Line: Logo + Title & Subtitle + Merchant Profile Button */}
+          <div className="flex items-center justify-between gap-2 min-w-0 w-full sm:w-auto">
+            {/* Left Side: Logo + Title */}
+            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+              <div
+                className="cursor-pointer select-none shrink-0"
+                onClick={() => {
+                  setMerchantTab('dashboard');
+                  setDashboardTab('summary');
+                }}
+                title="Agricultural Marketplace Settlement Tracker"
+              >
+                <img
+                  src="/bharat_mandi_logo.png"
+                  alt="Agricultural Marketplace Logo"
+                  referrerPolicy="no-referrer"
+                  className="w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow-xs bg-transparent shrink-0"
+                />
+              </div>
 
-            <div className="flex flex-col text-left min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-bold text-sm sm:text-base md:text-lg tracking-tight text-white leading-tight">
-                  {shopDisplayTitle}
-                </h1>
-                {portalMode === 'admin' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-semibold uppercase tracking-wider shadow-2xs">
-                    Admin Portal
-                  </span>
-                )}
+              <div className="flex flex-col text-left min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                  <h1 className="font-bold text-sm sm:text-base md:text-lg tracking-tight text-white leading-tight line-clamp-2 break-words min-w-0">
+                    {shopDisplayTitle}
+                  </h1>
+                  {portalMode === 'admin' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-semibold uppercase tracking-wider shadow-2xs shrink-0">
+                      Admin Portal
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Center / Right: Merchant Profile Icon & Mode Switcher */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0 ml-auto sm:ml-0">
-            {/* Merchant Profile Icon Button */}
+            {/* Merchant Profile Icon Button (Right aligned on mobile line 1) */}
             <button
               type="button"
               id="topbar-merchant-profile-btn"
               onClick={() => setIsOwnerSignUpOpen(true)}
-              className="p-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer border border-white/20 shadow-2xs"
+              className="p-2 sm:px-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer border border-white/20 shadow-2xs shrink-0"
               title="Merchant Profile & Shop Settings"
+              aria-label="Merchant Profile & Shop Settings"
             >
-              <Store className="w-4 h-4 text-[#d4af37]" />
-              <span className="hidden sm:inline text-xs font-extrabold">
+              <Store className="w-4 h-4 text-[#d4af37] shrink-0" />
+              <span className="hidden sm:inline text-xs font-extrabold truncate max-w-[120px]">
                 {merchantProfile.ownerName || 'Merchant Profile'}
               </span>
             </button>
+          </div>
 
-            {/* Wholesaler / Retailer Mode Switcher */}
-            <div className="bg-slate-900/60 p-1 rounded-xl border border-white/20 flex items-center gap-1">
-              <button
-                type="button"
-                id="mode-switch-wholesaler"
-                onClick={() => setMerchantSection('wholesaler')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  merchantSection === 'wholesaler'
-                    ? 'bg-white text-[#1a3a52] font-black shadow-xs'
-                    : 'text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5 text-blue-600" />
-                <span>Wholesaler Mandi</span>
-              </button>
+          {/* Wholesaler / Retailer Mode Switcher: Full Width Segmented 2-Column Grid on Mobile */}
+          <div className="bg-slate-900/70 p-1 rounded-xl border border-white/20 grid grid-cols-2 w-full sm:w-auto min-w-0 shrink-0 gap-1">
+            <button
+              type="button"
+              id="mode-switch-wholesaler"
+              onClick={() => setMerchantSection('wholesaler')}
+              aria-label="Wholesaler Mandi Section"
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer min-w-0 ${
+                merchantSection === 'wholesaler'
+                  ? 'bg-white text-[#1a3a52] font-black shadow-xs'
+                  : 'text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="truncate min-w-0">
+                <span className="sm:hidden">Wholesale</span>
+                <span className="hidden sm:inline">Wholesaler Mandi</span>
+              </span>
+            </button>
 
-              <button
-                type="button"
-                id="mode-switch-retailer"
-                onClick={() => setMerchantSection('retailer')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  merchantSection === 'retailer'
-                    ? 'bg-white text-[#1a3a52] font-black shadow-xs'
-                    : 'text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <Store className="w-3.5 h-3.5 text-blue-600" />
-                <span>Retailer Sales Section</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              id="mode-switch-retailer"
+              onClick={() => setMerchantSection('retailer')}
+              aria-label="Retailer Sales Section"
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer min-w-0 ${
+                merchantSection === 'retailer'
+                  ? 'bg-white text-[#1a3a52] font-black shadow-xs'
+                  : 'text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Store className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="truncate min-w-0">
+                <span className="sm:hidden">Retailer</span>
+                <span className="hidden sm:inline">Retailer Sales Section</span>
+              </span>
+            </button>
           </div>
         </div>
       </div>

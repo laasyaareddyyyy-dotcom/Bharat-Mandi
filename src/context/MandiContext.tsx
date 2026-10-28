@@ -2492,7 +2492,7 @@ export const MandiProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             ...f,
             id: (f.id && f.id !== 'undefined') ? String(f.id).trim() : `FM-${String(idx + 1).padStart(3, '0')}`,
           }));
-        setFarmers(deduplicateFarmers(cleanFarmers));
+        setFarmers((prev) => deduplicateFarmers([...prev, ...cleanFarmers]));
       }
       if (Array.isArray(cloudData.lots) && cloudData.lots.length > 0) {
         const cleanLots = cloudData.lots

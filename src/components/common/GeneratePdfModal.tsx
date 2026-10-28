@@ -38,6 +38,8 @@ import {
   releaseGlobalShareLock,
 } from '../../utils/pdfExport';
 import { FormCInvoiceCanvas, FormCInvoiceData } from './FormCInvoiceCanvas';
+import { buildFormCData, FormCData } from '../../utils/formCDataBuilder';
+import { generateVectorParchiPdf } from '../../utils/vectorPdf';
 
 export interface FormCItemRow {
   id?: string;
@@ -435,6 +437,59 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
     );
   };
 
+  // Unified FormCData Snapshot Builder
+  const formCData: FormCData = useMemo(() => {
+    return buildFormCData({
+      lot,
+      lots,
+      draftData,
+      merchantProfile,
+      farmersList: farmers,
+      customSettings: {
+        commissionPercent,
+        miscCommissionMode,
+        miscCommissionPercent,
+        miscCommissionFixed: typeof miscCommissionFixed === 'number' ? miscCommissionFixed : 0,
+        miscCommissionNote,
+        transportCharges: sourceTransport,
+        ammaliCharges: sourceHamali,
+        otherDeductions: [
+          ...deductionsList.filter((d) => d.selected).map((d) => ({ name: d.name, amount: d.amount })),
+          ...(customDeductionActive && customDeductionName
+            ? [{ name: customDeductionName, amount: Number(customDeductionAmount || 0) }]
+            : []),
+        ],
+        amountPaid,
+        paymentStatus,
+        paymentMode: customPaymentMode,
+        paymentReference: customPaymentRef,
+      },
+      isPreview: !lot?.id && !linkedShipment?.id,
+    });
+  }, [
+    lot,
+    lots,
+    draftData,
+    merchantProfile,
+    farmers,
+    commissionPercent,
+    miscCommissionMode,
+    miscCommissionPercent,
+    miscCommissionFixed,
+    miscCommissionNote,
+    sourceTransport,
+    sourceHamali,
+    deductionsList,
+    customDeductionActive,
+    customDeductionName,
+    customDeductionAmount,
+    amountPaid,
+    paymentStatus,
+    customPaymentMode,
+    customPaymentRef,
+    linkedShipment,
+  ]);
+
   // Helper function to auto-save source record to database (MandiContext & Firestore)
   const performAutoSaveRecord = (): Partial<SaleLot> => {
     const expendituresData: Expenditures = {
@@ -523,32 +578,14 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
     return finalPayload;
   };
 
-  // Direct High-Resolution PDF Download Handler
-  const handleDownloadPDF = async (format: 'a4' | 'thermal-80mm' = pdfLayoutFormat) => {
-    if (!pdfPrintAreaRef.current) return;
+  // Direct High-Resolution Vector PDF Download Handler
+  const handleDownloadPDF = async () => {
     setIsGeneratingPdf(true);
-    setPdfStatusMessage('Saving record & rendering Form C PDF...');
+    setPdfStatusMessage('Saving record & generating Form C Vector PDF...');
     try {
-      // 1. Automatically persist source record data in app state & Firestore
       performAutoSaveRecord();
-
-      const cleanFarmer = sourceFarmerName.replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `BharatMandi-FormC-${sourceParchiNumber}-${cleanFarmer}.pdf`;
-      const result = await exportElementToPdf(pdfPrintAreaRef.current, {
-        filename,
-        format,
-        orientation: 'portrait',
-        marginMm: format === 'thermal-80mm' ? 4 : 6,
-        scale: 2,
-        fitToPage: false,
-        autoDownload: true,
-      });
-
-      if (result.success) {
-        setPdfStatusMessage('✓ Record saved & Form C PDF downloaded successfully!');
-      } else {
-        setPdfStatusMessage('✓ Record saved to app, but PDF download failed. Please retry.');
-      }
+      generateVectorParchiPdf(formCData, { autoDownload: true });
+      setPdfStatusMessage('✓ Record saved & Form C PDF downloaded successfully!');
     } catch (err: any) {
       console.error('[PDF Download Error in GeneratePdfModal]', err);
       setPdfStatusMessage('✓ Record saved in app. (Browser blocked automatic PDF download)');
@@ -568,39 +605,25 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
       e.preventDefault();
       e.stopPropagation();
     }
-    if (!pdfPrintAreaRef.current || isSharingPdf) return;
+    if (isSharingPdf) return;
 
     if (!acquireGlobalShareLock()) {
       return;
     }
 
     setIsSharingPdf(true);
-    setPdfStatusMessage('Saving record & rendering PDF for sharing...');
+    setPdfStatusMessage('Saving record & generating Form C PDF for sharing...');
 
     try {
-      // Automatically save record to database
       performAutoSaveRecord();
 
-      const filename = `FormC-Invoice-${sourceParchiNumber}.pdf`;
-
-      const result = await exportElementToPdf(pdfPrintAreaRef.current, {
-        filename,
-        title: `Form C Invoice #${sourceParchiNumber}`,
-        format: pdfLayoutFormat,
-        orientation: 'portrait',
-        marginMm: pdfLayoutFormat === 'thermal-80mm' ? 4 : 6,
-        scale: 2,
-        autoDownload: false,
-      });
-
-      if (!result.success || !result.blob) {
-        throw new Error(result.error || 'Failed to render PDF');
-      }
+      const doc = generateVectorParchiPdf(formCData, { autoDownload: false });
+      const blob = doc.output('blob');
 
       const shareRes = await sharePdfFile({
-        blob: result.blob,
-        filename,
-        title: `Form C Invoice - ${sourceParchiNumber}`,
+        blob,
+        filename: formCData.pdfFileName,
+        title: `Form C Invoice - ${formCData.parchiNumber}`,
         fallbackToDownload: true,
       });
 
@@ -608,12 +631,12 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
         setPdfStatusMessage('✓ Record saved & Form C PDF shared successfully!');
       } else if (shareRes.downloaded) {
         setPdfStatusMessage(
-          '✓ Record saved in app! The PDF has been downloaded so you can attach it in WhatsApp.'
+          '✓ Record saved in app! The Form C PDF has been downloaded so you can attach it in WhatsApp.'
         );
       }
     } catch (err: any) {
       console.error('[Form C Share Fatal Error]', err);
-      setPdfStatusMessage('✓ Record saved in app! Use Download PDF button to save file.');
+      setPdfStatusMessage('✓ Record saved in app! Use Download Form C PDF button.');
     } finally {
       setIsSharingPdf(false);
       releaseGlobalShareLock(2500);
@@ -622,8 +645,7 @@ export const GeneratePdfModal: React.FC<GeneratePdfModalProps> = ({
   };
 
   const handleCopyText = () => {
-    const text = `FORM C INVOICE ${sourceParchiNumber} | ${sourceFarmerName} | Items: ${resolvedItems.length} | Gross: ₹${sourceGross} | Freight: ₹${sourceTransport} | Hamali: ₹${sourceHamali} | Mandi Comm (${commissionPercent}%): ₹${calculatedCommissionAmount} | Misc Charges: ₹${calculatedMiscCommissionAmount} | Net To Farmer: ₹${finalFarmerNet}`;
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(formCData.whatsappSummaryText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

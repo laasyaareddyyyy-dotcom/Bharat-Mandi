@@ -36,6 +36,8 @@ export const normalizeStr = (str?: string): string => {
 export const deduplicateFarmers = (farmers: Farmer[]): Farmer[] => {
   if (!Array.isArray(farmers) || farmers.length === 0) return [];
   const map = new Map<string, Farmer>();
+  const phoneToKey = new Map<string, string>();
+  const nameVillageToKey = new Map<string, string>();
 
   for (const f of farmers) {
     if (!f || typeof f !== 'object') continue;
@@ -44,28 +46,79 @@ export const deduplicateFarmers = (farmers: Farmer[]): Farmer[] => {
     const cleanName = normalizeStr(f.name);
     const cleanVillage = normalizeStr(f.village);
 
-    let key = cleanId;
-    if (!key && cleanPhone && cleanPhone.length === 10 && cleanPhone !== '9876543210') {
-      key = `phone_${cleanPhone}`;
-    } else if (!key && cleanName) {
-      key = `nv_${cleanName}_${cleanVillage}`;
+    let key = '';
+
+    // 1. Check if phone already mapped (valid 10-digit non-default phone)
+    if (cleanPhone && cleanPhone.length === 10 && cleanPhone !== '9876543210') {
+      if (phoneToKey.has(cleanPhone)) {
+        key = phoneToKey.get(cleanPhone)!;
+      }
     }
 
+    // 2. Check if cleanId already in map
+    if (!key && cleanId && map.has(cleanId)) {
+      key = cleanId;
+    }
+
+    // 3. Check if name+village already mapped (only if BOTH name and village are non-empty and non-generic)
+    if (
+      !key &&
+      cleanName &&
+      cleanVillage &&
+      cleanVillage !== 'mandi area' &&
+      cleanVillage !== 'mandi yard' &&
+      cleanVillage !== 'mandi'
+    ) {
+      const nvKey = `${cleanName}_${cleanVillage}`;
+      if (nameVillageToKey.has(nvKey)) {
+        key = nameVillageToKey.get(nvKey)!;
+      }
+    }
+
+    // 4. Fallback to cleanId or new key
     if (!key) {
-      key = `farmer_${Math.random()}`;
+      key = cleanId || `farmer_${Date.now()}_${Math.random()}`;
+    }
+
+    // Register phone and name+village mappings
+    if (cleanPhone && cleanPhone.length === 10 && cleanPhone !== '9876543210') {
+      phoneToKey.set(cleanPhone, key);
+    }
+    if (
+      cleanName &&
+      cleanVillage &&
+      cleanVillage !== 'mandi area' &&
+      cleanVillage !== 'mandi yard' &&
+      cleanVillage !== 'mandi'
+    ) {
+      nameVillageToKey.set(`${cleanName}_${cleanVillage}`, key);
     }
 
     if (map.has(key)) {
       const existing = map.get(key)!;
+      // existing (encountered first in array) takes precedence over later duplicates (f)
+      const preferredId =
+        existing.id && existing.id.startsWith('FRM-')
+          ? existing.id
+          : f.id && f.id.startsWith('FRM-')
+          ? f.id
+          : existing.id || f.id;
+
       map.set(key, {
-        ...existing,
         ...f,
-        id: existing.id || f.id,
-        name: f.name?.trim() || existing.name,
-        phone: (cleanPhone && cleanPhone !== '9876543210') ? f.phone : existing.phone,
-        village: f.village?.trim() || existing.village,
-        photoUrl: f.photoUrl?.trim() || existing.photoUrl,
-        primaryCrops: Array.isArray(f.primaryCrops) && f.primaryCrops.length > 0 ? f.primaryCrops : existing.primaryCrops,
+        ...existing, // existing (first encountered / newest) overrides f
+        id: preferredId,
+        name: existing.name?.trim() || f.name?.trim() || '',
+        phone: existing.phone?.trim() || f.phone?.trim() || '',
+        village: existing.village?.trim() || f.village?.trim() || '',
+        photoUrl: existing.photoUrl?.trim() || f.photoUrl?.trim() || '',
+        primaryCrops:
+          Array.isArray(existing.primaryCrops) && existing.primaryCrops.length > 0
+            ? existing.primaryCrops
+            : f.primaryCrops || [],
+        connectedMerchantIds: Array.from(
+          new Set([...(existing.connectedMerchantIds || []), ...(f.connectedMerchantIds || [])])
+        ),
       });
     } else {
       map.set(key, f);

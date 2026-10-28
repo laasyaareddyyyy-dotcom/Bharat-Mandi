@@ -392,9 +392,18 @@ export const OwnerSignUpModal: React.FC<OwnerSignUpModalProps> = ({ isOpen, onCl
                   id="owner-signup-market-input"
                   type="text"
                   required
-                  placeholder="e.g., Gudimalkapur Wholesale Flower Market"
+                  placeholder="e.g., Wholesale Flower Market / Bowenpally / Vashi APMC"
                   value={formData.marketYardName}
-                  onChange={(e) => setFormData({ ...formData, marketYardName: e.target.value })}
+                  onChange={(e) => {
+                    const yard = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      marketYardName: yard,
+                      address: prev.address && !prev.address.toLowerCase().includes('gudimalkapur')
+                        ? prev.address
+                        : yard ? `Market Yard, ${yard}` : prev.address,
+                    }));
+                  }}
                   className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] text-xs focus:outline-hidden focus:border-[#1a3a52] bg-white font-medium"
                 />
               </div>

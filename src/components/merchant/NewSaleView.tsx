@@ -47,6 +47,7 @@ import { CustomVarietyInput } from '../common/CustomVarietyInput';
 import { NewFarmerRegistrationModal } from './NewFarmerRegistrationModal';
 import { sounds } from '../../utils/audio';
 import { generateVectorParchiPdf } from '../../utils/vectorPdf';
+import { buildFormCData } from '../../utils/formCDataBuilder';
 
 export interface ConsignmentVarietyRow {
   id: string;
@@ -127,6 +128,15 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
   const [isFarmerModalOpen, setIsFarmerModalOpen] = useState(false);
   const [farmerFieldError, setFarmerFieldError] = useState<string | null>(null);
   const [isChangeFarmerConfirmOpen, setIsChangeFarmerConfirmOpen] = useState<boolean>(false);
+
+  // Instant Registration Panel State
+  const [isRegistrationPanelOpen, setIsRegistrationPanelOpen] = useState<boolean>(false);
+  const [regFarmerName, setRegFarmerName] = useState<string>('');
+  const [regFarmerPhone, setRegFarmerPhone] = useState<string>('');
+  const [regFarmerVillage, setRegFarmerVillage] = useState<string>('');
+  const [regFarmerPhotoUrl, setRegFarmerPhotoUrl] = useState<string>('');
+  const [duplicateFoundFarmer, setDuplicateFoundFarmer] = useState<Farmer | null>(null);
+  const [registrationSuccessMsg, setRegistrationSuccessMsg] = useState<string | null>(null);
 
   // Inline Farmer Form State
   const [newFarmerName, setNewFarmerName] = useState('');
@@ -253,7 +263,15 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
   // Selected Farmer (returns null if selectedFarmerId is empty)
   const selectedFarmer = useMemo(() => {
     if (!selectedFarmerId) return null;
-    return farmers.find((f) => f.id === selectedFarmerId) || null;
+    const cleanSel = selectedFarmerId.trim().toLowerCase();
+    return (
+      farmers.find(
+        (f) =>
+          f &&
+          f.id &&
+          (f.id === selectedFarmerId || f.id.trim().toLowerCase() === cleanSel)
+      ) || null
+    );
   }, [farmers, selectedFarmerId]);
 
   // Selected Farmer Current Dues (total across all commodities)
@@ -458,6 +476,60 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
 
   const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
 
+  // Save & Select Farmer Handler (Registration Panel)
+  const handleSaveAndSelectFarmer = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = regFarmerName.trim();
+    if (!cleanName) {
+      alert('Please enter farmer name');
+      return;
+    }
+
+    const cleanPhone = regFarmerPhone.replace(/\D/g, '').slice(-10);
+    const cleanVillage = regFarmerVillage.trim();
+
+    // Check duplicate in farmers list
+    const existing = farmers.find((f) => {
+      if (f.isArchived) return false;
+      const fPhone = f.phone ? f.phone.replace(/\D/g, '').slice(-10) : '';
+      if (cleanPhone && cleanPhone.length === 10 && fPhone === cleanPhone) {
+        return true;
+      }
+      if (
+        cleanVillage &&
+        f.name.toLowerCase().trim() === cleanName.toLowerCase() &&
+        (f.village || '').toLowerCase().trim() === cleanVillage.toLowerCase()
+      ) {
+        return true;
+      }
+      return false;
+    });
+
+    if (existing) {
+      setDuplicateFoundFarmer(existing);
+      return;
+    }
+
+    const created = addFarmer({
+      name: cleanName,
+      phone: cleanPhone,
+      village: cleanVillage || 'Mandi Grower Belt',
+      primaryCrops: userCommodities,
+      connectedMerchantIds: [merchantProfile.merchantId],
+      photoUrl: regFarmerPhotoUrl.trim(),
+    });
+
+    setSelectedFarmerId(created.id);
+    setIsRegistrationPanelOpen(false);
+    setRegFarmerName('');
+    setRegFarmerPhone('');
+    setRegFarmerVillage('');
+    setRegFarmerPhotoUrl('');
+    setDuplicateFoundFarmer(null);
+    setRegistrationSuccessMsg(`✓ Registered & Selected ${created.name} (${created.id})`);
+    setTimeout(() => setRegistrationSuccessMsg(null), 3500);
+  };
+
   // Add Inline Farmer Handler
   const handleSaveInlineFarmer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -516,15 +588,24 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isRetailerMode) {
       const query = farmerSearch.trim().toLowerCase();
-      const filtered = farmers.filter((f) => {
-        if (f.isArchived) return false;
-        if (!query) return true;
-        const nameMatch = (f.name || '').toLowerCase().includes(query);
-        const villageMatch = (f.village || '').toLowerCase().includes(query);
-        const phoneMatch = (f.phone || '').includes(query);
-        const idMatch = (f.id || '').toLowerCase().includes(query);
-        return nameMatch || villageMatch || phoneMatch || idMatch;
-      });
+      const filtered = farmers
+        .filter((f) => {
+          if (f.isArchived) return false;
+          if (!query) return true;
+          const nameMatch = (f.name || '').toLowerCase().includes(query);
+          const villageMatch = (f.village || '').toLowerCase().includes(query);
+          const phoneMatch = (f.phone || '').includes(query);
+          const idMatch = (f.id || '').toLowerCase().includes(query);
+          return nameMatch || villageMatch || phoneMatch || idMatch;
+        })
+        .sort((a, b) => {
+          if (!query) {
+            const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return timeB - timeA;
+          }
+          return 0;
+        });
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -612,13 +693,21 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
     }
 
     // 1. Validation
-    if (calculatedRows.some((r) => !r.numQuantity || r.numQuantity <= 0)) {
-      alert('Please enter a valid quantity (> 0) for all item rows.');
+    if (calculatedRows.length === 0) {
+      alert('Please add at least one line item.');
+      setIsPdfPreparing(false);
+      return;
+    }
+
+    if (calculatedRows.some((r) => !r.numQuantity || r.numQuantity <= 0 || !r.numRate || r.numRate <= 0)) {
+      alert('Please enter a valid quantity (> 0) and rate (> 0) for all item rows.');
+      setIsPdfPreparing(false);
       return;
     }
 
     if (isRetailerMode && paymentValidationError) {
       alert(paymentValidationError);
+      setIsPdfPreparing(false);
       return;
     }
 
@@ -729,14 +818,17 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
       setTimeout(() => setActionFeedbackMsg(null), 3000);
     } else {
       // --- WHOLESALER MODE SAVE ---
-      if (!selectedFarmer) {
-        setFarmerFieldError('Select a farmer first');
-        farmerSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-        setIsPdfPreparing(false);
-        return;
+      let activeFarmerToUse = selectedFarmer;
+      if (!activeFarmerToUse) {
+        const general = farmers.find((f) => f.name.toLowerCase().includes('general mandi farmer')) || {
+          id: 'FRM-0001',
+          farmerCode: 'FRM-0001',
+          name: 'General Mandi Farmer',
+          village: 'Mandi Yard',
+          phone: merchantProfile.phoneNumber || '9849012345',
+        };
+        activeFarmerToUse = general as Farmer;
       }
-
-      const activeFarmerToUse = selectedFarmer;
 
       const newShipment = addShipment({
         date: saleDate,
@@ -809,7 +901,8 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
 
       if (andPrintPdf) {
         try {
-          generateVectorParchiPdf(parchiLot, merchantProfile, { autoDownload: true });
+          const formCData = buildFormCData({ lot: parchiLot, merchantProfile, farmersList: farmers });
+          generateVectorParchiPdf(formCData, { autoDownload: true });
         } catch (e) {
           console.error('[Vector PDF Download Error]', e);
         }
@@ -837,17 +930,17 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200 pb-28 sm:pb-32">
-      {/* Compact Header Box */}
+      {/* Top Header Card */}
       <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <Store className="w-4 h-4 text-[#1a3a52]" />
+          <Receipt className="w-5 h-5 text-[#1a3a52]" />
           <h1 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-            {isRetailerMode ? 'New Retailer Sale Entry' : 'New Wholesaler Consignment Entry'}
+            {isRetailerMode ? 'Fast Retailer Sale Entry' : 'Fast Lot Entry & Mandi Parchi Generator'}
           </h1>
         </div>
         <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
           <Calendar className="w-3.5 h-3.5 text-slate-500" />
-          <span>Date: {formatDisplayDate(saleDate)}</span>
+          <span>Mandi Trading Date: {formatDisplayDate(saleDate)}</span>
         </div>
       </div>
 
@@ -873,28 +966,21 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
             : 'border-slate-200'
         } shadow-sm p-3.5 sm:p-4 space-y-3`}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#1a3a52] text-white flex items-center justify-center font-black text-xs">
-              1
-            </div>
-            <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
-              1. {isRetailerMode ? 'Customer' : 'Farmer'}
-            </h2>
-          </div>
+        <div className="flex flex-row items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+            1. {isRetailerMode ? 'SELECT REGISTERED CUSTOMER' : 'SELECT REGISTERED FARMER'}
+          </h2>
 
-          <button
-            type="button"
-            onClick={() =>
-              isRetailerMode
-                ? setShowInlineAddCustomer(!showInlineAddCustomer)
-                : setIsFarmerModalOpen(true)
-            }
-            className="px-3 py-1.5 rounded-xl bg-[#1a3a52] hover:bg-[#24485e] text-white font-bold text-xs transition flex items-center gap-1 cursor-pointer shadow-xs self-start sm:self-auto"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>{isRetailerMode ? '+ Add Customer' : '+ Add Farmer'}</span>
-          </button>
+          {isRetailerMode && (
+            <button
+              type="button"
+              onClick={() => setShowInlineAddCustomer(!showInlineAddCustomer)}
+              className="text-xs font-bold text-[#1a3a52] hover:text-[#24485e] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>{showInlineAddCustomer ? '- Close' : '+ Add New Customer'}</span>
+            </button>
+          )}
         </div>
 
         {/* Selected Farmer Card (When selectedFarmer exists in Wholesaler Mode) */}
@@ -950,13 +1036,13 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
           <div className="space-y-2">
             <div className="relative">
               <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                Farmer Search *
+                Farmer Search
               </label>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Search farmer name, village, phone, or ID..."
+                  placeholder="Type farmer name, ID, phone, or village..."
                   value={farmerSearch}
                   onKeyDown={handleSearchKeyDown}
                   onChange={(e) => {
@@ -989,33 +1075,35 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
                 <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-300 rounded-xl shadow-xl z-30 max-h-60 overflow-y-auto divide-y divide-slate-100">
                   {(() => {
                     const query = farmerSearch.trim().toLowerCase();
-                    const filtered = farmers.filter((f) => {
-                      if (f.isArchived) return false;
-                      if (!query) return true;
-                      const nameMatch = (f.name || '').toLowerCase().includes(query);
-                      const villageMatch = (f.village || '').toLowerCase().includes(query);
-                      const phoneMatch = (f.phone || '').includes(query);
-                      const idMatch = (f.id || '').toLowerCase().includes(query);
-                      return nameMatch || villageMatch || phoneMatch || idMatch;
-                    });
+                    const filtered = farmers
+                      .filter((f) => {
+                        if (f.isArchived) return false;
+                        if (!query) return true;
+                        const nameMatch = (f.name || '').toLowerCase().includes(query);
+                        const villageMatch = (f.village || '').toLowerCase().includes(query);
+                        const phoneMatch = (f.phone || '').includes(query);
+                        const idMatch = (f.id || '').toLowerCase().includes(query);
+                        return nameMatch || villageMatch || phoneMatch || idMatch;
+                      })
+                      .sort((a, b) => {
+                        if (!query) {
+                          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                          return timeB - timeA;
+                        }
+                        return 0;
+                      });
 
                     if (filtered.length === 0) {
                       return (
-                        <div className="p-4 text-center space-y-2.5">
+                        <div className="p-4 text-center">
                           <p className="text-xs text-slate-600 font-bold">
-                            No farmer found for &lsquo;<span className="text-slate-900">{farmerSearch}</span>&rsquo;
+                            {farmerSearch.trim() !== '' ? (
+                              <>No matching farmers found for &lsquo;<span className="text-slate-900">{farmerSearch}</span>&rsquo;</>
+                            ) : (
+                              <>No farmers registered yet.</>
+                            )}
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsFarmerModalOpen(true);
-                              setIsFarmerDropdownOpen(false);
-                            }}
-                            className="px-4 py-2 rounded-xl bg-[#1a3a52] hover:bg-[#24485e] text-white text-xs font-black transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
-                          >
-                            <UserPlus className="w-4 h-4" />
-                            <span>+ Register New Farmer</span>
-                          </button>
                         </div>
                       );
                     }
@@ -1837,10 +1925,12 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({ mode, targetMerchantId
           setSelectedFarmerId(savedFarmer.id);
           setFarmerSearch('');
           setIsFarmerDropdownOpen(false);
+          setFarmerFieldError(null);
           setActionFeedbackMsg({
             type: 'success',
             text: `✓ Registered & Selected ${savedFarmer.name} (${savedFarmer.id})`,
           });
+          setTimeout(() => setActionFeedbackMsg(null), 4000);
         }}
       />
 

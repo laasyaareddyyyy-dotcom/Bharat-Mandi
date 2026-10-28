@@ -85,16 +85,26 @@ export const ShopSettingsView: React.FC = () => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setUserCommodities(selectedCommodities);
+    const cleanYard = marketYardName.trim();
+    const cleanShop = shopNumber.trim();
+    const updatedAddress =
+      merchantProfile.address &&
+      merchantProfile.address.trim() &&
+      !merchantProfile.address.toLowerCase().includes('gudimalkapur')
+        ? merchantProfile.address
+        : `${cleanShop ? `Shop No. ${cleanShop} • ` : ''}${cleanYard || 'Wholesale Market Yard'}`;
+
     updateMerchantProfile({
       shopName,
       ownerName,
-      shopNumber,
-      marketYardName,
+      shopNumber: cleanShop,
+      marketYardName: cleanYard,
       licenseNumber,
       defaultCommissionRate: Number(defaultCommissionRate),
       defaultLoadingChargePerUnit: Number(defaultLoadingChargePerUnit),
       logoUrl,
       selectedCommodities,
+      address: updatedAddress,
     });
     sounds.playScaleBeep?.();
     setIsSaved(true);
